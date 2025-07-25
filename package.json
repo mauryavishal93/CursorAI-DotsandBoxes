@@ -1,0 +1,12 @@
+{
+  "name": "dots-and-boxes",
+  "version": "1.0.0",
+  "description": "Dots and Boxes 2D board game with dice, playable in browser.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+} 
