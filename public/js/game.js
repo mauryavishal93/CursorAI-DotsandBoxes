@@ -13,6 +13,7 @@ window.onload = function() {
   const SPECIAL_LINE_DICE_VALUE = 6; // Dice value that grants a special line
   const AI_MOVE_DELAY = 700; // Delay in milliseconds for AI moves
   const BOARD_PADDING = 15; // Padding from canvas edge to the center of the first dot
+  const LINE_SELECT_RADIUS = 24; // Increased radius for easier line selection on mobile
 
   // SVG representations for dice faces (shared)
   const diceSVGs = {
@@ -908,102 +909,124 @@ window.onload = function() {
           clientY = event.clientY;
       }
 
-      const endDot = getDotAtCoordinates(clientX, clientY);
-
-      console.log(`handleCanvasEnd: selectedDot: ${JSON.stringify(selectedDot)}, endDot: ${JSON.stringify(endDot)}`);
-
-      if (endDot && (endDot.row !== selectedDot.row || endDot.col !== selectedDot.col)) {
-          const line = { start: selectedDot, end: endDot, player: playerTurn }; // Include player
-          const canonicalKey = getCanonicalLineKey(line.start, line.end);
-
-          console.log(`handleCanvasEnd: Constructed line: ${JSON.stringify(line)}, Canonical Key: ${canonicalKey}`);
-          console.log(`handleCanvasEnd: isValidLine: ${isValidLine(line)}, isLineAlreadyDrawn: ${drawnLineKeys.has(canonicalKey)}`);
-
-          if (isValidLine(line) && !drawnLineKeys.has(canonicalKey)) { // Check against the Set
-              if (linesToDraw > 0 || hasSpecialLine) {
-                  drawnLines.push(line); // Add the full line object to the array
-                  drawnLineKeys.add(canonicalKey); // Add canonical key to the Set
-                  
-                  drawLine(line, (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
-                  
-                  // Emit line draw to other player in online multiplayer
-                  if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
-                      onlineSocket.emit('gameAction', {
-                          lobbyCode: onlineLobbyCode,
-                          action: {
-                              type: 'drawLine',
-                              line: line
-                          }
-                      });
-                  }
-
-                  // Check for completed squares and update score
-                  let squaresCompletedThisTurn = 0;
-                  // Check for horizontal square completion
-                  if (line.start.row === line.end.row) { // Horizontal line
-                      const minCol = Math.min(line.start.col, line.end.col);
-                      if (line.start.row > 0) {
-                          console.log(`  Checking square above: (${line.start.row - 1}, ${minCol})`);
-                          if (checkAndCompleteSquare(line.start.row - 1, minCol)) {
-                              squaresCompletedThisTurn++;
-                          }
-                      }
-                      if (line.start.row < GRID_SIZE) {
-                          console.log(`  Checking square below: (${line.start.row}, ${minCol})`);
-                          if (checkAndCompleteSquare(line.start.row, minCol)) {
-                              squaresCompletedThisTurn++;
-                          }
-                      }
-                  } else { // Vertical line
-                      const minRow = Math.min(line.start.row, line.end.row);
-                      if (line.start.col > 0) {
-                          console.log(`  Checking square left: (${minRow}, ${line.start.col - 1})`);
-                          if (checkAndCompleteSquare(minRow, line.start.col - 1)) {
-                              squaresCompletedThisTurn++;
-                          }
-                      }
-                      if (line.start.col < GRID_SIZE) {
-                          console.log(`  Checking square right: (${minRow}, ${line.start.col})`);
-                          if (checkAndCompleteSquare(minRow, line.start.col)) {
-                              squaresCompletedThisTurn++;
-                          }
-                      }
-                  }
-
-                  console.log(`handleCanvasEnd: Total squares completed this turn: ${squaresCompletedThisTurn}`);
-                  if (squaresCompletedThisTurn > 0) {
-                      playerScores[playerTurn] += squaresCompletedThisTurn;
-                      console.log(`handleCanvasEnd: Player ${playerTurn} score updated to: ${playerScores[playerTurn]}.`);
-                  }
-
-                  // Always decrement linesToDraw if it's a regular line, or consume the special line.
-                  console.log(`handleCanvasEnd: Before line consumption - linesToDraw: ${linesToDraw}, hasSpecialLine: ${hasSpecialLine}`);
-                  if (linesToDraw > 0) {
-                      linesToDraw--;
-                      console.log(`handleCanvasEnd: Lines to draw decremented to: ${linesToDraw}.`);
-                  } else if (hasSpecialLine) {
-                      hasSpecialLine = false; // Consume the special line
-                      showMessage("Special Line Used!", "You've used your special line.");
-                      console.log("handleCanvasEnd: Special line consumed.");
-                  }
-
-                  updateScoreDisplay(); // Update display after all changes
-                  checkGameOver();
-
-                  // Determine if turn switches
-                  if (linesToDraw <= 0 && !hasSpecialLine) {
-                      console.log("handleCanvasEnd: No lines left and no special line. Switching turn.");
-                      switchTurn();
-                  }
-
-              } else {
-                  showMessage("No Lines Left!", "Roll the dice to get more lines or wait for your turn.");
+      // --- PATCH START: Find nearest available line within radius ---
+      let bestLine = null;
+      let minDist = Infinity;
+      if (selectedDot) {
+          // Check all adjacent dots (up, down, left, right)
+          const adjacents = [
+              { row: selectedDot.row - 1, col: selectedDot.col }, // up
+              { row: selectedDot.row + 1, col: selectedDot.col }, // down
+              { row: selectedDot.row, col: selectedDot.col - 1 }, // left
+              { row: selectedDot.row, col: selectedDot.col + 1 }  // right
+          ];
+          const rect = currentCanvas.getBoundingClientRect();
+          const scaleX = currentCanvas.width / rect.width;
+          const scaleY = currentCanvas.height / rect.height;
+          const mouseX = (clientX - rect.left) * scaleX;
+          const mouseY = (clientY - rect.top) * scaleY;
+          for (const adj of adjacents) {
+              if (adj.row < 0 || adj.row > GRID_SIZE || adj.col < 0 || adj.col > GRID_SIZE) continue;
+              const line = { start: selectedDot, end: adj, player: playerTurn };
+              if (!isValidLine(line)) continue;
+              const canonicalKey = getCanonicalLineKey(line.start, line.end);
+              if (drawnLineKeys.has(canonicalKey)) continue;
+              // Find midpoint of the line
+              const midX = ((selectedDot.col + adj.col) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+              const midY = ((selectedDot.row + adj.row) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+              const dist = Math.sqrt(Math.pow(mouseX - midX, 2) + Math.pow(mouseY - midY, 2));
+              if (dist < LINE_SELECT_RADIUS && dist < minDist) {
+                  minDist = dist;
+                  bestLine = { line, canonicalKey };
               }
-          } else {
-              showMessage("Invalid Line", "Lines must be horizontal or vertical between adjacent dots and not already drawn.");
+          }
+      }
+      // --- PATCH END ---
+
+      // Use bestLine if found, else fallback to old logic (for mouse precision)
+      let finalLine = null;
+      let finalKey = null;
+      if (bestLine) {
+          finalLine = bestLine.line;
+          finalKey = bestLine.canonicalKey;
+      } else {
+          // Fallback: use original logic
+          const endDot = getDotAtCoordinates(clientX, clientY);
+          if (endDot && selectedDot && (endDot.row !== selectedDot.row || endDot.col !== selectedDot.col)) {
+              const line = { start: selectedDot, end: endDot, player: playerTurn };
+              const canonicalKey = getCanonicalLineKey(line.start, line.end);
+              if (isValidLine(line) && !drawnLineKeys.has(canonicalKey)) {
+                  finalLine = line;
+                  finalKey = canonicalKey;
+              }
           }
       }
 
+      if (finalLine && finalKey) {
+          // ... existing code for drawing the line, updating state, etc. ...
+          // (Copy from the original handleCanvasEnd logic for line drawing)
+          // --- BEGIN COPIED BLOCK ---
+          if (linesToDraw > 0 || hasSpecialLine) {
+              drawnLines.push(finalLine); // Add the full line object to the array
+              drawnLineKeys.add(finalKey); // Add canonical key to the Set
+              drawLine(finalLine, (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
+              // Emit line draw to other player in online multiplayer
+              if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+                  onlineSocket.emit('gameAction', {
+                      lobbyCode: onlineLobbyCode,
+                      action: {
+                          type: 'drawLine',
+                          line: finalLine
+                      }
+                  });
+              }
+              // Check for completed squares and update score
+              let squaresCompletedThisTurn = 0;
+              // Check for horizontal square completion
+              if (finalLine.start.row === finalLine.end.row) { // Horizontal line
+                  const minCol = Math.min(finalLine.start.col, finalLine.end.col);
+                  if (finalLine.start.row > 0) {
+                      if (checkAndCompleteSquare(finalLine.start.row - 1, minCol)) {
+                          squaresCompletedThisTurn++;
+                      }
+                  }
+                  if (finalLine.start.row < GRID_SIZE) {
+                      if (checkAndCompleteSquare(finalLine.start.row, minCol)) {
+                          squaresCompletedThisTurn++;
+                      }
+                  }
+              } else { // Vertical line
+                  const minRow = Math.min(finalLine.start.row, finalLine.end.row);
+                  if (finalLine.start.col > 0) {
+                      if (checkAndCompleteSquare(minRow, finalLine.start.col - 1)) {
+                          squaresCompletedThisTurn++;
+                      }
+                  }
+                  if (finalLine.start.col < GRID_SIZE) {
+                      if (checkAndCompleteSquare(minRow, finalLine.start.col)) {
+                          squaresCompletedThisTurn++;
+                      }
+                  }
+              }
+              if (squaresCompletedThisTurn > 0) {
+                  playerScores[playerTurn] += squaresCompletedThisTurn;
+              }
+              // Always decrement linesToDraw if it's a regular line, or consume the special line.
+              if (linesToDraw > 0) {
+                  linesToDraw--;
+              } else if (hasSpecialLine) {
+                  hasSpecialLine = false; // Consume the special line
+                  showMessage("Special Line Used!", "You've used your special line.");
+              }
+              updateScoreDisplay(); // Update display after all changes
+              checkGameOver();
+              // Determine if turn switches
+              if (linesToDraw <= 0 && !hasSpecialLine) {
+                  switchTurn();
+              }
+          }
+          // --- END COPIED BLOCK ---
+      }
       // Reset drawing state and redraw board
       selectedDot = null;
       isDrawingLine = false;

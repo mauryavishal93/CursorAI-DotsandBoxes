@@ -4,6 +4,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const http = require('http');
 const { Server } = require('socket.io');
+const os = require('os');
 
 // Serve static files from public directory
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
@@ -49,6 +50,18 @@ function destroyLobbySession(lobbyCode) {
     delete lobbies[lobbyCode];
     console.log(`Lobby session ${lobbyCode} destroyed successfully`);
   }
+}
+
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
 }
 
 const server = http.createServer(app);
@@ -169,6 +182,7 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Dots and Boxes app running at http://localhost:${PORT}`);
+server.listen(8000, '0.0.0.0', () => {
+  const ip = getLocalIP();
+  console.log(`Dots and Boxes app running at http://${ip}:8000`);
 }); 
