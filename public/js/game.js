@@ -43,6 +43,7 @@ window.onload = function() {
   let hasSpecialLine;
   let gameMode; // 'singlePlayer' or 'twoPlayers'
   let playerNames = { 1: 'Player 1', 2: 'Player 2' }; // Stores names for display
+  let hasRolledDice = false; // New flag to prevent multiple dice rolls per turn
 
   // Initialize game state immediately when window loads
   // This ensures drawnLineKeys and other state variables are properly initialized
@@ -60,10 +61,12 @@ window.onload = function() {
 
   const spPlayerNameInput = document.getElementById('sp-player-name-input'); 
   const startSinglePlayerGameBtn = document.getElementById('start-single-player-game-btn');
+  const spSetupBackToHomeBtn = document.getElementById('sp-setup-back-to-home-btn'); // New back button for setup screen
 
   const tpPlayer1NameInput = document.getElementById('tp-player1-name-input'); 
   const tpPlayer2NameInput = document.getElementById('tp-player2-name-input'); 
   const startTwoPlayerGameBtn = document.getElementById('start-two-player-game-btn'); 
+  const tpSetupBackToHomeBtn = document.getElementById('tp-setup-back-to-home-btn'); // New back button for setup screen
 
   const messageBox = document.getElementById('messageBox');
   const messageTitle = document.getElementById('messageTitle');
@@ -111,6 +114,28 @@ window.onload = function() {
   const tpSpecialLineIndicatorEl = document.getElementById('tp-special-line-indicator');
   let tpCtx = tpGameCanvas.getContext('2d'); // Get context for two player canvas
 
+  // UI elements references for Online Multiplayer Game Screen
+  const onlineGameScreen = document.getElementById('online-game-screen');
+  const onlineGameCanvas = document.getElementById('online-gameCanvas');
+  const onlinePlayer1ScoreEl = document.getElementById('online-player1-score');
+  const onlinePlayer2ScoreEl = document.getElementById('online-player2-score');
+  const onlinePlayer1CountEl = document.getElementById('online-player1-count');
+  const onlinePlayer2CountEl = document.getElementById('online-player2-count');
+  const onlinePlayer1NameDisplay = document.getElementById('online-player1-name-display');
+  const onlinePlayer2NameDisplay = document.getElementById('online-player2-name-display');
+  const onlineCurrentPlayerNameDisplay = document.getElementById('online-current-player-name-display');
+  const onlineLinesToDrawCountEl = document.getElementById('online-lines-to-draw-count');
+  const onlineDiceDisplayEl = document.getElementById('online-dice-display');
+  const onlineRestartBtn = document.getElementById('online-restart-btn');
+  const onlineBackToHomeBtn = document.getElementById('online-back-to-home-btn');
+  const onlineSpecialLineIndicatorEl = document.getElementById('online-special-line-indicator');
+  let onlineCtx = onlineGameCanvas.getContext('2d'); // Get context for online canvas
+
+  // Online multiplayer variables
+  let onlinePlayerRole = null; // 1 or 2
+  let onlineLobbyCode = null;
+  let onlineSocket = null;
+
   // New UI elements for Rules and Info modals
   const rulesBtnHome = document.getElementById('rules-btn-home');
   const infoBtnHome = document.getElementById('info-btn-home');
@@ -123,15 +148,53 @@ window.onload = function() {
   // Object to expose game logic functions for unit testing
   const gameLogic = {};
 
+  // Add a UI element for online turn info
+  let onlineTurnInfo = null;
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById('online-turn-info')) {
+      onlineTurnInfo = document.createElement('div');
+      onlineTurnInfo.id = 'online-turn-info';
+      onlineTurnInfo.style.textAlign = 'center';
+      onlineTurnInfo.style.fontWeight = 'bold';
+      onlineTurnInfo.style.margin = '10px 0';
+      onlineTurnInfo.style.fontSize = '1.2em';
+      const parent = document.getElementById('two-player-game-screen') || document.body;
+      parent.insertBefore(onlineTurnInfo, parent.firstChild);
+    } else {
+      onlineTurnInfo = document.getElementById('online-turn-info');
+    }
+  });
+
+  function updateOnlineTurnInfo() {
+    if (gameMode === 'onlineMultiplayer') {
+      // Update the current player name display to show "Your turn" or "Opponent's turn"
+      if (playerTurn === onlinePlayerRole) {
+        onlineCurrentPlayerNameDisplay.textContent = 'Your turn';
+      } else {
+        onlineCurrentPlayerNameDisplay.textContent = "Opponent's turn";
+      }
+    }
+  }
+
   /**
    * Displays a custom message box.
    * @param {string} title - The title of the message box.
    * @param {string} text - The main text content.
    */
-  function showMessage(title, text) {
+  function showMessage(title, text, onClose) {
       messageTitle.textContent = title;
       messageText.textContent = text;
       messageBox.style.display = 'block';
+      
+      // Store the callback for when OK is clicked
+      if (onClose) {
+          messageBoxCloseBtn.onclick = () => {
+              hideMessageBox();
+              onClose();
+          };
+      } else {
+          messageBoxCloseBtn.onclick = hideMessageBox;
+      }
   }
 
   /**
@@ -174,6 +237,7 @@ window.onload = function() {
       twoPlayerSetupScreen.style.display = 'none';
       spGameScreen.style.display = 'none';
       tpGameScreen.style.display = 'none';
+      onlineGameScreen.style.display = 'none';
   }
 
   /**
@@ -242,16 +306,16 @@ window.onload = function() {
    * @param {string} color - The color of the dot.
    */
   function drawDot(row, col, color) {
-      // The x and y coordinates are the center of the dot.
-      // They are offset by BOARD_PADDING and DOT_RADIUS to ensure the dot is fully visible
-      // within the canvas, given BOARD_PADDING is the space from the canvas edge to the first dot's center.
       const x = col * cellSize + DOT_RADIUS + BOARD_PADDING;
       const y = row * cellSize + DOT_RADIUS + BOARD_PADDING;
 
       currentCtx.beginPath();
-      currentCtx.arc(x, y, DOT_RADIUS, 0, Math.PI * 2);
+      currentCtx.arc(x, y, DOT_RADIUS, 0, 2 * Math.PI);
       currentCtx.fillStyle = color;
+      currentCtx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      currentCtx.shadowBlur = 3;
       currentCtx.fill();
+      currentCtx.shadowBlur = 0;
       currentCtx.closePath();
   }
 
@@ -272,7 +336,11 @@ window.onload = function() {
       currentCtx.strokeStyle = color;
       currentCtx.lineWidth = LINE_WIDTH;
       currentCtx.lineCap = 'round';
+      currentCtx.lineJoin = 'round';
+      currentCtx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+      currentCtx.shadowBlur = 2;
       currentCtx.stroke();
+      currentCtx.shadowBlur = 0;
       currentCtx.closePath();
   }
 
@@ -311,6 +379,7 @@ window.onload = function() {
       isDrawingLine = false;
       gameOver = false;
       hasSpecialLine = false;
+      hasRolledDice = false; // Reset dice roll flag
       clearInterval(diceAnimationIntervalId);
   }
 
@@ -334,8 +403,18 @@ window.onload = function() {
           tpCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
           tpLinesToDrawCountEl.textContent = linesToDraw;
           tpSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+      } else if (gameMode === 'onlineMultiplayer') {
+          onlinePlayer1CountEl.textContent = playerScores[1];
+          onlinePlayer2CountEl.textContent = playerScores[2];
+          onlinePlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
+          onlinePlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
+          onlineCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          console.log('[DEBUG] linesToDraw value:', linesToDraw, 'type:', typeof linesToDraw);
+          onlineLinesToDrawCountEl.textContent = linesToDraw;
+          onlineSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
       }
       console.log(`updateScoreDisplay: Player 1 Score: ${playerScores[1]}, Player 2 Score: ${playerScores[2]}`);
+      updateOnlineTurnInfo();
   }
 
   /**
@@ -343,7 +422,8 @@ window.onload = function() {
    * @param {number} value - The value to display on the dice.
    */
   function displayDiceValue(value) {
-      const diceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
+      const diceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : 
+                           (gameMode === 'twoPlayers') ? tpDiceDisplayEl : onlineDiceDisplayEl;
       if (value === 0) {
           diceDisplayEl.innerHTML = diceSVGs[1]; // Show a default face when no value is rolled yet
           diceDisplayEl.classList.add('disabled');
@@ -354,54 +434,123 @@ window.onload = function() {
   }
 
   /**
+   * Handles dice click events and calls rollDice with proper parameters.
+   */
+  function handleDiceClick(event) {
+    // Call rollDice without any parameters for user-initiated rolls
+    rollDice();
+  }
+
+  /**
    * Rolls the dice and updates the lines to draw.
    */
-  function rollDice() {
-      console.log(`rollDice called. Current player: ${playerTurn}, linesToDraw: ${linesToDraw}`);
-      if (gameOver || linesToDraw > 0) {
-          console.log("Roll dice skipped: Game over or lines pending.");
-          return; // Cannot roll if game is over or lines are pending
+  function rollDice(forceValue, skipEmit) {
+    console.log('[DEBUG] rollDice called with forceValue:', forceValue, 'skipEmit:', skipEmit);
+    
+    // Handle online multiplayer dice roll
+    if (gameMode === 'onlineMultiplayer') {
+      // If this is a forced value (from remote player), just apply it
+      if (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) {
+        diceValue = forceValue;
+        linesToDraw = diceValue;
+        hasRolledDice = true; // Mark that dice has been rolled for this turn
+        console.log('[DICE ROLL][REMOTE] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+        displayDiceValue(diceValue);
+        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          hasSpecialLine = true;
+          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+        }
+        updateScoreDisplay();
+        return;
       }
-
-      let rollCount = 0;
-      const maxRolls = 15; // Number of quick rolls before final
-      const rollDuration = 50; // Milliseconds per quick roll
-
-      const diceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
-      diceDisplayEl.classList.add('disabled'); // Disable during roll
-
-      clearInterval(diceAnimationIntervalId); // Clear any existing interval
-
-      diceAnimationIntervalId = setInterval(() => {
-          const randomRoll = Math.floor(Math.random() * 6) + 1;
-          diceDisplayEl.innerHTML = diceSVGs[randomRoll];
-          rollCount++;
-
-          if (rollCount >= maxRolls) {
-              clearInterval(diceAnimationIntervalId);
-              diceValue = Math.floor(Math.random() * 6) + 1;
-              displayDiceValue(diceValue);
-              linesToDraw = diceValue;
-              if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-                  hasSpecialLine = true;
-                  showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
-              }
-              updateScoreDisplay();
-              diceDisplayEl.classList.remove('disabled'); // Enable after roll
-              
-              // Log AI's turn start after roll
-              if (gameMode === 'singlePlayer' && playerTurn === 2) {
-                  console.log(`AI (Player 2) rolled a ${diceValue}. Lines to draw: ${linesToDraw}. Special Line: ${hasSpecialLine}. Calling aiMakeMove.`);
-                  setTimeout(aiMakeMove, AI_MOVE_DELAY);
-              }
+      
+      // If it's not this player's turn, don't allow rolling
+      if (playerTurn !== onlinePlayerRole) {
+        console.log('[DEBUG] Not this player\'s turn, returning');
+        return;
+      }
+      
+      // If dice has already been rolled this turn, don't allow another roll
+      if (hasRolledDice) {
+        console.log('[DEBUG] Dice already rolled this turn, returning');
+        return;
+      }
+      
+      // Generate a random value and emit to other player
+      const randomValue = Math.floor(Math.random() * 6) + 1;
+      const startTimestamp = Date.now() + 100; // Small delay to ensure sync
+      
+      console.log('[DEBUG] Generating random value:', randomValue);
+      
+      // Emit the dice roll to the server
+      if (onlineSocket && onlineLobbyCode) {
+        onlineSocket.emit('gameAction', {
+          lobbyCode: onlineLobbyCode,
+          action: {
+            type: 'syncRollDice',
+            value: randomValue,
+            startTimestamp: startTimestamp
           }
-      }, rollDuration);
-
-      const diceAudio = document.getElementById('dice-audio');
-      if (diceAudio) {
-          diceAudio.currentTime = 0;
-          diceAudio.play();
+        });
       }
+      
+      // Apply the roll locally immediately (for the player who rolled)
+      diceValue = randomValue;
+      linesToDraw = randomValue;
+      hasRolledDice = true; // Mark that dice has been rolled for this turn
+      console.log('[DICE ROLL][LOCAL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+      
+      // Show the result immediately for the local player
+      displayDiceValue(diceValue);
+      if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+        hasSpecialLine = true;
+        showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+      }
+      updateScoreDisplay();
+      
+      return;
+    }
+    
+    // Local (single/two player) fallback
+    // If dice has already been rolled this turn, don't allow another roll
+    if (hasRolledDice) {
+      console.log('[DEBUG] Dice already rolled this turn, returning');
+      return;
+    }
+    
+    let rollCount = 0;
+    const maxRolls = 15;
+    const rollDuration = 50;
+    const diceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
+    diceDisplayEl.classList.add('disabled');
+    clearInterval(diceAnimationIntervalId);
+    diceAnimationIntervalId = setInterval(() => {
+      const randomRoll = Math.floor(Math.random() * 6) + 1;
+      diceDisplayEl.innerHTML = diceSVGs[randomRoll];
+      rollCount++;
+      if (rollCount >= maxRolls) {
+        clearInterval(diceAnimationIntervalId);
+        diceValue = (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) ? forceValue : (Math.floor(Math.random() * 6) + 1);
+        linesToDraw = diceValue;
+        hasRolledDice = true; // Mark that dice has been rolled for this turn
+        console.log('[DICE ROLL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+        displayDiceValue(diceValue);
+        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          hasSpecialLine = true;
+          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+        }
+        updateScoreDisplay();
+        diceDisplayEl.classList.remove('disabled');
+        if (gameMode === 'singlePlayer' && playerTurn === 2) {
+          setTimeout(aiMakeMove, AI_MOVE_DELAY);
+        }
+      }
+    }, rollDuration);
+    const diceAudio = document.getElementById('dice-audio');
+    if (diceAudio) {
+      diceAudio.currentTime = 0;
+      diceAudio.play();
+    }
   }
 
   /**
@@ -472,6 +621,7 @@ window.onload = function() {
   function switchTurn() {
       playerTurn = (playerTurn === 1) ? 2 : 1;
       linesToDraw = 0; // Reset lines to draw for the new player
+      hasRolledDice = false; // Reset dice roll flag for the new player's turn
       displayDiceValue(0); // Show default dice face for next turn
       updateScoreDisplay();
 
@@ -480,6 +630,12 @@ window.onload = function() {
           setTimeout(rollDice, AI_MOVE_DELAY); // AI rolls dice
       } else if (gameMode === 'twoPlayers' && !gameOver) {
           showMessage("Next Turn", `It's ${playerNames[playerTurn]}'s turn! Roll the dice.`);
+      } else if (gameMode === 'onlineMultiplayer' && !gameOver) {
+          if (playerTurn === onlinePlayerRole) {
+              showMessage("Your Turn", "It's your turn! Roll the dice to get lines to draw.");
+          } else {
+              showMessage("Opponent's Turn", "Waiting for your opponent to roll the dice...");
+          }
       }
   }
 
@@ -622,6 +778,12 @@ window.onload = function() {
           console.log("User input ignored: AI's turn.");
           return;
       }
+      
+      // Prevent user input if it's not this player's turn in online multiplayer
+      if (gameMode === 'onlineMultiplayer' && playerTurn !== onlinePlayerRole) {
+          console.log("User input ignored: Not this player's turn in online multiplayer.");
+          return;
+      }
 
       if (gameOver) return;
       event.preventDefault(); // Prevent scrolling on touch devices
@@ -654,6 +816,11 @@ window.onload = function() {
       if (gameMode === 'singlePlayer' && playerTurn === 2) {
           return;
       }
+      
+      // Prevent user input if it's not this player's turn in online multiplayer
+      if (gameMode === 'onlineMultiplayer' && playerTurn !== onlinePlayerRole) {
+          return;
+      }
 
       if (gameOver || !isDrawingLine || !selectedDot) return;
       event.preventDefault(); // Prevent scrolling on touch devices
@@ -682,9 +849,11 @@ window.onload = function() {
               currentCtx.beginPath();
               currentCtx.moveTo(selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
               currentCtx.lineTo(currentDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, currentDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
-              currentCtx.strokeStyle = (playerTurn === 1) ? LINE_COLOR_PLAYER1 + '80' : LINE_COLOR_PLAYER2 + '80'; // Lighter color
+              currentCtx.strokeStyle = (playerTurn === 1) ? LINE_COLOR_PLAYER1 + '60' : LINE_COLOR_PLAYER2 + '60'; // More transparent
               currentCtx.lineWidth = LINE_WIDTH;
-              currentCtx.setLineDash([5, 5]); // Dashed line
+              currentCtx.lineCap = 'round';
+              currentCtx.lineJoin = 'round';
+              currentCtx.setLineDash([8, 4]); // Longer dashes for smoother appearance
               currentCtx.stroke();
               currentCtx.setLineDash([]); // Reset line dash
               currentCtx.closePath();
@@ -702,6 +871,16 @@ window.onload = function() {
       // Prevent user input if it's AI's turn in single-player mode
       if (gameMode === 'singlePlayer' && playerTurn === 2) {
           // Reset drawing state and redraw board even if AI turn, to clear any accidental previews
+          selectedDot = null;
+          isDrawingLine = false;
+          drawBoard();
+          redrawLines();
+          redrawSquares();
+          return;
+      }
+      
+      // Prevent user input if it's not this player's turn in online multiplayer
+      if (gameMode === 'onlineMultiplayer' && playerTurn !== onlinePlayerRole) {
           selectedDot = null;
           isDrawingLine = false;
           drawBoard();
@@ -746,6 +925,17 @@ window.onload = function() {
                   drawnLineKeys.add(canonicalKey); // Add canonical key to the Set
                   
                   drawLine(line, (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
+                  
+                  // Emit line draw to other player in online multiplayer
+                  if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+                      onlineSocket.emit('gameAction', {
+                          lobbyCode: onlineLobbyCode,
+                          action: {
+                              type: 'drawLine',
+                              line: line
+                          }
+                      });
+                  }
 
                   // Check for completed squares and update score
                   let squaresCompletedThisTurn = 0;
@@ -1027,7 +1217,7 @@ window.onload = function() {
    * Starts a new game based on the selected mode.
    * @param {string} mode - 'singlePlayer' or 'twoPlayers'.
    */
-  function startGame(mode) {
+  function startGame(mode, onlineOptions) {
       gameMode = mode;
       resetGameState();
 
@@ -1039,7 +1229,7 @@ window.onload = function() {
           spPlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
           spPlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
           showScreen(spGameScreen);
-      } else { // twoPlayers
+      } else if (gameMode === 'twoPlayers') {
           currentCanvas = tpGameCanvas;
           currentCtx = tpCtx;
           playerNames[1] = tpPlayer1NameInput.value.trim() || 'Player 1';
@@ -1047,6 +1237,32 @@ window.onload = function() {
           tpPlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
           tpPlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
           showScreen(tpGameScreen);
+      } else if (gameMode === 'onlineMultiplayer') {
+          currentCanvas = onlineGameCanvas;
+          currentCtx = onlineCtx;
+          
+          // Set online multiplayer context
+          onlinePlayerRole = onlineOptions && onlineOptions.playerRole ? onlineOptions.playerRole : 1;
+          onlineLobbyCode = onlineOptions && onlineOptions.lobbyCode ? onlineOptions.lobbyCode : null;
+          onlineSocket = onlineOptions && onlineOptions.socket ? onlineOptions.socket : window.socket;
+          
+          // Set player names based on role
+          if (onlinePlayerRole === 1) {
+              playerNames[1] = 'You';
+              playerNames[2] = 'Opponent';
+          } else {
+              playerNames[1] = 'Opponent';
+              playerNames[2] = 'You';
+          }
+          
+          onlinePlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
+          onlinePlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
+          
+          showScreen(onlineGameScreen);
+          
+          // Hide lobby UI
+          const onlineLobbyUI = document.getElementById('online-lobby-ui');
+          if (onlineLobbyUI) onlineLobbyUI.style.display = 'none';
       }
 
       initializeCanvasDimensions();
@@ -1055,7 +1271,6 @@ window.onload = function() {
       displayDiceValue(0); // Set initial dice display
       showMessage("Game Start!", `It's ${playerNames[playerTurn]}'s turn. Roll the dice to begin!`);
 
-      // Detach old listeners to prevent duplicates
       currentCanvas.removeEventListener('mousedown', handleCanvasStart);
       currentCanvas.removeEventListener('mousemove', handleCanvasMove);
       currentCanvas.removeEventListener('mouseup', handleCanvasEnd);
@@ -1063,7 +1278,6 @@ window.onload = function() {
       currentCanvas.removeEventListener('touchmove', handleCanvasMove);
       currentCanvas.removeEventListener('touchend', handleCanvasEnd);
 
-      // Attach new listeners for drag/slide functionality
       currentCanvas.addEventListener('mousedown', handleCanvasStart);
       currentCanvas.addEventListener('mousemove', handleCanvasMove);
       currentCanvas.addEventListener('mouseup', handleCanvasEnd);
@@ -1071,13 +1285,11 @@ window.onload = function() {
       currentCanvas.addEventListener('touchmove', handleCanvasMove);
       currentCanvas.addEventListener('touchend', handleCanvasEnd);
 
+      const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : 
+                                  (gameMode === 'twoPlayers') ? tpDiceDisplayEl : onlineDiceDisplayEl;
+      currentDiceDisplayEl.removeEventListener('click', handleDiceClick);
+      currentDiceDisplayEl.addEventListener('click', handleDiceClick);
 
-      // Attach dice roll listener
-      const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
-      currentDiceDisplayEl.removeEventListener('click', rollDice);
-      currentDiceDisplayEl.addEventListener('click', rollDice);
-
-      // AI rolls first in single-player if it's AI's turn (Player 2)
       if (gameMode === 'singlePlayer' && playerTurn === 2) {
           setTimeout(rollDice, AI_MOVE_DELAY);
       }
@@ -1095,15 +1307,56 @@ window.onload = function() {
   });
 
   onlineGameBtn.addEventListener('click', () => {
-      showMessage("Coming Soon!", "Online multiplayer is currently under development. Stay tuned!");
+      const onlineLobbyUI = document.getElementById('online-lobby-ui');
+      if (onlineLobbyUI) onlineLobbyUI.style.display = 'block';
+  });
+
+  // Online game screen event listeners
+  onlineRestartBtn.addEventListener('click', () => {
+      if (gameMode === 'onlineMultiplayer') {
+          showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
+              // Emit leave lobby event to notify opponent
+              if (onlineSocket && onlineLobbyCode) {
+                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
+              }
+              showScreen(homeScreen);
+          }, () => {});
+      }
+  });
+
+  onlineBackToHomeBtn.addEventListener('click', () => {
+      if (gameMode === 'onlineMultiplayer') {
+          if (gameOver) {
+              // If game is over, just leave lobby and go home without confirmation
+              if (onlineSocket && onlineLobbyCode) {
+                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
+              }
+              showScreen(homeScreen);
+          } else {
+              showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
+                  // Emit leave lobby event to notify opponent
+                  if (onlineSocket && onlineLobbyCode) {
+                      onlineSocket.emit('leaveLobby', onlineLobbyCode);
+                  }
+                  showScreen(homeScreen);
+              }, () => {});
+          }
+      }
   });
 
   startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
   startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
 
+  // Setup screen back button handlers
+  spSetupBackToHomeBtn.addEventListener('click', () => {
+      showScreen(homeScreen);
+  });
+  tpSetupBackToHomeBtn.addEventListener('click', () => {
+      showScreen(homeScreen);
+  });
+
   messageBoxCloseBtn.addEventListener('click', hideMessageBox);
 
-  // Restart and Back to Home buttons for single player
   spRestartBtn.addEventListener('click', () => {
       if (gameOver) {
           startGame('singlePlayer'); // No confirmation if game is over
@@ -1121,7 +1374,6 @@ window.onload = function() {
       }
   });
 
-  // Restart and Back to Home buttons for two player
   tpRestartBtn.addEventListener('click', () => {
       if (gameOver) {
           startGame('twoPlayers'); // No confirmation if game is over
@@ -1139,13 +1391,11 @@ window.onload = function() {
       }
   });
 
-  // Rules and Info button listeners
   rulesBtnHome.addEventListener('click', () => rulesModal.style.display = 'block');
   infoBtnHome.addEventListener('click', () => infoModal.style.display = 'block');
   rulesModalCloseBtn.addEventListener('click', () => rulesModal.style.display = 'none');
   infoModalCloseBtn.addEventListener('click', () => infoModal.style.display = 'none');
 
-  // --- Unit Testing Framework ---
   const testResultsDiv = document.createElement('div');
   testResultsDiv.id = 'test-results';
   testResultsDiv.className = 'message-box'; // Reuse message box style
@@ -1163,13 +1413,11 @@ window.onload = function() {
           }
       });
       html += `<p class="font-bold mt-4" style="color: ${allPassed ? 'green' : 'red'};">All tests ${allPassed ? 'PASSED' : 'FAILED'}!</p>`;
-      // Changed button text and style for clarity
       html += `<button onclick="hideTestResults()" class="mt-4 btn btn-secondary">Close Results</button>`;
       testResultsDiv.innerHTML = html;
       testResultsDiv.style.display = 'block';
   }
 
-  // Expose for onclick in test results modal
   window.hideTestResults = () => {
       testResultsDiv.style.display = 'none';
   };
@@ -1198,7 +1446,6 @@ window.onload = function() {
       }
   }
 
-  // Mock canvas context for testing functions that interact with it
   const mockCtx = {
       clearRect: () => {},
       beginPath: () => {},
@@ -1210,10 +1457,8 @@ window.onload = function() {
       stroke: () => {},
       setLineDash: () => {},
       fillText: () => {},
-      // Add any other methods used by drawLine, drawDot, drawSquareMark
   };
 
-  // Mock canvas element for getDotAtCoordinates
   const mockCanvas = {
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
       width: 500,
@@ -1224,24 +1469,17 @@ window.onload = function() {
       const results = [];
       console.groupCollapsed("Running Unit Tests"); // Group console logs for tests
       
-      // Save original game state
       const originalGameState = gameLogic.getGameState();
       const originalCurrentCtx = currentCtx;
       const originalCurrentCanvas = currentCanvas;
 
-      // Temporarily set currentCtx and currentCanvas to mock objects for tests
       currentCtx = mockCtx;
       currentCanvas = mockCanvas;
       
-      // Set a default cellSize for tests, as initializeCanvasDimensions won't be called
-      // This value should be consistent with how cellSize is calculated in the game.
-      // For a 5x5 grid, and a mock canvas of 500, (500 - 12 - 30) / 5 = 458 / 5 = 91.6, floor to 91.
-      // Or, just pick a reasonable value that allows square checks.
       cellSize = 90; // A fixed value for testing purposes
 
       tests.forEach(t => {
           try {
-              // Reset game state before each test to ensure isolation
               resetGameState();
               t.fn();
               results.push({ name: t.name, passed: true });
@@ -1253,7 +1491,6 @@ window.onload = function() {
       });
       console.groupEnd();
       
-      // Restore original game state and canvas context after all tests
       gameLogic.setTestState(originalGameState); // Restore game state
       currentCtx = originalCurrentCtx; // Restore actual canvas context
       currentCanvas = originalCurrentCanvas; // Restore actual canvas element
@@ -1261,11 +1498,10 @@ window.onload = function() {
       showTestResults(results);
   }
 
-  // Expose functions for testing via gameLogic object
   gameLogic.getCanonicalLineKey = getCanonicalLineKey;
   gameLogic.isValidLine = isValidLine;
-  gameLogic.isLineAlreadyDrawn = isLineAlreadyDrawn; // This will use the actual drawnLineKeys
-  gameLogic.checkAndCompleteSquare = checkAndCompleteSquare; // This will use actual completedSquares, playerTurn
+  gameLogic.isLineAlreadyDrawn = isLineAlreadyDrawn;
+  gameLogic.checkAndCompleteSquare = checkAndCompleteSquare;
   gameLogic.resetGameState = resetGameState;
   gameLogic.setTestState = (state) => {
       playerTurn = state.playerTurn;
@@ -1282,14 +1518,11 @@ window.onload = function() {
       linesToDraw,
       playerScores,
       drawnLines,
-      // Ensure drawnLineKeys is an iterable (Set) before converting to Array
       drawnLineKeys: Array.from(drawnLineKeys || new Set()),
-      completedSquares: completedSquares.map(row => [...row]), // Deep copy for immutability
+      completedSquares: completedSquares.map(row => [...row]),
       gameOver,
       hasSpecialLine
   });
-
-  // --- Unit Tests ---
 
   test('getCanonicalLineKey for horizontal lines (left-to-right)', () => {
       const key1 = gameLogic.getCanonicalLineKey({ row: 0, col: 0 }, { row: 0, col: 1 });
@@ -1332,7 +1565,6 @@ window.onload = function() {
   });
 
   test('isLineAlreadyDrawn correctly detects drawn lines', () => {
-      // Manually set initial state for this test
       gameLogic.setTestState({
           playerTurn: 1,
           linesToDraw: 0,
@@ -1355,7 +1587,6 @@ window.onload = function() {
   });
 
   test('checkAndCompleteSquare completes square and updates score (horizontal line)', () => {
-      // Set up state with 3 lines for square (0,0)
       gameLogic.setTestState({
           playerTurn: 1,
           linesToDraw: 1, // Player has 1 line left
@@ -1371,21 +1602,14 @@ window.onload = function() {
           hasSpecialLine: false
       });
 
-      // Simulate drawing the top line of square (0,0)
-      // This line is not "drawn" by handleCanvasEnd, but checkAndCompleteSquare needs to see it as present
-      // So, we temporarily add it to drawnLineKeys for the check.
       drawnLineKeys.add(gameLogic.getCanonicalLineKey({ row: 0, col: 0 }, { row: 0, col: 1 }));
 
       const completed = gameLogic.checkAndCompleteSquare(0, 0);
       assertTrue(completed, 'Square (0,0) should be completed');
       assertEqual(completedSquares[0][0], 1, 'Square (0,0) should be marked by Player 1');
-      // playerScores is updated by handleCanvasEnd or aiMakeMove, not directly by checkAndCompleteSquare.
-      // We'll verify the score update in a larger integration-style test if needed,
-      // but for unit test of checkAndCompleteSquare, we just check its return and completedSquares array.
   });
 
   test('checkAndCompleteSquare completes square and updates score (vertical line)', () => {
-      // Set up state with 3 lines for square (0,0)
       gameLogic.setTestState({
           playerTurn: 2,
           linesToDraw: 1, // Player has 1 line left
@@ -1401,7 +1625,6 @@ window.onload = function() {
           hasSpecialLine: false
       });
 
-      // Simulate drawing the right line of square (0,0)
       drawnLineKeys.add(gameLogic.getCanonicalLineKey({ row: 0, col: 1 }, { row: 1, col: 1 }));
 
       const completed = gameLogic.checkAndCompleteSquare(0, 0);
@@ -1417,7 +1640,6 @@ window.onload = function() {
           drawnLines: [
               { start: { row: 0, col: 0 }, end: { row: 1, col: 0 }, player: 2 }, // Left
               { start: { row: 0, col: 1 }, end: { row: 1, col: 1 }, player: 2 }, // Right
-              // Only 2 lines present
           ],
           drawnLineKeys: new Set(['v_0_0', 'v_0_1']),
           completedSquares: Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0)),
@@ -1425,7 +1647,6 @@ window.onload = function() {
           hasSpecialLine: false
       });
       
-      // Add a hypothetical line, making it 3 sides
       drawnLineKeys.add(gameLogic.getCanonicalLineKey({ row: 0, col: 0 }, { row: 0, col: 1 }));
 
       const completed = gameLogic.checkAndCompleteSquare(0, 0);
@@ -1438,21 +1659,19 @@ window.onload = function() {
           playerTurn: 1,
           linesToDraw: 1,
           playerScores: { 1: 1, 2: 0 },
-          drawnLines: [], // Lines don't matter as much here, but for completeness
+          drawnLines: [],
           drawnLineKeys: new Set(),
-          completedSquares: [[1, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], // Square (0,0) already completed by P1
+          completedSquares: [[1, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]],
           gameOver: false,
           hasSpecialLine: false
       });
       
-      // Try to complete it again
       const completed = gameLogic.checkAndCompleteSquare(0, 0);
       assertFalse(completed, 'Already completed square should not be completed again');
       assertEqual(completedSquares[0][0], 1, 'Square (0,0) should remain marked by Player 1');
   });
 
   test('resetGameState resets all game variables', () => {
-      // Set some non-default values
       playerTurn = 2;
       linesToDraw = 3;
       diceValue = 5;
@@ -1481,10 +1700,279 @@ window.onload = function() {
       assertEqual(hasSpecialLine, false, 'hasSpecialLine should be false');
   });
 
+  window.startGame = startGame;
+  window.homeScreen = homeScreen;
+  window.showScreen = showScreen;
 
-  // Initial screen display
   showScreen(homeScreen);
 
-  // Add event listener for the new "Run Unit Tests" button
   runUnitTestsBtn.addEventListener('click', runAllTests);
+
+  // --- DICE ROLL SYNC ANIMATION FOR ONLINE MULTIPLAYER ---
+  // Helper to animate dice roll
+  function animateDiceRoll(finalValue, onComplete) {
+    const diceDisplayEl = (gameMode === 'onlineMultiplayer') ? onlineDiceDisplayEl : tpDiceDisplayEl;
+    let rollCount = 0;
+    const maxRolls = 15;
+    const rollDuration = 50;
+    clearInterval(diceAnimationIntervalId);
+    diceDisplayEl.classList.add('disabled');
+    diceAnimationIntervalId = setInterval(() => {
+      const randomRoll = Math.floor(Math.random() * 6) + 1;
+      diceDisplayEl.innerHTML = diceSVGs[randomRoll];
+      rollCount++;
+      if (rollCount >= maxRolls) {
+        clearInterval(diceAnimationIntervalId);
+        diceDisplayEl.classList.remove('disabled');
+        if (typeof finalValue === 'number') {
+          displayDiceValue(finalValue);
+        }
+        if (onComplete) onComplete();
+      }
+    }, rollDuration);
+    // Play dice audio if present
+    const diceAudio = document.getElementById('dice-audio');
+    if (diceAudio) {
+      diceAudio.currentTime = 0;
+      diceAudio.play();
+    }
+  }
+
+  // --- DICE ROLL SYNC: SINGLE EVENT FOR BOTH USERS ---
+  // Helper to animate dice roll with a fixed duration and reveal at the same time
+  function animateDiceRollSync(finalValue, startTimestamp, onComplete) {
+    const diceDisplayEl = (gameMode === 'onlineMultiplayer') ? onlineDiceDisplayEl : tpDiceDisplayEl;
+    const maxRolls = 15;
+    const rollDuration = 50;
+    const totalDuration = maxRolls * rollDuration;
+    let rollCount = 0;
+    clearInterval(diceAnimationIntervalId);
+    diceDisplayEl.classList.add('disabled');
+    // Calculate delay to sync with the other user
+    const now = Date.now();
+    const delay = Math.max(0, startTimestamp + totalDuration - now);
+    diceAnimationIntervalId = setInterval(() => {
+      const randomRoll = Math.floor(Math.random() * 6) + 1;
+      diceDisplayEl.innerHTML = diceSVGs[randomRoll];
+      rollCount++;
+      if (rollCount >= maxRolls) {
+        clearInterval(diceAnimationIntervalId);
+        // Wait for the sync delay before revealing
+        setTimeout(() => {
+          diceDisplayEl.classList.remove('disabled');
+          if (typeof finalValue === 'number') {
+            displayDiceValue(finalValue);
+          }
+          if (onComplete) onComplete();
+        }, delay);
+      }
+    }, rollDuration);
+    // Play dice audio if present
+    const diceAudio = document.getElementById('dice-audio');
+    if (diceAudio) {
+      diceAudio.currentTime = 0;
+      diceAudio.play();
+    }
+  }
+
+  // Note: The main rollDice function already handles online multiplayer properly
+  // No need for additional patching
+
+  // --- UI: YOU LEFT, OPPONENT RIGHT, CURRENT TURN ---
+  function updateOnlinePlayerLabels() {
+    if (gameMode === 'onlineMultiplayer') {
+      // Always show 'You' on left, 'Opponent' on right
+      onlinePlayer1NameDisplay.textContent = (onlinePlayerRole === 1 ? 'You' : 'Opponent') + ' (X)';
+      onlinePlayer2NameDisplay.textContent = (onlinePlayerRole === 2 ? 'You' : 'Opponent') + ' (O)';
+    }
+  }
+
+  // Patch startGame to update player labels
+  const originalStartGameForLabels = startGame;
+  startGame = function(mode, onlineOptions) {
+    originalStartGameForLabels(mode, onlineOptions);
+    updateOnlinePlayerLabels();
+    updateOnlineTurnInfo();
+  };
+
+  // Patch updateScoreDisplay to update current turn label
+  const originalUpdateScoreDisplayForTurn = updateScoreDisplay;
+  updateScoreDisplay = function() {
+    originalUpdateScoreDisplayForTurn();
+    updateDiceInteractivity();
+    if (gameMode === 'onlineMultiplayer') {
+      onlineCurrentPlayerNameDisplay.textContent = (playerTurn === onlinePlayerRole ? 'You' : 'Opponent');
+    }
+  };
+
+  // --- DICE CLICKABLE ONLY FOR CURRENT PLAYER ---
+  function updateDiceInteractivity() {
+    if (gameMode === 'onlineMultiplayer') {
+      onlineDiceDisplayEl.style.cursor = (playerTurn === onlinePlayerRole) ? 'pointer' : 'not-allowed';
+      onlineDiceDisplayEl.classList.toggle('disabled', playerTurn !== onlinePlayerRole);
+    } else {
+      const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
+      currentDiceDisplayEl.style.cursor = 'pointer';
+      currentDiceDisplayEl.classList.remove('disabled');
+    }
+  }
+
+  // Handle remote game actions from other player
+  window.handleRemoteGameAction = function(action) {
+    console.log('Handling remote game action:', action);
+    
+    if (action.type === 'drawLine') {
+      // Apply the line drawn by the other player
+      const line = action.line;
+      const canonicalKey = getCanonicalLineKey(line.start, line.end);
+      
+      if (!drawnLineKeys.has(canonicalKey)) {
+        drawnLines.push(line);
+        drawnLineKeys.add(canonicalKey);
+        drawLine(line, (line.player === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
+        
+        // Check for completed squares and update score
+        let squaresCompletedThisTurn = 0;
+        if (line.start.row === line.end.row) { // Horizontal line
+          const minCol = Math.min(line.start.col, line.end.col);
+          if (line.start.row > 0) {
+            if (checkAndCompleteSquare(line.start.row - 1, minCol)) {
+              squaresCompletedThisTurn++;
+            }
+          }
+          if (line.start.row < GRID_SIZE) {
+            if (checkAndCompleteSquare(line.start.row, minCol)) {
+              squaresCompletedThisTurn++;
+            }
+          }
+        } else { // Vertical line
+          const minRow = Math.min(line.start.row, line.end.row);
+          if (line.start.col > 0) {
+            if (checkAndCompleteSquare(minRow, line.start.col - 1)) {
+              squaresCompletedThisTurn++;
+            }
+          }
+          if (line.start.col < GRID_SIZE) {
+            if (checkAndCompleteSquare(minRow, line.start.col)) {
+              squaresCompletedThisTurn++;
+            }
+          }
+        }
+        
+        if (squaresCompletedThisTurn > 0) {
+          playerScores[line.player] += squaresCompletedThisTurn;
+        }
+        
+        // Decrement lines to draw for the remote player
+        if (linesToDraw > 0) {
+          linesToDraw--;
+        } else if (hasSpecialLine) {
+          hasSpecialLine = false;
+        }
+        
+        updateScoreDisplay();
+        checkGameOver();
+        
+        // Switch turn if no lines left
+        if (linesToDraw <= 0 && !hasSpecialLine) {
+          switchTurn();
+        }
+      }
+    } else if (action.type === 'syncRollDice') {
+      // Handle synchronized dice roll for remote player
+      console.log('[DEBUG] Handling syncRollDice action with value:', action.value);
+      
+      // Don't set the values immediately for remote player - let the animation handle it
+      console.log('[DICE ROLL][REMOTE] Starting animation for dice value:', action.value);
+      
+      animateDiceRollSync(action.value, action.startTimestamp, () => {
+        // Set the values after the animation completes for remote player
+        diceValue = action.value;
+        linesToDraw = action.value;
+        hasRolledDice = true; // Mark that dice has been rolled for this turn
+        console.log('[DICE ROLL][REMOTE] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+        displayDiceValue(diceValue);
+        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          hasSpecialLine = true;
+          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+        }
+        updateScoreDisplay();
+      });
+    }
+  };
+
+  // Listen for remote dice roll events
+  if (window.socket) {
+    window.socket.on('gameAction', (action) => {
+      // Use the centralized handler
+      window.handleRemoteGameAction(action);
+    });
+  }
+
+  // Function to disable game interactions when opponent disconnects
+  window.disableGameInteractions = function() {
+    console.log('Disabling game interactions due to opponent disconnect');
+    gameOver = true;
+    
+    // Disable canvas interactions
+    if (currentCanvas) {
+      currentCanvas.style.pointerEvents = 'none';
+    }
+    
+    // Disable dice interactions
+    if (onlineDiceDisplayEl) {
+      onlineDiceDisplayEl.style.pointerEvents = 'none';
+      onlineDiceDisplayEl.style.cursor = 'not-allowed';
+    }
+    
+    // Update UI to show game is over
+    updateOnlineTurnInfo();
+  };
+
+  // Function to reset online game state completely
+  window.resetOnlineGameState = function() {
+    console.log('Resetting online game state from game.js');
+    
+    // Reset game mode
+    gameMode = null;
+    
+    // Reset online-specific variables
+    onlinePlayerRole = null;
+    onlineSocket = null;
+    onlineLobbyCode = null;
+    
+    // Reset game state
+    gameOver = false;
+    playerTurn = 1;
+    linesToDraw = 0;
+    diceValue = 0;
+    playerScores = { 1: 0, 2: 0 };
+    drawnLines = [];
+    drawnLineKeys = new Set();
+    completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+    selectedDot = null;
+    isDrawingLine = false;
+    hasSpecialLine = false;
+    hasRolledDice = false; // Reset dice roll flag
+    
+    // Re-enable canvas interactions
+    if (currentCanvas) {
+      currentCanvas.style.pointerEvents = 'auto';
+    }
+    
+    // Re-enable dice interactions
+    if (onlineDiceDisplayEl) {
+      onlineDiceDisplayEl.style.pointerEvents = 'auto';
+      onlineDiceDisplayEl.style.cursor = 'pointer';
+    }
+    
+    console.log('Online game state reset complete from game.js');
+  };
+
+  // Expose showMessage function globally
+  window.showMessage = showMessage;
+  window.hideMessageBox = hideMessageBox;
+  window.showConfirmation = showConfirmation;
+  window.showScreen = showScreen;
+  window.homeScreen = homeScreen;
 }; // End of window.onload
