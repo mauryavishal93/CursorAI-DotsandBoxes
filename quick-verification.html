@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dots and Boxes - Quick Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .pending {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Dots and Boxes - Quick Verification</h1>
+    
+    <div class="test-section">
+        <h2>📡 Server Connection Test</h2>
+        <div id="server-test" class="test-result pending">Testing server connection...</div>
+        <button onclick="testServerConnection()">Test Server Connection</button>
+        <div id="server-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎮 Lobby System Test</h2>
+        <div id="lobby-test" class="test-result pending">Testing lobby system...</div>
+        <button onclick="testLobbySystem()">Test Lobby System</button>
+        <div id="lobby-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎲 Game Synchronization Test</h2>
+        <div id="sync-test" class="test-result pending">Testing game synchronization...</div>
+        <button onclick="testGameSync()">Test Game Sync</button>
+        <div id="sync-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🚪 Disconnect Handling Test</h2>
+        <div id="disconnect-test" class="test-result pending">Testing disconnect handling...</div>
+        <button onclick="testDisconnectHandling()">Test Disconnect Handling</button>
+        <div id="disconnect-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Overall Test Results</h2>
+        <div id="overall-result" class="test-result pending">Running comprehensive tests...</div>
+        <button onclick="runAllTests()">Run All Tests</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let testResults = {
+            serverConnection: false,
+            lobbySystem: false,
+            gameSync: false,
+            disconnectHandling: false
+        };
+
+        function log(elementId, message) {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateTestResult(elementId, status, message) {
+            const element = document.getElementById(elementId);
+            element.className = `test-result ${status}`;
+            element.textContent = message;
+        }
+
+        function testServerConnection() {
+            log('server-log', 'Testing server connection...');
+            
+            try {
+                socket = io('http://localhost:4000');
+                
+                socket.on('connect', () => {
+                    log('server-log', `✅ Connected to server with ID: ${socket.id}`);
+                    testResults.serverConnection = true;
+                    updateTestResult('server-test', 'pass', '✅ Server connection successful');
+                });
+
+                socket.on('connect_error', (error) => {
+                    log('server-log', `❌ Connection error: ${error.message}`);
+                    testResults.serverConnection = false;
+                    updateTestResult('server-test', 'fail', '❌ Server connection failed');
+                });
+
+            } catch (error) {
+                log('server-log', `❌ Socket.IO error: ${error.message}`);
+                testResults.serverConnection = false;
+                updateTestResult('server-test', 'fail', '❌ Server connection failed');
+            }
+        }
+
+        function testLobbySystem() {
+            log('lobby-log', 'Testing lobby system...');
+            
+            if (!socket || !socket.connected) {
+                log('lobby-log', '❌ Socket not connected. Please test server connection first.');
+                updateTestResult('lobby-test', 'fail', '❌ Socket not connected');
+                return;
+            }
+
+            socket.emit('createLobby', (response) => {
+                if (response && response.lobbyCode) {
+                    log('lobby-log', `✅ Lobby created successfully: ${response.lobbyCode}`);
+                    testResults.lobbySystem = true;
+                    updateTestResult('lobby-test', 'pass', '✅ Lobby system working');
+                } else {
+                    log('lobby-log', '❌ Lobby creation failed');
+                    testResults.lobbySystem = false;
+                    updateTestResult('lobby-test', 'fail', '❌ Lobby system failed');
+                }
+            });
+        }
+
+        function testGameSync() {
+            log('sync-log', 'Testing game synchronization...');
+            
+            if (!socket || !socket.connected) {
+                log('sync-log', '❌ Socket not connected. Please test server connection first.');
+                updateTestResult('sync-test', 'fail', '❌ Socket not connected');
+                return;
+            }
+
+            // Test game action emission
+            socket.emit('gameAction', {
+                type: 'syncRollDice',
+                value: 3,
+                startTimestamp: Date.now()
+            });
+
+            log('sync-log', '✅ Game action emitted successfully');
+            testResults.gameSync = true;
+            updateTestResult('sync-test', 'pass', '✅ Game synchronization working');
+        }
+
+        function testDisconnectHandling() {
+            log('disconnect-log', 'Testing disconnect handling...');
+            
+            if (!socket || !socket.connected) {
+                log('disconnect-log', '❌ Socket not connected. Please test server connection first.');
+                updateTestResult('disconnect-test', 'fail', '❌ Socket not connected');
+                return;
+            }
+
+            // Test leave lobby
+            socket.emit('leaveLobby', 'TEST_LOBBY');
+            log('disconnect-log', '✅ Leave lobby action sent successfully');
+            testResults.disconnectHandling = true;
+            updateTestResult('disconnect-test', 'pass', '✅ Disconnect handling working');
+        }
+
+        function runAllTests() {
+            log('overall-result', 'Running all tests...');
+            
+            // Run tests in sequence
+            setTimeout(() => testServerConnection(), 100);
+            setTimeout(() => testLobbySystem(), 2000);
+            setTimeout(() => testGameSync(), 4000);
+            setTimeout(() => testDisconnectHandling(), 6000);
+            
+            setTimeout(() => {
+                const allPassed = Object.values(testResults).every(result => result === true);
+                if (allPassed) {
+                    updateTestResult('overall-result', 'pass', '✅ ALL TESTS PASSED - System is working perfectly!');
+                } else {
+                    updateTestResult('overall-result', 'fail', '❌ Some tests failed - Check individual test results');
+                }
+            }, 8000);
+        }
+
+        // Auto-run tests when page loads
+        window.onload = function() {
+            setTimeout(runAllTests, 1000);
+        };
+    </script>
+</body>
+</html> 

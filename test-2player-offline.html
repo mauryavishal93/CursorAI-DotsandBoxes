@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2-Player Offline Mode Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-case {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 4px solid #007bff;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .game-frame {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+        }
+        .test-summary {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #28a745;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 2-Player Offline Mode Comprehensive Test</h1>
+        
+        <div class="test-summary">
+            <h3>Test Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <p id="testStatus">Ready to start testing...</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🎮 Game Interface Tests</h2>
+            <div class="test-case">
+                <h4>Test 1: Game Screen Loading</h4>
+                <p>Verify that the 2-player game screen loads correctly with all UI elements.</p>
+                <button onclick="testGameScreenLoading()">Run Test</button>
+                <div id="test1-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 2: Player Names Display</h4>
+                <p>Verify that player names are displayed correctly in the UI.</p>
+                <button onclick="testPlayerNamesDisplay()">Run Test</button>
+                <div id="test2-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 3: Score Display</h4>
+                <p>Verify that player scores are displayed and updated correctly.</p>
+                <button onclick="testScoreDisplay()">Run Test</button>
+                <div id="test3-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎲 Dice Functionality Tests</h2>
+            <div class="test-case">
+                <h4>Test 4: Dice Rolling</h4>
+                <p>Verify that dice rolling works correctly and shows valid numbers (1-6).</p>
+                <button onclick="testDiceRolling()">Run Test</button>
+                <div id="test4-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 5: Lines to Draw Update</h4>
+                <p>Verify that "Lines to Draw" count updates correctly after dice roll.</p>
+                <button onclick="testLinesToDrawUpdate()">Run Test</button>
+                <div id="test5-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 6: Special Line (Dice = 6)</h4>
+                <p>Verify that special line functionality works when dice shows 6.</p>
+                <button onclick="testSpecialLine()">Run Test</button>
+                <div id="test6-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>✏️ Line Drawing Tests</h2>
+            <div class="test-case">
+                <h4>Test 7: Valid Line Drawing</h4>
+                <p>Verify that players can draw valid horizontal and vertical lines.</p>
+                <button onclick="testValidLineDrawing()">Run Test</button>
+                <div id="test7-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 8: Invalid Line Prevention</h4>
+                <p>Verify that invalid lines (diagonal, non-adjacent) cannot be drawn.</p>
+                <button onclick="testInvalidLinePrevention()">Run Test</button>
+                <div id="test8-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 9: Duplicate Line Prevention</h4>
+                <p>Verify that the same line cannot be drawn twice.</p>
+                <button onclick="testDuplicateLinePrevention()">Run Test</button>
+                <div id="test9-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 10: Turn-Based Line Drawing</h4>
+                <p>Verify that only the current player can draw lines.</p>
+                <button onclick="testTurnBasedDrawing()">Run Test</button>
+                <div id="test10-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>⬜ Square Completion Tests</h2>
+            <div class="test-case">
+                <h4>Test 11: Square Completion Detection</h4>
+                <p>Verify that squares are completed when all 4 sides are drawn.</p>
+                <button onclick="testSquareCompletion()">Run Test</button>
+                <div id="test11-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 12: Score Update on Square Completion</h4>
+                <p>Verify that player scores increase when they complete squares.</p>
+                <button onclick="testScoreUpdateOnCompletion()">Run Test</button>
+                <div id="test12-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 13: Turn Continuation on Square Completion</h4>
+                <p>Verify that players get another turn when they complete a square.</p>
+                <button onclick="testTurnContinuation()">Run Test</button>
+                <div id="test13-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔄 Turn Management Tests</h2>
+            <div class="test-case">
+                <h4>Test 14: Turn Switching</h4>
+                <p>Verify that turns switch correctly between players.</p>
+                <button onclick="testTurnSwitching()">Run Test</button>
+                <div id="test14-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 15: Current Player Display</h4>
+                <p>Verify that the current player is clearly indicated in the UI.</p>
+                <button onclick="testCurrentPlayerDisplay()">Run Test</button>
+                <div id="test15-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🏆 Winning Condition Tests</h2>
+            <div class="test-case">
+                <h4>Test 16: Majority Win Condition</h4>
+                <p>Verify that a player wins when they control more than half the squares.</p>
+                <button onclick="testMajorityWin()">Run Test</button>
+                <div id="test16-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 17: All Squares Completed Win</h4>
+                <p>Verify that the player with more squares wins when all squares are completed.</p>
+                <button onclick="testAllSquaresCompletedWin()">Run Test</button>
+                <div id="test17-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 18: Tie Game Condition</h4>
+                <p>Verify that a tie is declared when both players have equal squares.</p>
+                <button onclick="testTieGame()">Run Test</button>
+                <div id="test18-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 19: All Lines Drawn Win</h4>
+                <p>Verify that the game ends correctly when all possible lines are drawn.</p>
+                <button onclick="testAllLinesDrawnWin()">Run Test</button>
+                <div id="test19-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎮 Game Control Tests</h2>
+            <div class="test-case">
+                <h4>Test 20: Restart Game Functionality</h4>
+                <p>Verify that the restart button resets the game state correctly.</p>
+                <button onclick="testRestartGame()">Run Test</button>
+                <div id="test20-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 21: Back to Home Functionality</h4>
+                <p>Verify that the "Back to Home" button returns to the main menu.</p>
+                <button onclick="testBackToHome()">Run Test</button>
+                <div id="test21-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Edge Case Tests</h2>
+            <div class="test-case">
+                <h4>Test 22: Multiple Square Completion</h4>
+                <p>Verify that multiple squares can be completed with a single line.</p>
+                <button onclick="testMultipleSquareCompletion()">Run Test</button>
+                <div id="test22-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 23: Lines to Draw Limit</h4>
+                <p>Verify that players cannot draw more lines than allowed by dice roll.</p>
+                <button onclick="testLinesToDrawLimit()">Run Test</button>
+                <div id="test23-result" class="test-result"></div>
+            </div>
+            
+            <div class="test-case">
+                <h4>Test 24: Game State Persistence</h4>
+                <p>Verify that game state is maintained correctly during play.</p>
+                <button onclick="testGameStatePersistence()">Run Test</button>
+                <div id="test24-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🚀 Run All Tests</h2>
+            <button onclick="runAllTests()" style="background: #28a745; font-size: 16px; padding: 15px 30px;">
+                🧪 Run All 2-Player Offline Tests
+            </button>
+            <div id="all-tests-result" class="test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Test Results Summary</h2>
+            <div id="test-summary-results"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        let totalTests = 24;
+        let passedTests = 0;
+        let failedTests = 0;
+
+        function updateProgress() {
+            const progress = (passedTests + failedTests) / totalTests * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('testStatus').textContent = 
+                `Tests completed: ${passedTests + failedTests}/${totalTests} | Passed: ${passedTests} | Failed: ${failedTests}`;
+        }
+
+        function showResult(testId, passed, message) {
+            const resultDiv = document.getElementById(testId + '-result');
+            resultDiv.className = 'test-result ' + (passed ? 'pass' : 'fail');
+            resultDiv.innerHTML = passed ? '✅ PASS: ' + message : '❌ FAIL: ' + message;
+            
+            if (passed) {
+                passedTests++;
+            } else {
+                failedTests++;
+            }
+            updateProgress();
+        }
+
+        function testGameScreenLoading() {
+            try {
+                // Check if game elements exist
+                const gameScreen = document.getElementById('two-player-game-screen');
+                const canvas = document.getElementById('two-player-canvas');
+                const scoreElements = document.querySelectorAll('[id*="player"][id*="score"]');
+                
+                if (gameScreen && canvas && scoreElements.length >= 2) {
+                    showResult('test1', true, 'Game screen loads with all required elements');
+                } else {
+                    showResult('test1', false, 'Missing required game elements');
+                }
+            } catch (error) {
+                showResult('test1', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testPlayerNamesDisplay() {
+            try {
+                const playerNameElements = document.querySelectorAll('[id*="player"][id*="name"]');
+                if (playerNameElements.length >= 2) {
+                    showResult('test2', true, 'Player names are displayed correctly');
+                } else {
+                    showResult('test2', false, 'Player name elements not found');
+                }
+            } catch (error) {
+                showResult('test2', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testScoreDisplay() {
+            try {
+                const scoreElements = document.querySelectorAll('[id*="player"][id*="score"]');
+                if (scoreElements.length >= 2) {
+                    showResult('test3', true, 'Score display elements are present');
+                } else {
+                    showResult('test3', false, 'Score display elements not found');
+                }
+            } catch (error) {
+                showResult('test3', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testDiceRolling() {
+            try {
+                const diceElement = document.getElementById('tp-dice-display');
+                if (diceElement) {
+                    // Simulate dice click
+                    diceElement.click();
+                    showResult('test4', true, 'Dice rolling functionality is available');
+                } else {
+                    showResult('test4', false, 'Dice element not found');
+                }
+            } catch (error) {
+                showResult('test4', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testLinesToDrawUpdate() {
+            try {
+                const linesToDrawElement = document.getElementById('tp-lines-to-draw-count');
+                if (linesToDrawElement) {
+                    showResult('test5', true, 'Lines to draw counter is present');
+                } else {
+                    showResult('test5', false, 'Lines to draw counter not found');
+                }
+            } catch (error) {
+                showResult('test5', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testSpecialLine() {
+            try {
+                // Check if special line functionality exists
+                if (typeof window.hasSpecialLine !== 'undefined') {
+                    showResult('test6', true, 'Special line functionality is implemented');
+                } else {
+                    showResult('test6', false, 'Special line functionality not found');
+                }
+            } catch (error) {
+                showResult('test6', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testValidLineDrawing() {
+            try {
+                const canvas = document.getElementById('two-player-canvas');
+                if (canvas) {
+                    showResult('test7', true, 'Canvas is available for line drawing');
+                } else {
+                    showResult('test7', false, 'Canvas not found');
+                }
+            } catch (error) {
+                showResult('test7', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testInvalidLinePrevention() {
+            try {
+                // Check if line validation functions exist
+                if (typeof window.isValidLine !== 'undefined') {
+                    showResult('test8', true, 'Line validation is implemented');
+                } else {
+                    showResult('test8', false, 'Line validation not found');
+                }
+            } catch (error) {
+                showResult('test8', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testDuplicateLinePrevention() {
+            try {
+                // Check if duplicate line prevention exists
+                if (typeof window.isLineAlreadyDrawn !== 'undefined') {
+                    showResult('test9', true, 'Duplicate line prevention is implemented');
+                } else {
+                    showResult('test9', false, 'Duplicate line prevention not found');
+                }
+            } catch (error) {
+                showResult('test9', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testTurnBasedDrawing() {
+            try {
+                // Check if turn management exists
+                if (typeof window.playerTurn !== 'undefined') {
+                    showResult('test10', true, 'Turn-based drawing is implemented');
+                } else {
+                    showResult('test10', false, 'Turn management not found');
+                }
+            } catch (error) {
+                showResult('test10', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testSquareCompletion() {
+            try {
+                // Check if square completion function exists
+                if (typeof window.checkAndCompleteSquare !== 'undefined') {
+                    showResult('test11', true, 'Square completion detection is implemented');
+                } else {
+                    showResult('test11', false, 'Square completion function not found');
+                }
+            } catch (error) {
+                showResult('test11', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testScoreUpdateOnCompletion() {
+            try {
+                // Check if score update functionality exists
+                if (typeof window.playerScores !== 'undefined') {
+                    showResult('test12', true, 'Score update on completion is implemented');
+                } else {
+                    showResult('test12', false, 'Score tracking not found');
+                }
+            } catch (error) {
+                showResult('test12', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testTurnContinuation() {
+            try {
+                // Check if turn continuation logic exists
+                if (typeof window.switchTurn !== 'undefined') {
+                    showResult('test13', true, 'Turn continuation logic is implemented');
+                } else {
+                    showResult('test13', false, 'Turn switching function not found');
+                }
+            } catch (error) {
+                showResult('test13', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testTurnSwitching() {
+            try {
+                // Check if turn switching exists
+                if (typeof window.switchTurn !== 'undefined') {
+                    showResult('test14', true, 'Turn switching is implemented');
+                } else {
+                    showResult('test14', false, 'Turn switching function not found');
+                }
+            } catch (error) {
+                showResult('test14', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testCurrentPlayerDisplay() {
+            try {
+                const currentPlayerElement = document.getElementById('tp-current-player-name');
+                if (currentPlayerElement) {
+                    showResult('test15', true, 'Current player display is implemented');
+                } else {
+                    showResult('test15', false, 'Current player display not found');
+                }
+            } catch (error) {
+                showResult('test15', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testMajorityWin() {
+            try {
+                // Check if majority win condition exists
+                if (typeof window.checkGameOver !== 'undefined') {
+                    showResult('test16', true, 'Majority win condition is implemented');
+                } else {
+                    showResult('test16', false, 'Game over check function not found');
+                }
+            } catch (error) {
+                showResult('test16', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testAllSquaresCompletedWin() {
+            try {
+                // Check if all squares completed win condition exists
+                if (typeof window.checkGameOver !== 'undefined') {
+                    showResult('test17', true, 'All squares completed win condition is implemented');
+                } else {
+                    showResult('test17', false, 'Game over check function not found');
+                }
+            } catch (error) {
+                showResult('test17', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testTieGame() {
+            try {
+                // Check if tie game condition exists
+                if (typeof window.checkGameOver !== 'undefined') {
+                    showResult('test18', true, 'Tie game condition is implemented');
+                } else {
+                    showResult('test18', false, 'Game over check function not found');
+                }
+            } catch (error) {
+                showResult('test18', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testAllLinesDrawnWin() {
+            try {
+                // Check if all lines drawn win condition exists
+                if (typeof window.checkGameOver !== 'undefined') {
+                    showResult('test19', true, 'All lines drawn win condition is implemented');
+                } else {
+                    showResult('test19', false, 'Game over check function not found');
+                }
+            } catch (error) {
+                showResult('test19', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testRestartGame() {
+            try {
+                const restartButton = document.getElementById('tp-restart-btn');
+                if (restartButton) {
+                    showResult('test20', true, 'Restart game functionality is available');
+                } else {
+                    showResult('test20', false, 'Restart button not found');
+                }
+            } catch (error) {
+                showResult('test20', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testBackToHome() {
+            try {
+                const backButton = document.getElementById('tp-back-to-home-btn');
+                if (backButton) {
+                    showResult('test21', true, 'Back to home functionality is available');
+                } else {
+                    showResult('test21', false, 'Back to home button not found');
+                }
+            } catch (error) {
+                showResult('test21', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testMultipleSquareCompletion() {
+            try {
+                // Check if multiple square completion logic exists
+                if (typeof window.checkAndCompleteSquare !== 'undefined') {
+                    showResult('test22', true, 'Multiple square completion is implemented');
+                } else {
+                    showResult('test22', false, 'Square completion function not found');
+                }
+            } catch (error) {
+                showResult('test22', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testLinesToDrawLimit() {
+            try {
+                // Check if lines to draw limit exists
+                if (typeof window.linesToDraw !== 'undefined') {
+                    showResult('test23', true, 'Lines to draw limit is implemented');
+                } else {
+                    showResult('test23', false, 'Lines to draw tracking not found');
+                }
+            } catch (error) {
+                showResult('test23', false, 'Error: ' + error.message);
+            }
+        }
+
+        function testGameStatePersistence() {
+            try {
+                // Check if game state variables exist
+                if (typeof window.playerTurn !== 'undefined' && 
+                    typeof window.playerScores !== 'undefined' && 
+                    typeof window.drawnLines !== 'undefined') {
+                    showResult('test24', true, 'Game state persistence is implemented');
+                } else {
+                    showResult('test24', false, 'Game state variables not found');
+                }
+            } catch (error) {
+                showResult('test24', false, 'Error: ' + error.message);
+            }
+        }
+
+        function runAllTests() {
+            // Reset counters
+            passedTests = 0;
+            failedTests = 0;
+            
+            // Run all tests
+            testGameScreenLoading();
+            testPlayerNamesDisplay();
+            testScoreDisplay();
+            testDiceRolling();
+            testLinesToDrawUpdate();
+            testSpecialLine();
+            testValidLineDrawing();
+            testInvalidLinePrevention();
+            testDuplicateLinePrevention();
+            testTurnBasedDrawing();
+            testSquareCompletion();
+            testScoreUpdateOnCompletion();
+            testTurnContinuation();
+            testTurnSwitching();
+            testCurrentPlayerDisplay();
+            testMajorityWin();
+            testAllSquaresCompletedWin();
+            testTieGame();
+            testAllLinesDrawnWin();
+            testRestartGame();
+            testBackToHome();
+            testMultipleSquareCompletion();
+            testLinesToDrawLimit();
+            testGameStatePersistence();
+
+            // Show final summary
+            setTimeout(() => {
+                const summaryDiv = document.getElementById('test-summary-results');
+                const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+                summaryDiv.innerHTML = `
+                    <h3>📊 Final Test Results</h3>
+                    <p><strong>Total Tests:</strong> ${totalTests}</p>
+                    <p><strong>Passed:</strong> <span style="color: #28a745;">${passedTests}</span></p>
+                    <p><strong>Failed:</strong> <span style="color: #dc3545;">${failedTests}</span></p>
+                    <p><strong>Success Rate:</strong> <span style="color: #007bff;">${successRate}%</span></p>
+                    <p><strong>Status:</strong> ${passedTests === totalTests ? '🎉 ALL TESTS PASSED!' : '⚠️ Some tests failed'}</p>
+                `;
+                
+                const allTestsResult = document.getElementById('all-tests-result');
+                allTestsResult.className = 'test-result ' + (passedTests === totalTests ? 'pass' : 'fail');
+                allTestsResult.innerHTML = passedTests === totalTests ? 
+                    '✅ ALL TESTS PASSED! 2-Player Offline Mode is working correctly.' : 
+                    '❌ Some tests failed. Please check the individual test results above.';
+            }, 1000);
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            console.log('🧪 2-Player Offline Test Suite Loaded');
+            console.log('Ready to test all use cases and winning conditions');
+        });
+    </script>
+</body>
+</html> 

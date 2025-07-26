@@ -5,10 +5,15 @@ const PORT = process.env.PORT || 4000;
 const http = require('http');
 const { Server } = require('socket.io');
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from public directory
+app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
+app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+app.use('/socket.io', express.static(path.join(__dirname, 'node_modules', 'socket.io', 'client-dist')));
 
+// Serve index.html from root directory
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Lobby/session management
