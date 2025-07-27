@@ -142,3 +142,13 @@ The game is fully functional with:
 - ✅ Enhanced user experience
 
 **Version 2.0.0 is ready for production deployment!** 🎮✨ 
+
+## Deployment Checklist for v2.1.0
+
+- [ ] Special line is only granted for dice roll 1 if more than 5 boxes are left.
+- [ ] When 5 boxes are left and a 1 is rolled, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."
+- [ ] No special line is granted for dice roll 1 if 4 or fewer boxes are left.
+- [ ] No special line is granted for any dice value except 1.
+- [ ] All legacy popups for dice roll 6 are removed.
+- [ ] All popups and game logic match the new rules.
+- [ ] Version/tag is set to 2.1.0 everywhere. 

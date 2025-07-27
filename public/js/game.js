@@ -10,7 +10,7 @@ window.onload = function() {
   const SQUARE_MARK_COLOR_PLAYER1 = '#2F4F4F'; // DarkSlateGray for X
   const SQUARE_MARK_COLOR_PLAYER2 = '#8B4513'; // SaddleBrown for O
   const ACTIVE_DOT_COLOR = '#FF6347'; // Tomato for selected dot (still vibrant for visibility)
-  const SPECIAL_LINE_DICE_VALUE = 6; // Dice value that grants a special line
+  const SPECIAL_LINE_DICE_VALUE = 1; // Dice value that grants a special line (changed from 6 to 1)
   const AI_MOVE_DELAY = 700; // Delay in milliseconds for AI moves
   const BOARD_PADDING = 15; // Padding from canvas edge to the center of the first dot
   const LINE_SELECT_RADIUS = 35; // Increased radius for easier line selection on mobile
@@ -503,8 +503,14 @@ window.onload = function() {
         console.log('[DICE ROLL][REMOTE] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          hasSpecialLine = true;
-          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+          if (getRemainingBoxes() > 5) {
+            hasSpecialLine = true;
+            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
+          } else if (getRemainingBoxes() === 5) {
+            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
+          } else {
+            // No popup for <= 4 boxes left
+          }
         }
         updateScoreDisplay();
         return;
@@ -553,8 +559,14 @@ window.onload = function() {
         console.log('[DICE ROLL][LOCAL] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          hasSpecialLine = true;
-          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+          if (getRemainingBoxes() > 5) {
+            hasSpecialLine = true;
+            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
+          } else if (getRemainingBoxes() === 5) {
+            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
+          } else {
+            // No popup for <= 4 boxes left
+          }
         }
         updateScoreDisplay();
       });
@@ -587,8 +599,14 @@ window.onload = function() {
         console.log('[DICE ROLL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          hasSpecialLine = true;
-          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+          if (getRemainingBoxes() > 5) {
+            hasSpecialLine = true;
+            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
+          } else if (getRemainingBoxes() === 5) {
+            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
+          } else {
+            // No popup for <= 4 boxes left
+          }
         }
         updateScoreDisplay();
         diceDisplayEl.classList.remove('disabled');
@@ -685,15 +703,8 @@ window.onload = function() {
       if (gameMode === 'singlePlayer' && playerTurn === 2 && !gameOver) {
           console.log("Switching to AI turn. AI will roll dice soon.");
           setTimeout(aiMakeMove, AI_MOVE_DELAY);
-      } else if (gameMode === 'twoPlayers' && !gameOver) {
-          showMessage("Next Turn", `It's ${playerNames[playerTurn]}'s turn! Roll the dice.`);
-      } else if (gameMode === 'onlineMultiplayer' && !gameOver) {
-          if (playerTurn === onlinePlayerRole) {
-              showMessage("Your Turn", "It's your turn! Roll the dice to get lines to draw.");
-          } else {
-              showMessage("Opponent's Turn", "Waiting for your opponent to roll the dice...");
-          }
       }
+      // No popups or recursive calls for twoPlayers or onlineMultiplayer turn changes
   }
 
   /**
@@ -2343,7 +2354,7 @@ window.onload = function() {
           displayDiceValue(diceValue);
           if (diceValue === SPECIAL_LINE_DICE_VALUE) {
             hasSpecialLine = true;
-            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
           }
           updateScoreDisplay();
         });
@@ -2552,6 +2563,17 @@ window.onload = function() {
           currentDiceDisplayEl.style.transform = 'scale(1)';
           currentDiceDisplayEl.style.animation = 'none';
       }
+  }
+
+  // Utility function to count remaining boxes
+  function getRemainingBoxes() {
+    let totalCompleted = 0;
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            if (completedSquares[r][c] !== 0) totalCompleted++;
+        }
+    }
+    return GRID_SIZE * GRID_SIZE - totalCompleted;
   }
 
 }; // End of window.onload
