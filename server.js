@@ -113,6 +113,10 @@ io.on('connection', (socket) => {
     if (action && action.type === 'gameOver') {
       if (lobbies[lobbyCode]) {
         lobbies[lobbyCode].gameOver = true;
+        lobbies[lobbyCode].gameWinner = action.winner;
+        lobbies[lobbyCode].gameWinnerRole = action.winnerRole;
+        lobbies[lobbyCode].gameWinnerScore = action.winnerScore;
+        console.log(`Game over in lobby ${lobbyCode}: Player ${action.winner} (Role: ${action.winnerRole}) wins with ${action.winnerScore} squares`);
       }
     }
   });
@@ -129,8 +133,9 @@ io.on('connection', (socket) => {
         // Remove socket from room before sending message
         socket.leave(lobbyCode);
         
-        // Notify remaining players with win message
-        if (lobbies[lobbyCode].players.length > 0) {
+        // Check if game was already over before showing disconnect message
+        if (lobbies[lobbyCode].players.length > 0 && !lobbies[lobbyCode].gameOver) {
+          // Game was not over, so show the opponent left message
           io.to(lobbyCode).emit('playerDisconnected', { 
             message: 'Your opponent has left the game. Congratulations, you win!',
             winner: lobbies[lobbyCode].players[0] // The remaining player wins
@@ -140,6 +145,10 @@ io.on('connection', (socket) => {
           setTimeout(() => {
             destroyLobbySession(lobbyCode);
           }, 500); // Reduced delay for faster cleanup
+        } else if (lobbies[lobbyCode].players.length > 0 && lobbies[lobbyCode].gameOver) {
+          // Game was already over, just destroy the lobby without showing disconnect message
+          console.log(`Player left lobby ${lobbyCode} but game was already over, destroying lobby silently`);
+          destroyLobbySession(lobbyCode);
         } else {
           // If no players left, destroy immediately
           destroyLobbySession(lobbyCode);
@@ -161,8 +170,9 @@ io.on('connection', (socket) => {
         // Remove socket from room before sending message
         socket.leave(lobbyCode);
         
-        // Notify remaining players with win message
-        if (lobby.players.length > 0) {
+        // Check if game was already over before showing disconnect message
+        if (lobby.players.length > 0 && !lobby.gameOver) {
+          // Game was not over, so show the opponent left message
           io.to(lobbyCode).emit('playerDisconnected', { 
             message: 'Your opponent has left the game. Congratulations, you win!',
             winner: lobby.players[0] // The remaining player wins
@@ -172,6 +182,10 @@ io.on('connection', (socket) => {
           setTimeout(() => {
             destroyLobbySession(lobbyCode);
           }, 500); // Reduced delay for faster cleanup
+        } else if (lobby.players.length > 0 && lobby.gameOver) {
+          // Game was already over, just destroy the lobby without showing disconnect message
+          console.log(`Player disconnected from lobby ${lobbyCode} but game was already over, destroying lobby silently`);
+          destroyLobbySession(lobbyCode);
         } else {
           // If no players left, destroy immediately
           destroyLobbySession(lobbyCode);
@@ -182,7 +196,13 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(8000, '0.0.0.0', () => {
+server.listen(4000, '0.0.0.0', () => {
   const ip = getLocalIP();
-  console.log(`Dots and Boxes app running at http://${ip}:8000`);
-}); 
+  console.log(`Dots and Boxes app running at http://localhost:4000`);
+});
+
+// server.listen(8000, '0.0.0.0', () => {
+//   const ip = getLocalIP();
+//   console.log(`Dots and Boxes app running at http://${ip}:8000`);
+// }); 
+
