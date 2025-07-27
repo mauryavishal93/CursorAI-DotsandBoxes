@@ -13,7 +13,9 @@ window.onload = function() {
   const SPECIAL_LINE_DICE_VALUE = 6; // Dice value that grants a special line
   const AI_MOVE_DELAY = 700; // Delay in milliseconds for AI moves
   const BOARD_PADDING = 15; // Padding from canvas edge to the center of the first dot
-  const LINE_SELECT_RADIUS = 24; // Increased radius for easier line selection on mobile
+  const LINE_SELECT_RADIUS = 35; // Increased radius for easier line selection on mobile
+  const TOUCH_RADIUS = 25; // Increased touch radius for better mobile experience
+  const DRAG_THRESHOLD = 10; // Minimum distance to start drag operation
 
   // SVG representations for dice faces (shared)
   const diceSVGs = {
@@ -183,6 +185,11 @@ window.onload = function() {
    * @param {string} text - The main text content.
    */
   function showMessage(title, text, onClose) {
+      if (!messageTitle || !messageText || !messageBox || !messageBoxCloseBtn) {
+          console.error('Message box elements not found');
+          return;
+      }
+      
       messageTitle.textContent = title;
       messageText.textContent = text;
       messageBox.style.display = 'block';
@@ -202,7 +209,9 @@ window.onload = function() {
    * Hides the custom message box.
    */
   function hideMessageBox() {
-      messageBox.style.display = 'none';
+      if (messageBox) {
+          messageBox.style.display = 'none';
+      }
   }
 
   /**
@@ -213,6 +222,11 @@ window.onload = function() {
    * @param {function} onCancel - Callback function if 'No' is clicked.
    */
   function showConfirmation(title, text, onConfirm, onCancel) {
+      if (!confirmationTitle || !confirmationText || !confirmationBox || !confirmYesBtn || !confirmNoBtn) {
+          console.error('Confirmation box elements not found');
+          return;
+      }
+      
       confirmationTitle.textContent = title;
       confirmationText.textContent = text;
       confirmationBox.style.display = 'block';
@@ -233,12 +247,12 @@ window.onload = function() {
    * Hides all main screen elements.
    */
   function hideAllScreens() {
-      homeScreen.style.display = 'none';
-      singlePlayerSetupScreen.style.display = 'none';
-      twoPlayerSetupScreen.style.display = 'none';
-      spGameScreen.style.display = 'none';
-      tpGameScreen.style.display = 'none';
-      onlineGameScreen.style.display = 'none';
+      if (homeScreen) homeScreen.style.display = 'none';
+      if (singlePlayerSetupScreen) singlePlayerSetupScreen.style.display = 'none';
+      if (twoPlayerSetupScreen) twoPlayerSetupScreen.style.display = 'none';
+      if (spGameScreen) spGameScreen.style.display = 'none';
+      if (tpGameScreen) tpGameScreen.style.display = 'none';
+      if (onlineGameScreen) onlineGameScreen.style.display = 'none';
   }
 
   /**
@@ -246,6 +260,11 @@ window.onload = function() {
    * @param {HTMLElement} screenToShow - The screen element to display.
    */
   function showScreen(screenToShow) {
+      if (!screenToShow) {
+          console.error('Screen element not found');
+          return;
+      }
+      
       hideAllScreens();
       screenToShow.style.display = 'flex';
   }
@@ -255,8 +274,18 @@ window.onload = function() {
    * Adjusts for smaller screens to ensure visibility.
    */
   function initializeCanvasDimensions() {
+      if (!currentCanvas) {
+          console.error('Current canvas not found');
+          return;
+      }
+      
       // Get the available width within the game screen container
       const parentContainer = currentCanvas.parentElement; // This is sp-game-screen or tp-game-screen
+      if (!parentContainer) {
+          console.error('Canvas parent container not found');
+          return;
+      }
+      
       let availableWidth = parentContainer.clientWidth;
 
       // Account for potential margin on the canvas itself (5px on each side, as per CSS)
@@ -291,11 +320,18 @@ window.onload = function() {
    * Clears the canvas and draws the initial dots.
    */
   function drawBoard() {
+      if (!currentCtx) {
+          console.error('Canvas context not available');
+          return;
+      }
+      
+      // Clear the canvas
       currentCtx.clearRect(0, 0, currentCanvas.width, currentCanvas.height);
-
-      for (let i = 0; i <= GRID_SIZE; i++) {
-          for (let j = 0; j <= GRID_SIZE; j++) {
-              drawDot(i, j, DOT_COLOR);
+      
+      // Draw all dots
+      for (let row = 0; row <= GRID_SIZE; row++) {
+          for (let col = 0; col <= GRID_SIZE; col++) {
+              drawDot(row, col, '#4A2C2A');
           }
       }
   }
@@ -307,17 +343,18 @@ window.onload = function() {
    * @param {string} color - The color of the dot.
    */
   function drawDot(row, col, color) {
-      const x = col * cellSize + DOT_RADIUS + BOARD_PADDING;
-      const y = row * cellSize + DOT_RADIUS + BOARD_PADDING;
-
+      if (!currentCtx) {
+          console.error('Canvas context not available for drawing dot');
+          return;
+      }
+      
+      const x = BOARD_PADDING + col * cellSize;
+      const y = BOARD_PADDING + row * cellSize;
+      
       currentCtx.beginPath();
       currentCtx.arc(x, y, DOT_RADIUS, 0, 2 * Math.PI);
       currentCtx.fillStyle = color;
-      currentCtx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      currentCtx.shadowBlur = 3;
       currentCtx.fill();
-      currentCtx.shadowBlur = 0;
-      currentCtx.closePath();
   }
 
   /**
@@ -326,23 +363,22 @@ window.onload = function() {
    * @param {string} color - The color of the line.
    */
   function drawLine(line, color) {
-      const x1 = line.start.col * cellSize + DOT_RADIUS + BOARD_PADDING;
-      const y1 = line.start.row * cellSize + DOT_RADIUS + BOARD_PADDING;
-      const x2 = line.end.col * cellSize + DOT_RADIUS + BOARD_PADDING;
-      const y2 = line.end.row * cellSize + DOT_RADIUS + BOARD_PADDING;
-
+      if (!currentCtx) {
+          console.error('Canvas context not available for drawing line');
+          return;
+      }
+      
+      const startX = BOARD_PADDING + line.start.col * cellSize;
+      const startY = BOARD_PADDING + line.start.row * cellSize;
+      const endX = BOARD_PADDING + line.end.col * cellSize;
+      const endY = BOARD_PADDING + line.end.row * cellSize;
+      
       currentCtx.beginPath();
-      currentCtx.moveTo(x1, y1);
-      currentCtx.lineTo(x2, y2);
+      currentCtx.moveTo(startX, startY);
+      currentCtx.lineTo(endX, endY);
       currentCtx.strokeStyle = color;
       currentCtx.lineWidth = LINE_WIDTH;
-      currentCtx.lineCap = 'round';
-      currentCtx.lineJoin = 'round';
-      currentCtx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-      currentCtx.shadowBlur = 2;
       currentCtx.stroke();
-      currentCtx.shadowBlur = 0;
-      currentCtx.closePath();
   }
 
   /**
@@ -369,18 +405,19 @@ window.onload = function() {
    * Resets the game state variables.
    */
   function resetGameState() {
+      // Reset all game state variables
       playerTurn = 1;
       linesToDraw = 0;
       diceValue = 0;
       playerScores = { 1: 0, 2: 0 };
-      drawnLines = []; // Array to store { start, end, player } objects
-      drawnLineKeys = new Set(); // Set to store canonical string keys for quick lookup
+      drawnLines = [];
+      drawnLineKeys = new Set();
       completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0)); // 0: uncompleted, 1: P1, 2: P2
       selectedDot = null;
       isDrawingLine = false;
       gameOver = false;
       hasSpecialLine = false;
-      hasRolledDice = false; // Reset dice roll flag
+      hasRolledDice = false;
       clearInterval(diceAnimationIntervalId);
   }
 
@@ -389,33 +426,41 @@ window.onload = function() {
    */
   function updateScoreDisplay() {
       if (gameMode === 'singlePlayer') {
-          spPlayer1CountEl.textContent = playerScores[1];
-          spPlayer2CountEl.textContent = playerScores[2];
-          spPlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
-          spPlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
-          spCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
-          spLinesToDrawCountEl.textContent = linesToDraw;
-          spSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          if (spPlayer1CountEl) spPlayer1CountEl.textContent = playerScores[1];
+          if (spPlayer2CountEl) spPlayer2CountEl.textContent = playerScores[2];
+          if (spCurrentPlayerNameDisplay) spCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (spLinesToDrawCountEl) spLinesToDrawCountEl.textContent = linesToDraw;
+          if (spSpecialLineIndicatorEl) spSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          
+          // Update active player styling
+          if (spPlayer1ScoreEl) spPlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
+          if (spPlayer2ScoreEl) spPlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
       } else if (gameMode === 'twoPlayers') {
-          tpPlayer1CountEl.textContent = playerScores[1];
-          tpPlayer2CountEl.textContent = playerScores[2];
-          tpPlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
-          tpPlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
-          tpCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
-          tpLinesToDrawCountEl.textContent = linesToDraw;
-          tpSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          if (tpPlayer1CountEl) tpPlayer1CountEl.textContent = playerScores[1];
+          if (tpPlayer2CountEl) tpPlayer2CountEl.textContent = playerScores[2];
+          if (tpCurrentPlayerNameDisplay) tpCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (tpLinesToDrawCountEl) tpLinesToDrawCountEl.textContent = linesToDraw;
+          if (tpSpecialLineIndicatorEl) tpSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          
+          // Update active player styling
+          if (tpPlayer1ScoreEl) tpPlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
+          if (tpPlayer2ScoreEl) tpPlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
       } else if (gameMode === 'onlineMultiplayer') {
-          onlinePlayer1CountEl.textContent = playerScores[1];
-          onlinePlayer2CountEl.textContent = playerScores[2];
-          onlinePlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
-          onlinePlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
-          onlineCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
-          console.log('[DEBUG] linesToDraw value:', linesToDraw, 'type:', typeof linesToDraw);
-          onlineLinesToDrawCountEl.textContent = linesToDraw;
-          onlineSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          if (onlinePlayer1CountEl) onlinePlayer1CountEl.textContent = playerScores[1];
+          if (onlinePlayer2CountEl) onlinePlayer2CountEl.textContent = playerScores[2];
+          if (onlineCurrentPlayerNameDisplay) onlineCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (onlineLinesToDrawCountEl) onlineLinesToDrawCountEl.textContent = linesToDraw;
+          if (onlineSpecialLineIndicatorEl) onlineSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
+          
+          // Update active player styling
+          if (onlinePlayer1ScoreEl) onlinePlayer1ScoreEl.classList.toggle('active', playerTurn === 1);
+          if (onlinePlayer2ScoreEl) onlinePlayer2ScoreEl.classList.toggle('active', playerTurn === 2);
+          
+          updateOnlineTurnInfo();
       }
-      console.log(`updateScoreDisplay: Player 1 Score: ${playerScores[1]}, Player 2 Score: ${playerScores[2]}`);
-      updateOnlineTurnInfo();
+      
+      // Update dice interactivity based on current state
+      updateDiceInteractivity();
   }
 
   /**
@@ -620,15 +665,21 @@ window.onload = function() {
    * Switches the current player turn.
    */
   function switchTurn() {
-      playerTurn = (playerTurn === 1) ? 2 : 1;
+      playerTurn = playerTurn === 1 ? 2 : 1;
       linesToDraw = 0; // Reset lines to draw for the new player
-      hasRolledDice = false; // Reset dice roll flag for the new player's turn
+      hasRolledDice = false; // Reset dice roll flag for new turn
       displayDiceValue(0); // Show default dice face for next turn
+      
+      // Update display
       updateScoreDisplay();
-
+      
+      // Update dice interactivity for new turn
+      updateDiceInteractivity();
+      
+      // Check if it's AI's turn in single-player mode
       if (gameMode === 'singlePlayer' && playerTurn === 2 && !gameOver) {
           console.log("Switching to AI turn. AI will roll dice soon.");
-          setTimeout(rollDice, AI_MOVE_DELAY); // AI rolls dice
+          setTimeout(aiMakeMove, AI_MOVE_DELAY);
       } else if (gameMode === 'twoPlayers' && !gameOver) {
           showMessage("Next Turn", `It's ${playerNames[playerTurn]}'s turn! Roll the dice.`);
       } else if (gameMode === 'onlineMultiplayer' && !gameOver) {
@@ -737,7 +788,7 @@ window.onload = function() {
               const dotY = r * cellSize + DOT_RADIUS + BOARD_PADDING;
               const dist = Math.sqrt(Math.pow(mouseX - dotX, 2) + Math.pow(mouseY - dotY, 2));
 
-              if (dist < DOT_RADIUS * 1.5 && dist < minDistance) { // Increased clickable area
+              if (dist < TOUCH_RADIUS && dist < minDistance) { // Use TOUCH_RADIUS for better mobile experience
                   minDistance = dist;
                   closestDot = { row: r, col: c };
               }
@@ -770,6 +821,76 @@ window.onload = function() {
 
 
   /**
+   * Provides enhanced visual feedback for line drawing operations.
+   * @param {object} startDot - The starting dot coordinates.
+   * @param {object} endDot - The ending dot coordinates.
+   * @param {string} color - The color for the feedback.
+   */
+  function drawEnhancedPreview(startDot, endDot, color) {
+      if (!startDot || !endDot) return;
+      
+      currentCtx.save();
+      
+      // Draw enhanced preview line
+      currentCtx.beginPath();
+      currentCtx.moveTo(startDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, startDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
+      currentCtx.lineTo(endDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, endDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
+      
+      // Enhanced styling
+      currentCtx.strokeStyle = color + '90'; // More opaque
+      currentCtx.lineWidth = LINE_WIDTH + 3; // Thicker line
+      currentCtx.lineCap = 'round';
+      currentCtx.lineJoin = 'round';
+      currentCtx.setLineDash([15, 8]); // Longer dashes
+      currentCtx.stroke();
+      
+      // Add glow effect
+      currentCtx.shadowColor = color;
+      currentCtx.shadowBlur = 8;
+      currentCtx.shadowOffsetX = 0;
+      currentCtx.shadowOffsetY = 0;
+      currentCtx.stroke();
+      
+      currentCtx.restore();
+      currentCtx.setLineDash([]); // Reset line dash
+  }
+
+  /**
+   * Draws a smooth animated line from start to end position.
+   * @param {number} startX - Starting X coordinate.
+   * @param {number} startY - Starting Y coordinate.
+   * @param {number} endX - Ending X coordinate.
+   * @param {number} endY - Ending Y coordinate.
+   * @param {string} color - Line color.
+   * @param {number} progress - Animation progress (0 to 1).
+   */
+  function drawSmoothLine(startX, startY, endX, endY, color, progress = 1) {
+      currentCtx.save();
+      currentCtx.beginPath();
+      currentCtx.moveTo(startX, startY);
+      
+      // Calculate current position based on progress
+      const currentX = startX + (endX - startX) * progress;
+      const currentY = startY + (endY - startY) * progress;
+      
+      currentCtx.lineTo(currentX, currentY);
+      currentCtx.strokeStyle = color;
+      currentCtx.lineWidth = LINE_WIDTH + 2;
+      currentCtx.lineCap = 'round';
+      currentCtx.lineJoin = 'round';
+      currentCtx.stroke();
+      
+      // Add glow effect
+      currentCtx.shadowColor = color;
+      currentCtx.shadowBlur = 4;
+      currentCtx.shadowOffsetX = 0;
+      currentCtx.shadowOffsetY = 0;
+      currentCtx.stroke();
+      
+      currentCtx.restore();
+  }
+
+  /**
    * Handles mouse/touch down event on the canvas.
    * @param {MouseEvent|TouchEvent} event - The event object.
    */
@@ -789,21 +910,61 @@ window.onload = function() {
       if (gameOver) return;
       event.preventDefault(); // Prevent scrolling on touch devices
 
-      let clientX, clientY;
-      if (event.touches) {
-          clientX = event.touches[0].clientX;
-          clientY = event.touches[0].clientY;
-      } else {
-          clientX = event.clientX;
-          clientY = event.clientY;
+      // Validate canvas context
+      if (!currentCtx) {
+          console.error("Canvas context not available");
+          return;
       }
+
+      let clientX, clientY;
+      try {
+          if (event.touches && event.touches.length > 0) {
+              clientX = event.touches[0].clientX;
+              clientY = event.touches[0].clientY;
+          } else if (event.clientX !== undefined && event.clientY !== undefined) {
+              clientX = event.clientX;
+              clientY = event.clientY;
+          } else {
+              console.error("Unable to get coordinates from event");
+              return;
+          }
+      } catch (error) {
+          console.error("Error getting coordinates:", error);
+          return;
+      }
+
+      // Initialize drag variables
+      dragStartX = clientX;
+      dragStartY = clientY;
+      dragDistance = 0;
+      isDragging = false;
+      lastDragTime = Date.now();
+      dragVelocity = { x: 0, y: 0 };
 
       selectedDot = getDotAtCoordinates(clientX, clientY);
       if (selectedDot) {
           isDrawingLine = true;
-          drawBoard(); // Redraw to clear previous active dot
-          redrawLines(); // Redraw existing lines
-          redrawSquares(); // Redraw existing squares
+          
+          // Enhanced visual feedback for selected dot
+          drawBoard();
+          redrawLines();
+          redrawSquares();
+          
+          // Draw enhanced selection indicator
+          currentCtx.save();
+          currentCtx.globalAlpha = 0.3;
+          currentCtx.fillStyle = ACTIVE_DOT_COLOR;
+          currentCtx.beginPath();
+          currentCtx.arc(
+              selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+              selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING,
+              TOUCH_RADIUS,
+              0,
+              2 * Math.PI
+          );
+          currentCtx.fill();
+          currentCtx.restore();
+          
           drawDot(selectedDot.row, selectedDot.col, ACTIVE_DOT_COLOR);
       }
   }
@@ -826,41 +987,190 @@ window.onload = function() {
       if (gameOver || !isDrawingLine || !selectedDot) return;
       event.preventDefault(); // Prevent scrolling on touch devices
 
-      let clientX, clientY;
-      if (event.touches) {
-          clientX = event.touches[0].clientX;
-          clientY = event.touches[0].clientY;
-      } else {
-          clientX = event.clientX;
-          clientY = event.clientY;
+      // Validate canvas context
+      if (!currentCtx) {
+          console.error("Canvas context not available");
+          return;
       }
 
-      const currentDot = getDotAtCoordinates(clientX, clientY);
+      let clientX, clientY;
+      try {
+          if (event.touches && event.touches.length > 0) {
+              clientX = event.touches[0].clientX;
+              clientY = event.touches[0].clientY;
+          } else if (event.clientX !== undefined && event.clientY !== undefined) {
+              clientX = event.clientX;
+              clientY = event.clientY;
+          } else {
+              console.error("Unable to get coordinates from event");
+              return;
+          }
+      } catch (error) {
+          console.error("Error getting coordinates:", error);
+          return;
+      }
 
-      // Clear canvas and redraw everything to show preview line
+      // Calculate drag distance and velocity
+      const currentTime = Date.now();
+      const deltaX = clientX - dragStartX;
+      const deltaY = clientY - dragStartY;
+      dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      const timeDiff = currentTime - lastDragTime;
+      if (timeDiff > 0) {
+          dragVelocity.x = deltaX / timeDiff;
+          dragVelocity.y = deltaY / timeDiff;
+      }
+      lastDragTime = currentTime;
+
+      // Start dragging if threshold is met
+      if (dragDistance > DRAG_THRESHOLD && !isDragging) {
+          isDragging = true;
+      }
+
+      // Get current mouse/touch position in canvas coordinates
+      const rect = currentCanvas.getBoundingClientRect();
+      const scaleX = currentCanvas.width / rect.width;
+      const scaleY = currentCanvas.height / rect.height;
+      const mouseX = (clientX - rect.left) * scaleX;
+      const mouseY = (clientY - rect.top) * scaleY;
+
+      // Find the closest valid end dot
+      const currentDot = getDotAtCoordinates(clientX, clientY);
+      let bestEndDot = null;
+      let minDistance = Infinity;
+
+      if (selectedDot) {
+          // Check all adjacent dots (up, down, left, right)
+          const adjacents = [
+              { row: selectedDot.row - 1, col: selectedDot.col }, // up
+              { row: selectedDot.row + 1, col: selectedDot.col }, // down
+              { row: selectedDot.row, col: selectedDot.col - 1 }, // left
+              { row: selectedDot.row, col: selectedDot.col + 1 }  // right
+          ];
+
+          for (const adj of adjacents) {
+              if (adj.row < 0 || adj.row > GRID_SIZE || adj.col < 0 || adj.col > GRID_SIZE) continue;
+              
+              const line = { start: selectedDot, end: adj, player: playerTurn };
+              if (!isValidLine(line)) continue;
+              
+              const canonicalKey = getCanonicalLineKey(line.start, line.end);
+              if (drawnLineKeys.has(canonicalKey)) continue;
+
+              // Calculate distance from mouse to line midpoint
+              const midX = ((selectedDot.col + adj.col) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+              const midY = ((selectedDot.row + adj.row) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+              const dist = Math.sqrt(Math.pow(mouseX - midX, 2) + Math.pow(mouseY - midY, 2));
+              
+              if (dist < LINE_SELECT_RADIUS && dist < minDistance) {
+                  minDistance = dist;
+                  bestEndDot = adj;
+              }
+          }
+      }
+
+      // Redraw everything for smooth preview
       drawBoard();
       redrawLines();
       redrawSquares();
-      drawDot(selectedDot.row, selectedDot.col, ACTIVE_DOT_COLOR); // Keep start dot highlighted
+      
+      // Enhanced visual feedback for selected dot
+      currentCtx.save();
+      currentCtx.globalAlpha = 0.3;
+      currentCtx.fillStyle = ACTIVE_DOT_COLOR;
+      currentCtx.beginPath();
+      currentCtx.arc(
+          selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+          selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING,
+          TOUCH_RADIUS,
+          0,
+          2 * Math.PI
+      );
+      currentCtx.fill();
+      currentCtx.restore();
+      
+      drawDot(selectedDot.row, selectedDot.col, ACTIVE_DOT_COLOR);
 
-      if (currentDot && (currentDot.row !== selectedDot.row || currentDot.col !== selectedDot.col)) {
-          const previewLine = { start: selectedDot, end: currentDot };
-          if (isValidLine(previewLine) && !isLineAlreadyDrawn(previewLine)) {
-              // Draw a preview line (e.g., dashed or lighter color)
-              currentCtx.beginPath();
-              currentCtx.moveTo(selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
-              currentCtx.lineTo(currentDot.col * cellSize + DOT_RADIUS + BOARD_PADDING, currentDot.row * cellSize + DOT_RADIUS + BOARD_PADDING);
-              currentCtx.strokeStyle = (playerTurn === 1) ? LINE_COLOR_PLAYER1 + '60' : LINE_COLOR_PLAYER2 + '60'; // More transparent
-              currentCtx.lineWidth = LINE_WIDTH;
-              currentCtx.lineCap = 'round';
-              currentCtx.lineJoin = 'round';
-              currentCtx.setLineDash([8, 4]); // Longer dashes for smoother appearance
-              currentCtx.stroke();
-              currentCtx.setLineDash([]); // Reset line dash
-              currentCtx.closePath();
+      // Draw preview line to current mouse position
+      if (isDragging) {
+          // Draw a smooth line from start dot to current mouse position
+          currentCtx.save();
+          currentCtx.beginPath();
+          currentCtx.moveTo(
+              selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+              selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING
+          );
+          currentCtx.lineTo(mouseX, mouseY);
+          
+          // Enhanced preview line styling
+          const previewColor = (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2;
+          currentCtx.strokeStyle = previewColor + '80';
+          currentCtx.lineWidth = LINE_WIDTH + 2;
+          currentCtx.lineCap = 'round';
+          currentCtx.lineJoin = 'round';
+          currentCtx.setLineDash([12, 6]);
+          currentCtx.stroke();
+          
+          // Add glow effect
+          currentCtx.shadowColor = previewColor;
+          currentCtx.shadowBlur = 6;
+          currentCtx.shadowOffsetX = 0;
+          currentCtx.shadowOffsetY = 0;
+          currentCtx.stroke();
+          
+          currentCtx.restore();
+          currentCtx.setLineDash([]);
+      }
 
-              drawDot(currentDot.row, currentDot.col, ACTIVE_DOT_COLOR); // Highlight potential end dot
-          }
+      // If we found a valid end dot, highlight it and show the final preview
+      if (bestEndDot) {
+          // Enhanced visual feedback for potential end dot
+          currentCtx.save();
+          currentCtx.globalAlpha = 0.4;
+          currentCtx.fillStyle = ACTIVE_DOT_COLOR;
+          currentCtx.beginPath();
+          currentCtx.arc(
+              bestEndDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+              bestEndDot.row * cellSize + DOT_RADIUS + BOARD_PADDING,
+              TOUCH_RADIUS * 0.8,
+              0,
+              2 * Math.PI
+          );
+          currentCtx.fill();
+          currentCtx.restore();
+          
+          drawDot(bestEndDot.row, bestEndDot.col, ACTIVE_DOT_COLOR);
+          
+          // Draw the final preview line
+          currentCtx.save();
+          currentCtx.beginPath();
+          currentCtx.moveTo(
+              selectedDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+              selectedDot.row * cellSize + DOT_RADIUS + BOARD_PADDING
+          );
+          currentCtx.lineTo(
+              bestEndDot.col * cellSize + DOT_RADIUS + BOARD_PADDING,
+              bestEndDot.row * cellSize + DOT_RADIUS + BOARD_PADDING
+          );
+          
+          const finalPreviewColor = (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2;
+          currentCtx.strokeStyle = finalPreviewColor + 'A0';
+          currentCtx.lineWidth = LINE_WIDTH + 3;
+          currentCtx.lineCap = 'round';
+          currentCtx.lineJoin = 'round';
+          currentCtx.setLineDash([15, 8]);
+          currentCtx.stroke();
+          
+          // Add stronger glow for final preview
+          currentCtx.shadowColor = finalPreviewColor;
+          currentCtx.shadowBlur = 8;
+          currentCtx.shadowOffsetX = 0;
+          currentCtx.shadowOffsetY = 0;
+          currentCtx.stroke();
+          
+          currentCtx.restore();
+          currentCtx.setLineDash([]);
       }
   }
 
@@ -874,6 +1184,7 @@ window.onload = function() {
           // Reset drawing state and redraw board even if AI turn, to clear any accidental previews
           selectedDot = null;
           isDrawingLine = false;
+          isDragging = false;
           drawBoard();
           redrawLines();
           redrawSquares();
@@ -884,6 +1195,7 @@ window.onload = function() {
       if (gameMode === 'onlineMultiplayer' && playerTurn !== onlinePlayerRole) {
           selectedDot = null;
           isDrawingLine = false;
+          isDragging = false;
           drawBoard();
           redrawLines();
           redrawSquares();
@@ -893,6 +1205,7 @@ window.onload = function() {
       if (gameOver || !isDrawingLine || !selectedDot) {
           selectedDot = null;
           isDrawingLine = false;
+          isDragging = false;
           drawBoard();
           redrawLines();
           redrawSquares();
@@ -900,19 +1213,41 @@ window.onload = function() {
       }
       event.preventDefault(); // Prevent scrolling on touch devices
 
-      let clientX, clientY;
-      if (event.changedTouches) { // For touchend, use changedTouches
-          clientX = event.changedTouches[0].clientX;
-          clientY = event.changedTouches[0].clientY;
-      } else {
-          clientX = event.clientX;
-          clientY = event.clientY;
+      // Validate canvas context
+      if (!currentCtx) {
+          console.error("Canvas context not available");
+          return;
       }
 
-      // --- PATCH START: Find nearest available line within radius ---
+      let clientX, clientY;
+      try {
+          if (event.changedTouches && event.changedTouches.length > 0) { // For touchend, use changedTouches
+              clientX = event.changedTouches[0].clientX;
+              clientY = event.changedTouches[0].clientY;
+          } else if (event.clientX !== undefined && event.clientY !== undefined) {
+              clientX = event.clientX;
+              clientY = event.clientY;
+          } else {
+              console.error("Unable to get coordinates from event");
+              return;
+          }
+      } catch (error) {
+          console.error("Error getting coordinates:", error);
+          return;
+      }
+
+      // Enhanced line detection with better tolerance for smooth drawing
       let bestLine = null;
       let minDist = Infinity;
+      
       if (selectedDot) {
+          // Get current mouse/touch position in canvas coordinates
+          const rect = currentCanvas.getBoundingClientRect();
+          const scaleX = currentCanvas.width / rect.width;
+          const scaleY = currentCanvas.height / rect.height;
+          const mouseX = (clientX - rect.left) * scaleX;
+          const mouseY = (clientY - rect.top) * scaleY;
+          
           // Check all adjacent dots (up, down, left, right)
           const adjacents = [
               { row: selectedDot.row - 1, col: selectedDot.col }, // up
@@ -920,28 +1255,27 @@ window.onload = function() {
               { row: selectedDot.row, col: selectedDot.col - 1 }, // left
               { row: selectedDot.row, col: selectedDot.col + 1 }  // right
           ];
-          const rect = currentCanvas.getBoundingClientRect();
-          const scaleX = currentCanvas.width / rect.width;
-          const scaleY = currentCanvas.height / rect.height;
-          const mouseX = (clientX - rect.left) * scaleX;
-          const mouseY = (clientY - rect.top) * scaleY;
+          
           for (const adj of adjacents) {
               if (adj.row < 0 || adj.row > GRID_SIZE || adj.col < 0 || adj.col > GRID_SIZE) continue;
               const line = { start: selectedDot, end: adj, player: playerTurn };
               if (!isValidLine(line)) continue;
               const canonicalKey = getCanonicalLineKey(line.start, line.end);
               if (drawnLineKeys.has(canonicalKey)) continue;
+              
               // Find midpoint of the line
               const midX = ((selectedDot.col + adj.col) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
               const midY = ((selectedDot.row + adj.row) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
               const dist = Math.sqrt(Math.pow(mouseX - midX, 2) + Math.pow(mouseY - midY, 2));
-              if (dist < LINE_SELECT_RADIUS && dist < minDist) {
+              
+              // Enhanced detection: consider both distance and drag state
+              const effectiveRadius = isDragging ? LINE_SELECT_RADIUS * 1.5 : LINE_SELECT_RADIUS;
+              if (dist < effectiveRadius && dist < minDist) {
                   minDist = dist;
                   bestLine = { line, canonicalKey };
               }
           }
       }
-      // --- PATCH END ---
 
       // Use bestLine if found, else fallback to old logic (for mouse precision)
       let finalLine = null;
@@ -950,7 +1284,7 @@ window.onload = function() {
           finalLine = bestLine.line;
           finalKey = bestLine.canonicalKey;
       } else {
-          // Fallback: use original logic
+          // Fallback: use original logic with enhanced tolerance
           const endDot = getDotAtCoordinates(clientX, clientY);
           if (endDot && selectedDot && (endDot.row !== selectedDot.row || endDot.col !== selectedDot.col)) {
               const line = { start: selectedDot, end: endDot, player: playerTurn };
@@ -963,6 +1297,21 @@ window.onload = function() {
       }
 
       if (finalLine && finalKey) {
+          // Check if player has rolled dice and has lines to draw
+          if (linesToDraw <= 0 && !hasSpecialLine) {
+              // Player hasn't rolled dice or doesn't have lines to draw
+              showMessage("Roll the Dice First!", "You need to roll the dice to get lines to draw. Click on the dice to roll!", () => {
+                  // Reset drawing state after showing message
+                  selectedDot = null;
+                  isDrawingLine = false;
+                  isDragging = false;
+                  drawBoard();
+                  redrawLines();
+                  redrawSquares();
+              });
+              return;
+          }
+          
           // ... existing code for drawing the line, updating state, etc. ...
           // (Copy from the original handleCanvasEnd logic for line drawing)
           // --- BEGIN COPIED BLOCK ---
@@ -1027,9 +1376,11 @@ window.onload = function() {
           }
           // --- END COPIED BLOCK ---
       }
+      
       // Reset drawing state and redraw board
       selectedDot = null;
       isDrawingLine = false;
+      isDragging = false;
       drawBoard();
       redrawLines();
       redrawSquares();
@@ -1288,30 +1639,48 @@ window.onload = function() {
           if (onlineLobbyUI) onlineLobbyUI.style.display = 'none';
       }
 
+      // Check if canvas and context are valid
+      if (!currentCanvas || !currentCtx) {
+          console.error('Canvas or context not found for game mode:', gameMode);
+          return;
+      }
+
       initializeCanvasDimensions();
       drawBoard();
       updateScoreDisplay();
       displayDiceValue(0); // Set initial dice display
-      showMessage("Game Start!", `It's ${playerNames[playerTurn]}'s turn. Roll the dice to begin!`);
+      
+      // Initialize dice interactivity
+      updateDiceInteractivity();
+      
+      // Remove existing event listeners safely
+      if (currentCanvas) {
+          currentCanvas.removeEventListener('mousedown', handleCanvasStart);
+          currentCanvas.removeEventListener('mousemove', handleCanvasMove);
+          currentCanvas.removeEventListener('mouseup', handleCanvasEnd);
+          currentCanvas.removeEventListener('touchstart', handleCanvasStart);
+          currentCanvas.removeEventListener('touchmove', handleCanvasMove);
+          currentCanvas.removeEventListener('touchend', handleCanvasEnd);
 
-      currentCanvas.removeEventListener('mousedown', handleCanvasStart);
-      currentCanvas.removeEventListener('mousemove', handleCanvasMove);
-      currentCanvas.removeEventListener('mouseup', handleCanvasEnd);
-      currentCanvas.removeEventListener('touchstart', handleCanvasStart);
-      currentCanvas.removeEventListener('touchmove', handleCanvasMove);
-      currentCanvas.removeEventListener('touchend', handleCanvasEnd);
-
-      currentCanvas.addEventListener('mousedown', handleCanvasStart);
-      currentCanvas.addEventListener('mousemove', handleCanvasMove);
-      currentCanvas.addEventListener('mouseup', handleCanvasEnd);
-      currentCanvas.addEventListener('touchstart', handleCanvasStart);
-      currentCanvas.addEventListener('touchmove', handleCanvasMove);
-      currentCanvas.addEventListener('touchend', handleCanvasEnd);
+          // Add new event listeners
+          currentCanvas.addEventListener('mousedown', handleCanvasStart);
+          currentCanvas.addEventListener('mousemove', handleCanvasMove);
+          currentCanvas.addEventListener('mouseup', handleCanvasEnd);
+          currentCanvas.addEventListener('touchstart', handleCanvasStart);
+          currentCanvas.addEventListener('touchmove', handleCanvasMove);
+          currentCanvas.addEventListener('touchend', handleCanvasEnd);
+      }
 
       const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : 
                                   (gameMode === 'twoPlayers') ? tpDiceDisplayEl : onlineDiceDisplayEl;
-      currentDiceDisplayEl.removeEventListener('click', handleDiceClick);
-      currentDiceDisplayEl.addEventListener('click', handleDiceClick);
+      
+      if (currentDiceDisplayEl) {
+          currentDiceDisplayEl.removeEventListener('click', handleDiceClick);
+          currentDiceDisplayEl.addEventListener('click', handleDiceClick);
+      }
+
+      // Show game start message after everything is set up
+      showMessage("Game Start!", `It's ${playerNames[playerTurn]}'s turn. Roll the dice to begin!`);
 
       if (gameMode === 'singlePlayer' && playerTurn === 2) {
           setTimeout(rollDice, AI_MOVE_DELAY);
@@ -1998,4 +2367,99 @@ window.onload = function() {
   window.showConfirmation = showConfirmation;
   window.showScreen = showScreen;
   window.homeScreen = homeScreen;
+
+  /**
+   * Gets the closest valid line to the given coordinates.
+   * @param {number} clientX - Client X coordinate.
+   * @param {number} clientY - Client Y coordinate.
+   * @param {object} startDot - The starting dot.
+   * @returns {object|null} The closest valid line or null.
+   */
+  function getClosestValidLine(clientX, clientY, startDot) {
+      if (!startDot) return null;
+      
+      const rect = currentCanvas.getBoundingClientRect();
+      const scaleX = currentCanvas.width / rect.width;
+      const scaleY = currentCanvas.height / rect.height;
+      const mouseX = (clientX - rect.left) * scaleX;
+      const mouseY = (clientY - rect.top) * scaleY;
+      
+      let bestLine = null;
+      let minDistance = Infinity;
+      
+      // Check all adjacent dots (up, down, left, right)
+      const adjacents = [
+          { row: startDot.row - 1, col: startDot.col }, // up
+          { row: startDot.row + 1, col: startDot.col }, // down
+          { row: startDot.row, col: startDot.col - 1 }, // left
+          { row: startDot.row, col: startDot.col + 1 }  // right
+      ];
+      
+      for (const adj of adjacents) {
+          if (adj.row < 0 || adj.row > GRID_SIZE || adj.col < 0 || adj.col > GRID_SIZE) continue;
+          
+          const line = { start: startDot, end: adj, player: playerTurn };
+          if (!isValidLine(line)) continue;
+          
+          const canonicalKey = getCanonicalLineKey(line.start, line.end);
+          if (drawnLineKeys.has(canonicalKey)) continue;
+          
+          // Calculate distance from mouse to line midpoint
+          const midX = ((startDot.col + adj.col) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+          const midY = ((startDot.row + adj.row) / 2) * cellSize + DOT_RADIUS + BOARD_PADDING;
+          const dist = Math.sqrt(Math.pow(mouseX - midX, 2) + Math.pow(mouseY - midY, 2));
+          
+          if (dist < LINE_SELECT_RADIUS && dist < minDistance) {
+              minDistance = dist;
+              bestLine = { line, canonicalKey, endDot: adj };
+          }
+      }
+      
+      return bestLine;
+  }
+
+  /**
+   * Updates dice interactivity and visual state based on game state.
+   */
+  function updateDiceInteractivity() {
+      const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : 
+                                  (gameMode === 'twoPlayers') ? tpDiceDisplayEl : onlineDiceDisplayEl;
+      
+      if (!currentDiceDisplayEl) return;
+      
+      // Check if dice should be interactive
+      const canRollDice = (linesToDraw <= 0 && !hasSpecialLine) && !gameOver;
+      
+      if (canRollDice) {
+          // Make dice interactive and add visual highlight
+          currentDiceDisplayEl.style.cursor = 'pointer';
+          currentDiceDisplayEl.style.opacity = '1';
+          currentDiceDisplayEl.style.transform = 'scale(1.05)';
+          currentDiceDisplayEl.style.transition = 'all 0.3s ease';
+          
+          // Add pulsing animation to draw attention
+          currentDiceDisplayEl.style.animation = 'dicePulse 2s infinite';
+          
+          // Add CSS animation if not already present
+          if (!document.getElementById('dicePulseStyle')) {
+              const style = document.createElement('style');
+              style.id = 'dicePulseStyle';
+              style.textContent = `
+                  @keyframes dicePulse {
+                      0% { transform: scale(1.05); box-shadow: 0 0 5px rgba(255, 99, 71, 0.5); }
+                      50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 99, 71, 0.8); }
+                      100% { transform: scale(1.05); box-shadow: 0 0 5px rgba(255, 99, 71, 0.5); }
+                  }
+              `;
+              document.head.appendChild(style);
+          }
+      } else {
+          // Make dice non-interactive and remove highlight
+          currentDiceDisplayEl.style.cursor = 'default';
+          currentDiceDisplayEl.style.opacity = '0.7';
+          currentDiceDisplayEl.style.transform = 'scale(1)';
+          currentDiceDisplayEl.style.animation = 'none';
+      }
+  }
+
 }; // End of window.onload

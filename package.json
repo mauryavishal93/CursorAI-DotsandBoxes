@@ -1,7 +1,7 @@
 {
   "name": "dots-and-boxes",
-  "version": "1.0.0",
-  "description": "Dots and Boxes 2D board game with dice, playable in browser.",
+  "version": "2.0.0",
+  "description": "Dots and Boxes 2D board game with dice, AI opponent, online multiplayer, and smooth line drawing. Features three game modes: Single Player vs AI, Two Players local, and Online Multiplayer with lobby system.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,5 +10,17 @@
     "express": "^4.18.2",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.8.1"
-  }
+  },
+  "keywords": [
+    "dots-and-boxes",
+    "board-game",
+    "multiplayer",
+    "ai-opponent",
+    "strategy-game",
+    "canvas-game",
+    "socket-io",
+    "real-time"
+  ],
+  "author": "Vishal Maurya",
+  "license": "MIT"
 }

@@ -192,38 +192,110 @@
 
     <!-- Rules Modal -->
     <div id="rulesModal" class="info-modal">
-        <h3>Game Rules</h3>
-        <p>Dots and Boxes is a classic pencil-and-paper game for two players (or one player against an AI).</p>
-        <p>The game is played on a grid of dots.</p>
+        <h3>🎮 Dots and Boxes - Complete Game Rules</h3>
+        <p><strong>Welcome to Dots and Boxes!</strong> A strategic game that enhances your thinking capability and focus.</p>
+        
+        <h4>🎯 Game Modes</h4>
         <ul>
-            <li>Players take turns drawing a single horizontal or vertical line between two adjacent dots.</li>
-            <li>If a player completes the fourth side of a square, they claim that square and earn one point.</li>
-            <li>The player who completes a square does NOT get an extra turn.</li>
-            <li>Players roll a dice at the start of their turn to determine how many lines they can draw.</li>
-            <li>Rolling a 6 grants a "Special Line," which can be used at any point during your turn, even if you run out of regular lines. You can only hold one special line at a time.</li>
-            <li>The game ends when all lines on the grid have been drawn.</li>
-            <li>The player with the most completed squares wins the game.</li>
-            <li>If a player reaches more than 50% of the total squares, they win immediately, even if lines are left to draw.</li>
+            <li><strong>Single Player:</strong> Play against an intelligent AI opponent</li>
+            <li><strong>Two Players:</strong> Play with a friend on the same device</li>
+            <li><strong>Online Multiplayer:</strong> Play with friends online using lobby codes</li>
         </ul>
+
+        <h4>🎲 Core Gameplay</h4>
+        <ul>
+            <li>Players take turns drawing horizontal or vertical lines between adjacent dots</li>
+            <li>Complete the fourth side of a square to claim it and earn 1 point</li>
+            <li>Completing a square does NOT grant an extra turn</li>
+            <li>The game ends when all possible lines are drawn</li>
+            <li>Player with the most completed squares wins!</li>
+        </ul>
+
+        <h4>🎲 Dice System</h4>
+        <ul>
+            <li><strong>Roll the dice</strong> at the start of your turn to determine how many lines you can draw</li>
+            <li><strong>Dice values 1-5:</strong> Draw that many lines during your turn</li>
+            <li><strong>Rolling a 6:</strong> Grants a "Special Line" that can be used anytime</li>
+            <li><strong>Special Line:</strong> Can be used even when you run out of regular lines</li>
+            <li><strong>Special Line Limit:</strong> You can only hold one special line at a time</li>
+        </ul>
+
+        <h4>🏆 Winning Conditions</h4>
+        <ul>
+            <li><strong>Normal Win:</strong> Player with most squares when all lines are drawn</li>
+            <li><strong>Early Win:</strong> Player who completes more than 50% of total squares wins immediately</li>
+            <li><strong>Tie Game:</strong> If scores are equal when game ends</li>
+        </ul>
+
+        <h4>🎨 Game Features</h4>
+        <ul>
+            <li><strong>Smooth Line Drawing:</strong> Click and drag to draw lines smoothly</li>
+            <li><strong>Visual Feedback:</strong> See preview while drawing lines</li>
+            <li><strong>Player Symbols:</strong> Completed squares show X (Player 1) or O (Player 2)</li>
+            <li><strong>Score Tracking:</strong> Real-time score updates for both players</li>
+            <li><strong>Turn Indicators:</strong> Clear display of current player's turn</li>
+            <li><strong>Special Line Indicator:</strong> Shows when special line is available</li>
+        </ul>
+
+        <h4>🌐 Online Multiplayer</h4>
+        <ul>
+            <li><strong>Create Lobby:</strong> Generate a unique 6-character lobby code</li>
+            <li><strong>Join Lobby:</strong> Enter a friend's lobby code to join their game</li>
+            <li><strong>Real-time Sync:</strong> Game state synchronizes between players</li>
+            <li><strong>Player Roles:</strong> Automatic assignment of Player 1 (X) and Player 2 (O)</li>
+        </ul>
+
+        <h4>🎯 Strategy Tips</h4>
+        <ul>
+            <li>Try to complete squares while preventing your opponent from doing the same</li>
+            <li>Use your special line strategically - save it for crucial moments</li>
+            <li>Plan ahead and think about which lines will benefit you most</li>
+            <li>Watch your opponent's moves to understand their strategy</li>
+        </ul>
+
         <button id="rulesModalCloseBtn">Got It!</button>
     </div>
 
     <!-- Information Modal -->
     <div id="infoModal" class="info-modal">
-        <h3>Information</h3>
-        <p>This Dots and Boxes game was developed to increase your thinking capability and focus.</p>
-        <p><strong>Developer:</strong> Vishal Maurya</p>
-        <p><strong>Organization:</strong> TBD</p>
-        <p><strong>Version:</strong> 1.1</p>
-        <p>Enjoy the game!</p>
+        <h3>ℹ️ Game Information</h3>
+        <p><strong>Dots and Boxes</strong> is a classic strategic game designed to enhance your thinking capability, focus, and strategic planning skills.</p>
+        
+        <h4>🎮 Game Features</h4>
+        <ul>
+            <li>Three exciting game modes (Single Player, Two Players, Online Multiplayer)</li>
+            <li>Intelligent AI opponent with strategic gameplay</li>
+            <li>Dice-based line drawing system for added strategy</li>
+            <li>Special line mechanics for tactical advantage</li>
+            <li>Smooth, responsive touch and mouse controls</li>
+            <li>Real-time multiplayer with lobby system</li>
+            <li>Cross-platform compatibility (Desktop & Mobile)</li>
+        </ul>
+
+        <h4>👨‍💻 Development</h4>
+        <ul>
+            <li><strong>Developer:</strong> Vishal Maurya</li>
+            <li><strong>Organization:</strong> TBD</li>
+            <li><strong>Version:</strong> 2.0</li>
+            <li><strong>Technology:</strong> HTML5 Canvas, JavaScript, Node.js, Socket.IO</li>
+        </ul>
+
+        <h4>🎯 Game Benefits</h4>
+        <ul>
+            <li>Enhances strategic thinking and planning</li>
+            <li>Improves focus and concentration</li>
+            <li>Develops spatial reasoning skills</li>
+            <li>Provides engaging multiplayer experience</li>
+            <li>Accessible to players of all ages</li>
+        </ul>
+
+        <p><strong>Enjoy the game and challenge your mind!</strong> 🧠✨</p>
         <button id="infoModalCloseBtn">OK</button>
     </div>
-
     
   <script src="/js/game.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/online.js"></script>
-  <script src="/error-detection.js"></script>
   <audio id="dice-audio" src="/assets/dice-roll.wav" preload="auto"></audio>
 </body>
 </html> 
