@@ -91,7 +91,24 @@ dots-and-boxes/
 └── README.md             # This file
 ```
 
-## 🎯 Game Rules
+## Game Rules (v2.1.0)
+
+### Special Line Rule
+- A special line is granted **only** when the dice roll is 1 **and** there are more than 5 boxes left on the board.
+- When there are exactly 5 boxes left and a 1 is rolled, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."
+- When there are 4 or fewer boxes left, no special line is granted for any dice roll.
+- Special lines are **not** granted for any other dice value.
+
+### Popups
+- Special Line! — You rolled a 1 and have a special line available (if >5 boxes left).
+- Special Line Ended! — No one will get special lines for dice roll 1 anymore (when 5 boxes left).
+- Game Over! — Shown when the game ends.
+- Roll the Dice First! — Shown if you try to draw a line before rolling the dice.
+- Special Line Used! — Shown when you use your special line.
+- Game Start! — Shown at the start of the game.
+
+### Version
+- Current version/tag: **2.1.0**
 
 ### Basic Gameplay
 1. Players take turns drawing horizontal or vertical lines between adjacent dots

@@ -30,7 +30,7 @@
                 <button id="two-player-btn" class="btn btn-secondary">2 Players</button>
                 <button id="online-game-btn" class="btn btn-secondary">Online Game</button>
                 <!-- The "Run Unit Tests" button is now hidden by default -->
-                <button id="run-unit-tests-btn" class="btn btn-secondary" style="display: none;">Run Unit Tests</button>
+                <button id="run-unit-tests-btn" class="btn btn-secondary">Run Unit Tests</button>
             </div>
             <div id="online-lobby-ui" style="display:none; margin-top: 16px;">
               <div class="button-group">
@@ -215,8 +215,9 @@
         <ul>
             <li><strong>Roll the dice</strong> at the start of your turn to determine how many lines you can draw</li>
             <li><strong>Dice values 1-5:</strong> Draw that many lines during your turn</li>
-            <li><strong>Rolling a 6:</strong> Grants a "Special Line" that can be used anytime</li>
-            <li><strong>Special Line:</strong> Can be used even when you run out of regular lines</li>
+            <li><strong>Special Line:</strong> Granted <b>only</b> when you roll a 1 and there are more than 5 boxes left on the board</li>
+            <li><strong>Special Line End:</strong> When there are exactly 5 boxes left and you roll a 1, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."</li>
+            <li><strong>No Special Line:</strong> No special line is granted for dice roll 1 if 4 or fewer boxes are left, or for any other dice value</li>
             <li><strong>Special Line Limit:</strong> You can only hold one special line at a time</li>
         </ul>
 
@@ -276,7 +277,7 @@
         <ul>
             <li><strong>Developer:</strong> Vishal Maurya</li>
             <li><strong>Organization:</strong> TBD</li>
-            <li><strong>Version:</strong> 2.0</li>
+            <li><strong>Version:</strong> 2.1.0</li>
             <li><strong>Technology:</strong> HTML5 Canvas, JavaScript, Node.js, Socket.IO</li>
         </ul>
 
