@@ -196,6 +196,51 @@ socket.on('gameAction', (action) => {
 socket.on('playerDisconnected', ({ message, winner }) => {
   console.log('Player disconnected:', message, 'Winner:', winner);
   
+  // Check if game was already over before showing disconnect message
+  if (typeof window.gameOver === 'function' && window.gameOver()) {
+    console.log('Game was already over, not showing disconnect message');
+    // Just reset state and redirect to home without showing the disconnect popup
+    resetOnlineGameState();
+    
+    // Redirect to home screen
+    console.log('Redirecting to home screen...');
+    if (typeof window.showScreen === 'function' && window.homeScreen) {
+      console.log('Using showScreen function...');
+      window.showScreen(window.homeScreen);
+    } else {
+      // Fallback: direct DOM manipulation
+      console.log('Using fallback DOM manipulation...');
+      const homeScreen = document.getElementById('home-screen');
+      const onlineLobbyUI = document.getElementById('online-lobby-ui');
+      const onlineGameScreen = document.getElementById('online-game-screen');
+      
+      if (homeScreen) {
+        // Hide all game screens first
+        if (onlineGameScreen) {
+          onlineGameScreen.style.display = 'none';
+        }
+        // Use the proper showScreen function if available, otherwise set flex display
+        if (typeof window.showScreen === 'function') {
+          window.showScreen(homeScreen);
+        } else {
+          homeScreen.style.display = 'flex';
+        }
+        // Show lobby UI
+        if (onlineLobbyUI) {
+          onlineLobbyUI.style.display = 'block';
+        }
+        console.log('Home screen shown via fallback');
+      }
+    }
+    
+    // Ensure lobby UI is visible and ready for new lobbies
+    setTimeout(() => {
+      showLobbyUI();
+      console.log('Lobby UI shown - ready for new lobby');
+    }, 200);
+    return;
+  }
+  
   // Disable game interactions for the remaining player
   if (typeof window.disableGameInteractions === 'function') {
     window.disableGameInteractions();

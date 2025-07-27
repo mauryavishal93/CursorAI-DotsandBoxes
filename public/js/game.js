@@ -535,24 +535,29 @@ window.onload = function() {
           action: {
             type: 'syncRollDice',
             value: randomValue,
-            startTimestamp: startTimestamp
+            startTimestamp: startTimestamp,
+            playerId: onlinePlayerRole // Add player ID to identify who rolled
           }
         });
       }
       
-      // Apply the roll locally immediately (for the player who rolled)
-      diceValue = randomValue;
-      linesToDraw = randomValue;
-      hasRolledDice = true; // Mark that dice has been rolled for this turn
-      console.log('[DICE ROLL][LOCAL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+      // Apply the roll locally with animation (for the player who rolled)
+      console.log('[DICE ROLL][LOCAL] Starting animation for dice value:', randomValue);
       
-      // Show the result immediately for the local player
-      displayDiceValue(diceValue);
-      if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-        hasSpecialLine = true;
-        showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
-      }
-      updateScoreDisplay();
+      // Show animation for the local player - don't set values until animation completes
+      animateDiceRollSync(randomValue, startTimestamp, () => {
+        // Set the values after the animation completes for local player
+        diceValue = randomValue;
+        linesToDraw = randomValue;
+        hasRolledDice = true; // Mark that dice has been rolled for this turn
+        console.log('[DICE ROLL][LOCAL] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+        displayDiceValue(diceValue);
+        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          hasSpecialLine = true;
+          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+        }
+        updateScoreDisplay();
+      });
       
       return;
     }
@@ -710,11 +715,37 @@ window.onload = function() {
       if (playerScores[1] > maxSquares / 2) {
           gameOver = true;
           showMessage("Game Over!", `${playerNames[1]} wins with ${playerScores[1]} squares!`);
+          
+          // Emit game over event to server for online multiplayer
+          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+              onlineSocket.emit('gameAction', {
+                  lobbyCode: onlineLobbyCode,
+                  action: {
+                      type: 'gameOver',
+                      winner: 1,
+                      winnerRole: 1, // Send the actual winner's role (Player 1)
+                      winnerScore: playerScores[1]
+                  }
+              });
+          }
           return;
       }
       if (playerScores[2] > maxSquares / 2) {
           gameOver = true;
           showMessage("Game Over!", `${playerNames[2]} wins with ${playerScores[2]} squares!`);
+          
+          // Emit game over event to server for online multiplayer
+          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+              onlineSocket.emit('gameAction', {
+                  lobbyCode: onlineLobbyCode,
+                  action: {
+                      type: 'gameOver',
+                      winner: 2,
+                      winnerRole: 2, // Send the actual winner's role (Player 2)
+                      winnerScore: playerScores[2]
+                  }
+              });
+          }
           return;
       }
 
@@ -724,14 +755,31 @@ window.onload = function() {
       if (totalCompletedSquares === maxSquares || drawnLines.length === (GRID_SIZE * (GRID_SIZE + 1) * 2)) {
           gameOver = true;
           let winnerMessage = '';
+          let winner = null;
           if (playerScores[1] > playerScores[2]) {
               winnerMessage = `${playerNames[1]} wins with ${playerScores[1]} squares!`;
+              winner = 1;
           } else if (playerScores[2] > playerScores[1]) {
               winnerMessage = `${playerNames[2]} wins with ${playerScores[2]} squares!`;
+              winner = 2;
           } else {
               winnerMessage = "It's a tie!";
+              winner = 0; // Tie
           }
           showMessage("Game Over!", winnerMessage);
+          
+          // Emit game over event to server for online multiplayer
+          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode && winner !== 0) {
+              onlineSocket.emit('gameAction', {
+                  lobbyCode: onlineLobbyCode,
+                  action: {
+                      type: 'gameOver',
+                      winner: winner,
+                      winnerRole: winner, // Send the actual winner's role
+                      winnerScore: playerScores[winner]
+                  }
+              });
+          }
       }
   }
 
@@ -2155,6 +2203,10 @@ window.onload = function() {
           if (typeof finalValue === 'number') {
             displayDiceValue(finalValue);
           }
+          // Clear the animation interval
+          diceAnimationIntervalId = null;
+          // Update dice interactivity after animation completes
+          updateDiceInteractivity();
           if (onComplete) onComplete();
         }, delay);
       }
@@ -2200,8 +2252,12 @@ window.onload = function() {
   // --- DICE CLICKABLE ONLY FOR CURRENT PLAYER ---
   function updateDiceInteractivity() {
     if (gameMode === 'onlineMultiplayer') {
-      onlineDiceDisplayEl.style.cursor = (playerTurn === onlinePlayerRole) ? 'pointer' : 'not-allowed';
-      onlineDiceDisplayEl.classList.toggle('disabled', playerTurn !== onlinePlayerRole);
+      // Only update interactivity if dice is not currently animating
+      const isAnimating = diceAnimationIntervalId !== null && diceAnimationIntervalId !== undefined;
+      if (!isAnimating) {
+        onlineDiceDisplayEl.style.cursor = (playerTurn === onlinePlayerRole) ? 'pointer' : 'not-allowed';
+        onlineDiceDisplayEl.classList.toggle('disabled', playerTurn !== onlinePlayerRole);
+      }
     } else {
       const currentDiceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : tpDiceDisplayEl;
       currentDiceDisplayEl.style.cursor = 'pointer';
@@ -2274,22 +2330,57 @@ window.onload = function() {
       // Handle synchronized dice roll for remote player
       console.log('[DEBUG] Handling syncRollDice action with value:', action.value);
       
-      // Don't set the values immediately for remote player - let the animation handle it
-      console.log('[DICE ROLL][REMOTE] Starting animation for dice value:', action.value);
+      // Only animate for the remote player (not the player who rolled)
+      if (action.playerId !== onlinePlayerRole) {
+        console.log('[DICE ROLL][REMOTE] Starting animation for dice value:', action.value);
+        
+        animateDiceRollSync(action.value, action.startTimestamp, () => {
+          // Set the values after the animation completes for remote player
+          diceValue = action.value;
+          linesToDraw = action.value;
+          hasRolledDice = true; // Mark that dice has been rolled for this turn
+          console.log('[DICE ROLL][REMOTE] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+          displayDiceValue(diceValue);
+          if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+            hasSpecialLine = true;
+            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+          }
+          updateScoreDisplay();
+        });
+      } else {
+        console.log('[DICE ROLL][LOCAL] Ignoring own dice roll event');
+      }
+    } else if (action.type === 'gameOver') {
+      // Handle game over event from remote player
+      console.log('[DEBUG] Handling gameOver action from remote player:', action);
       
-      animateDiceRollSync(action.value, action.startTimestamp, () => {
-        // Set the values after the animation completes for remote player
-        diceValue = action.value;
-        linesToDraw = action.value;
-        hasRolledDice = true; // Mark that dice has been rolled for this turn
-        console.log('[DICE ROLL][REMOTE] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
-        displayDiceValue(diceValue);
-        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          hasSpecialLine = true;
-          showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 6! You have a special line available.`);
+      // Set game as over locally
+      gameOver = true;
+      
+      // Determine the correct winner name based on player roles
+      let winnerName;
+      const winnerScore = action.winnerScore || 0;
+      
+      if (gameMode === 'onlineMultiplayer' && action.winnerRole) {
+        // In online multiplayer, determine winner based on roles
+        if (action.winnerRole === onlinePlayerRole) {
+          // The winner is the local player (you)
+          winnerName = 'You';
+        } else {
+          // The winner is the remote player (opponent)
+          winnerName = 'Opponent';
         }
-        updateScoreDisplay();
-      });
+      } else {
+        // Fallback to original logic
+        winnerName = action.winnerName || `Player ${action.winner}`;
+      }
+      
+      showMessage("Game Over!", `${winnerName} wins with ${winnerScore} squares!`);
+      
+      // Disable game interactions
+      if (typeof window.disableGameInteractions === 'function') {
+        window.disableGameInteractions();
+      }
     }
   };
 
@@ -2367,6 +2458,7 @@ window.onload = function() {
   window.showConfirmation = showConfirmation;
   window.showScreen = showScreen;
   window.homeScreen = homeScreen;
+  window.gameOver = () => gameOver; // Expose gameOver state
 
   /**
    * Gets the closest valid line to the given coordinates.
