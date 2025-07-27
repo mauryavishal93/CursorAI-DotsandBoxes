@@ -197,7 +197,7 @@ io.on('connection', (socket) => {
 });
 
 server.listen(4000, '0.0.0.0', () => {
-  const ip = getLocalIP();
+  //const ip = getLocalIP();
   console.log(`Dots and Boxes app running at http://localhost:4000`);
 });
 
