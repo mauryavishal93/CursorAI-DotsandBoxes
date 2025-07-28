@@ -23,9 +23,10 @@ A modern, feature-rich implementation of the classic Dots and Boxes game with AI
 
 ### 🎲 Dice System
 - Roll dice at the start of each turn to determine lines you can draw
-- Dice values 1-5: Draw that many lines during your turn
-- Rolling a 6: Grants a "Special Line" that can be used anytime
-- Special Line: Can be used even when you run out of regular lines
+- Dice values 1-6: Draw that many lines during your turn
+- Special Line: Granted only when you roll a 1 and there are more than 5 boxes left on the board
+- Special Line End: When there are exactly 5 boxes left and you roll a 1, special lines are no longer granted
+- No Special Line: No special line is granted for dice roll 1 if 4 or fewer boxes are left, or for any other dice value (2-6)
 
 ### 🎨 Enhanced Gameplay
 - **Smooth Line Drawing**: Click and drag to draw lines smoothly
@@ -93,11 +94,12 @@ dots-and-boxes/
 
 ## Game Rules (v2.1.0)
 
-### Special Line Rule
-- A special line is granted **only** when the dice roll is 1 **and** there are more than 5 boxes left on the board.
-- When there are exactly 5 boxes left and a 1 is rolled, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."
-- When there are 4 or fewer boxes left, no special line is granted for any dice roll.
-- Special lines are **not** granted for any other dice value.
+### Dice System
+- **Dice values 1-6**: Draw that many lines during your turn
+- **Special Line**: Granted only when you roll a 1 and there are more than 5 boxes left on the board
+- **Special Line End**: When there are exactly 5 boxes left and you roll a 1, special lines are no longer granted
+- **No Special Line**: No special line is granted for dice roll 1 if 4 or fewer boxes are left, or for any other dice value (2-6)
+- **Special Line Limit**: You can only hold one special line at a time
 
 ### Popups
 - Special Line! — You rolled a 1 and have a special line available (if >5 boxes left).
