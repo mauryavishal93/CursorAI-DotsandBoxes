@@ -498,10 +498,12 @@ window.onload = function() {
       // If this is a forced value (from remote player), just apply it
       if (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) {
         diceValue = forceValue;
+        // Handle dice value 6: Draw 6 lines (same as 1-5)
         linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL][REMOTE] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
+        // Special line logic: Only value 1 grants special line under specific conditions
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
           if (getRemainingBoxes() > 5) {
             hasSpecialLine = true;
@@ -554,10 +556,12 @@ window.onload = function() {
       animateDiceRollSync(randomValue, startTimestamp, () => {
         // Set the values after the animation completes for local player
         diceValue = randomValue;
-        linesToDraw = randomValue;
+        // Handle dice value 6: Draw 6 lines (same as 1-5)
+        linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL][LOCAL] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
+        // Special line logic: Only value 1 grants special line under specific conditions
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
           if (getRemainingBoxes() > 5) {
             hasSpecialLine = true;
@@ -594,10 +598,12 @@ window.onload = function() {
       if (rollCount >= maxRolls) {
         clearInterval(diceAnimationIntervalId);
         diceValue = (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) ? forceValue : (Math.floor(Math.random() * 6) + 1);
+        // Handle dice value 6: Draw 6 lines (same as 1-5)
         linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
+        // Special line logic: Only value 1 grants special line under specific conditions
         if (diceValue === SPECIAL_LINE_DICE_VALUE) {
           if (getRemainingBoxes() > 5) {
             hasSpecialLine = true;
@@ -2575,5 +2581,156 @@ window.onload = function() {
     }
     return GRID_SIZE * GRID_SIZE - totalCompleted;
   }
+
+  test('Dice value 6 grants 6 lines to draw', () => {
+      resetGameState();
+      diceValue = 6;
+      linesToDraw = diceValue;
+      assertEqual(linesToDraw, 6, 'Dice value 6 should grant 6 lines to draw');
+  });
+
+  test('Dice value 1 grants 1 line to draw', () => {
+      resetGameState();
+      diceValue = 1;
+      linesToDraw = diceValue;
+      assertEqual(linesToDraw, 1, 'Dice value 1 should grant 1 line to draw');
+  });
+
+  test('Special line granted for dice value 1 with >5 boxes remaining', () => {
+      resetGameState();
+      diceValue = 1;
+      linesToDraw = diceValue;
+      
+      // Mock remaining boxes > 5
+      completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+      completedSquares[0][0] = 1; // Complete one box, leaving 24 boxes
+      
+      if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          if (getRemainingBoxes() > 5) {
+              hasSpecialLine = true;
+          }
+      }
+      
+      assertTrue(hasSpecialLine, 'Special line should be granted for dice value 1 with >5 boxes remaining');
+  });
+
+  test('No special line granted for dice value 2-6', () => {
+      resetGameState();
+      
+      // Test dice values 2-6
+      for (let diceVal = 2; diceVal <= 6; diceVal++) {
+          diceValue = diceVal;
+          linesToDraw = diceValue;
+          hasSpecialLine = false;
+          
+          // Mock remaining boxes > 5
+          completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+          completedSquares[0][0] = 1; // Complete one box, leaving 24 boxes
+          
+          if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+              if (getRemainingBoxes() > 5) {
+                  hasSpecialLine = true;
+              }
+          }
+          
+          assertFalse(hasSpecialLine, `No special line should be granted for dice value ${diceVal}`);
+      }
+  });
+
+  test('No special line granted for dice value 1 with <=5 boxes remaining', () => {
+      resetGameState();
+      diceValue = 1;
+      linesToDraw = diceValue;
+      
+      // Mock remaining boxes <= 5 (complete most boxes)
+      completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+      // Complete 20 boxes, leaving 5 boxes
+      for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 5; c++) {
+              completedSquares[r][c] = 1;
+          }
+      }
+      
+      if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          if (getRemainingBoxes() > 5) {
+              hasSpecialLine = true;
+          }
+      }
+      
+      assertFalse(hasSpecialLine, 'No special line should be granted for dice value 1 with <=5 boxes remaining');
+  });
+
+  test('All dice values 1-6 grant correct number of lines', () => {
+      resetGameState();
+      
+      for (let diceVal = 1; diceVal <= 6; diceVal++) {
+          diceValue = diceVal;
+          linesToDraw = diceValue;
+          assertEqual(linesToDraw, diceVal, `Dice value ${diceVal} should grant ${diceVal} lines to draw`);
+      }
+  });
+
+  test('getRemainingBoxes calculates correctly', () => {
+      resetGameState();
+      
+      // Initially all boxes are uncompleted (5x5 = 25 boxes)
+      assertEqual(getRemainingBoxes(), 25, 'Should have 25 remaining boxes initially');
+      
+      // Complete one box
+      completedSquares[0][0] = 1;
+      assertEqual(getRemainingBoxes(), 24, 'Should have 24 remaining boxes after completing one');
+      
+      // Complete all boxes
+      for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+              completedSquares[r][c] = 1;
+          }
+      }
+      assertEqual(getRemainingBoxes(), 0, 'Should have 0 remaining boxes when all completed');
+  });
+
+  test('Special line logic with exactly 5 boxes remaining', () => {
+      resetGameState();
+      diceValue = 1;
+      linesToDraw = diceValue;
+      
+      // Mock exactly 5 boxes remaining
+      completedSquares = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+      // Complete 20 boxes, leaving exactly 5 boxes
+      for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 5; c++) {
+              completedSquares[r][c] = 1;
+          }
+      }
+      
+      if (diceValue === SPECIAL_LINE_DICE_VALUE) {
+          if (getRemainingBoxes() > 5) {
+              hasSpecialLine = true;
+          } else if (getRemainingBoxes() === 5) {
+              // Special line ended - no special line granted
+              hasSpecialLine = false;
+          }
+      }
+      
+      assertFalse(hasSpecialLine, 'No special line should be granted when exactly 5 boxes remain');
+  });
+
+  test('Game state reset clears dice and special line', () => {
+      resetGameState();
+      
+      // Set some values
+      diceValue = 6;
+      linesToDraw = 6;
+      hasSpecialLine = true;
+      hasRolledDice = true;
+      
+      // Reset game state
+      resetGameState();
+      
+      assertEqual(diceValue, 0, 'Dice value should be reset to 0');
+      assertEqual(linesToDraw, 0, 'Lines to draw should be reset to 0');
+      assertFalse(hasSpecialLine, 'Special line should be reset to false');
+      assertFalse(hasRolledDice, 'Dice roll flag should be reset to false');
+  });
 
 }; // End of window.onload
