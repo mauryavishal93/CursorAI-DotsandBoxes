@@ -545,8 +545,8 @@ window.onload = function() {
         return;
       }
       
-      // Generate a value (temporarily forced to 6) and emit to other player
-      const randomValue = 6;
+      // Generate a random value between 1 and 6 and emit to other player
+      const randomValue = Math.floor(Math.random() * 6) + 1;
       const startTimestamp = Date.now() + 100; // Small delay to ensure sync
       
       console.log('[DEBUG] Generating random value:', randomValue);
@@ -601,8 +601,8 @@ window.onload = function() {
       rollCount++;
       if (rollCount >= maxRolls) {
         clearInterval(diceAnimationIntervalId);
-        // Temporarily force dice result to 6 for all local rolls
-        diceValue = 6;
+        // Use the final random roll value instead of hardcoded 6
+        diceValue = randomRoll;
         linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
@@ -2537,14 +2537,14 @@ window.onload = function() {
 
     // Define segments arranged alternately with "Better Luck Next time." after every option
     const segments = [
-      'Bonus stroke! +1 line',
-      'Better Luck Next time.',
-      'Double down! Roll again (adds)',
-      'Better Luck Next time.',
-      'Oops! Your turn just vanished',
-      'Better Luck Next time.',
-      'Sneak attack! Opponent skips',
-      'Better Luck Next time.'
+      '🎯 Bullseye! +1 line',
+      '🤞 Better Luck Next time.',
+      '🎲 Double Trouble! Roll again',
+      '🤞 Better Luck Next time.',
+      '💨 Poof! Turn vanished',
+      '🤞 Better Luck Next time.',
+      '⚡ Lightning Strike! Skip opponent',
+      '🤞 Better Luck Next time.'
     ];
 
     // Draw wheel
@@ -2730,32 +2730,33 @@ window.onload = function() {
   function applyLuckyWheelOutcome(resultText) {
     // Map outcomes to effects
     switch (resultText) {
-      case 'Bonus stroke! +1 line':
+      case '🎯 Bullseye! +1 line':
         linesToDraw += 1;
-        showMessage('Lucky Draw', 'Bonus stroke! You earned +1 line.');
+        showMessage('Lucky Draw', '🎯 Bullseye! You hit the target and earned +1 line!');
         updateScoreDisplay();
         break;
-      case 'Double down! Roll again (adds)':
+      case '🎲 Double Trouble! Roll again':
         // Grant 1 extra dice roll after finishing current lines
         twoPlayerExtraRollAfterFinish = true;
-        showMessage('Lucky Draw', 'Double down! You will get one extra dice roll after you finish drawing your lines.');
+        showMessage('Lucky Draw', '🎲 Double Trouble! You will get one extra dice roll after you finish drawing your lines!');
         break;
-      case 'Oops! Your turn just vanished':
+      case '💨 Poof! Turn vanished':
         // Current player's remaining lines are set to 0 immediately and turn passes
         linesToDraw = 0;
-        showMessage('Lucky Draw', 'Oops! Your turn just vanished.');
+        showMessage('Lucky Draw', '💨 Poof! Your turn just vanished into thin air!');
         updateScoreDisplay();
         switchTurn();
         break;
-      case 'Sneak attack! Opponent skips':
+      case '⚡ Lightning Strike! Skip opponent':
         // Set flag to skip opponent next time their turn begins
         const opponent = playerTurn === 1 ? 2 : 1;
         skipNextTurnForPlayer = opponent;
-        showMessage('Lucky Draw', `Sneak attack! ${playerNames[opponent]}'s next turn will be skipped. After you finish, you'll roll again.`);
+        showMessage('Lucky Draw', `⚡ Lightning Strike! ${playerNames[opponent]}'s next turn will be skipped. After you finish, you'll roll again!`);
         break;
-      case 'Better Luck Next time.':
+      case '🤞 Better Luck Next time.':
       default:
-        showMessage('Lucky Draw', 'Better Luck Next time.');
+        const remainingLines = linesToDraw > 0 ? linesToDraw : 0;
+        showMessage('Lucky Draw', `🤞 Better luck next time! You still have ${remainingLines} lines to draw.`);
         break;
     }
   }

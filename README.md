@@ -116,11 +116,11 @@ dots-and-boxes/
 
 ### Lucky Draw (Two Players only)
 - When a player rolls a 6 in Two Players mode, a Lucky Draw spinning wheel appears with random effects:
-  - **"Bonus stroke! +1 line"** - Player gets 1 extra line to draw immediately
-  - **"Double down! Roll again (adds)"** - Player gets an extra dice roll after finishing current lines
-  - **"Oops! Your turn just vanished"** - Player's remaining lines are set to 0, turn passes immediately
-  - **"Sneak attack! Opponent skips"** - Opponent's next turn will be skipped
-  - **"Better Luck Next time."** - No effect (appears multiple times on the wheel)
+  - **"🎯 Bullseye! +1 line"** - Player gets 1 extra line to draw immediately
+  - **"🎲 Double Trouble! Roll again"** - Player gets an extra dice roll after finishing current lines  
+  - **"💨 Poof! Turn vanished"** - Player's remaining lines are set to 0, turn passes immediately
+  - **"⚡ Lightning Strike! Skip opponent"** - Opponent's next turn will be skipped
+  - **"🤞 Better Luck Next time."** - No effect (appears multiple times on the wheel)
 
 **Important Notes:**
 - Lucky Wheel can only be triggered once per turn (even with extra rolls)
