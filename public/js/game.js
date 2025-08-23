@@ -1,5 +1,8 @@
 // Wrap the entire script in a window.onload to ensure all elements and functions are loaded
 window.onload = function() {
+  // Guard against double-initialization
+  if (window.__gameInitDone) return;
+  window.__gameInitDone = true;
   // Global constants for game configuration
   const GRID_SIZE = 5; // 5x5 squares, means 6x6 dots
   const DOT_RADIUS = 6;
@@ -10,7 +13,7 @@ window.onload = function() {
   const SQUARE_MARK_COLOR_PLAYER1 = '#2F4F4F'; // DarkSlateGray for X
   const SQUARE_MARK_COLOR_PLAYER2 = '#8B4513'; // SaddleBrown for O
   const ACTIVE_DOT_COLOR = '#FF6347'; // Tomato for selected dot (still vibrant for visibility)
-  const SPECIAL_LINE_DICE_VALUE = 1; // Dice value that grants a special line (changed from 6 to 1)
+  const SPECIAL_LINE_DICE_VALUE = 1; // Special line feature (no longer granted on any roll)
   const AI_MOVE_DELAY = 700; // Delay in milliseconds for AI moves
   const BOARD_PADDING = 15; // Padding from canvas edge to the center of the first dot
   const LINE_SELECT_RADIUS = 35; // Increased radius for easier line selection on mobile
@@ -47,6 +50,13 @@ window.onload = function() {
   let gameMode; // 'singlePlayer' or 'twoPlayers'
   let playerNames = { 1: 'Player 1', 2: 'Player 2' }; // Stores names for display
   let hasRolledDice = false; // New flag to prevent multiple dice rolls per turn
+  // Lucky Draw (Two Players mode only)
+  let isLuckyWheelActive = false;
+  // Legacy flag (no longer used for add behavior). Keep defined for safety but unused.
+  let twoPlayerExtraRollAdds = false; // Deprecated: add behavior removed
+  let skipNextTurnForPlayer = null;   // 1 or 2, skip on next switchTurn
+  let hasSpunLuckyWheelThisTurn = false; // Prevent multiple spins in the same turn
+  let twoPlayerExtraRollAfterFinish = false; // Grant one extra dice roll after current lines are drawn
 
   // Initialize game state immediately when window loads
   // This ensures drawnLineKeys and other state variables are properly initialized
@@ -97,7 +107,7 @@ window.onload = function() {
   const spRestartBtn = document.getElementById('sp-restart-btn');
   const spBackToHomeBtn = document.getElementById('sp-back-to-home-btn');
   const spSpecialLineIndicatorEl = document.getElementById('sp-special-line-indicator');
-  let spCtx = spGameCanvas.getContext('2d'); // Get context for single player canvas
+  let spCtx = null; // Will be initialized after DOM is loaded
 
   // UI elements references for Two Player Game Screen
   const tpGameScreen = document.getElementById('two-player-game-screen');
@@ -115,7 +125,7 @@ window.onload = function() {
   const tpRestartBtn = document.getElementById('tp-restart-btn');
   const tpBackToHomeBtn = document.getElementById('tp-back-to-home-btn');
   const tpSpecialLineIndicatorEl = document.getElementById('tp-special-line-indicator');
-  let tpCtx = tpGameCanvas.getContext('2d'); // Get context for two player canvas
+  let tpCtx = null; // Will be initialized after DOM is loaded
 
   // UI elements references for Online Multiplayer Game Screen
   const onlineGameScreen = document.getElementById('online-game-screen');
@@ -132,7 +142,7 @@ window.onload = function() {
   const onlineRestartBtn = document.getElementById('online-restart-btn');
   const onlineBackToHomeBtn = document.getElementById('online-back-to-home-btn');
   const onlineSpecialLineIndicatorEl = document.getElementById('online-special-line-indicator');
-  let onlineCtx = onlineGameCanvas.getContext('2d'); // Get context for online canvas
+  let onlineCtx = null; // Will be initialized after DOM is loaded
 
   // Online multiplayer variables
   let onlinePlayerRole = null; // 1 or 2
@@ -153,7 +163,24 @@ window.onload = function() {
 
   // Add a UI element for online turn info
   let onlineTurnInfo = null;
+  
+  // Initialize canvas contexts after DOM is loaded
+  function initializeCanvasContexts() {
+    if (spGameCanvas && !spCtx) {
+      spCtx = spGameCanvas.getContext('2d');
+    }
+    if (tpGameCanvas && !tpCtx) {
+      tpCtx = tpGameCanvas.getContext('2d');
+    }
+    if (onlineGameCanvas && !onlineCtx) {
+      onlineCtx = onlineGameCanvas.getContext('2d');
+    }
+  }
+  
   window.addEventListener('DOMContentLoaded', () => {
+    // Initialize canvas contexts
+    initializeCanvasContexts();
+    
     if (!document.getElementById('online-turn-info')) {
       onlineTurnInfo = document.createElement('div');
       onlineTurnInfo.id = 'online-turn-info';
@@ -499,19 +526,9 @@ window.onload = function() {
       if (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) {
         diceValue = forceValue;
         linesToDraw = diceValue;
-        hasRolledDice = true; // Mark that dice has been rolled for this turn
+        hasRolledDice = !(gameMode === 'twoPlayers' && twoPlayerExtraRollAdds); // If extra roll granted, keep false until consumed
         console.log('[DICE ROLL][REMOTE] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
-        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          if (getRemainingBoxes() > 5) {
-            hasSpecialLine = true;
-            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
-          } else if (getRemainingBoxes() === 5) {
-            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
-          } else {
-            // No popup for <= 4 boxes left
-          }
-        }
         updateScoreDisplay();
         return;
       }
@@ -528,8 +545,8 @@ window.onload = function() {
         return;
       }
       
-      // Generate a random value and emit to other player
-      const randomValue = Math.floor(Math.random() * 6) + 1;
+      // Generate a value (temporarily forced to 6) and emit to other player
+      const randomValue = 6;
       const startTimestamp = Date.now() + 100; // Small delay to ensure sync
       
       console.log('[DEBUG] Generating random value:', randomValue);
@@ -558,16 +575,6 @@ window.onload = function() {
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL][LOCAL] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
-        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          if (getRemainingBoxes() > 5) {
-            hasSpecialLine = true;
-            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
-          } else if (getRemainingBoxes() === 5) {
-            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
-          } else {
-            // No popup for <= 4 boxes left
-          }
-        }
         updateScoreDisplay();
       });
       
@@ -576,7 +583,8 @@ window.onload = function() {
     
     // Local (single/two player) fallback
     // If dice has already been rolled this turn, don't allow another roll
-    if (hasRolledDice) {
+    // EXCEPT if two-player Lucky Draw granted an extra chance
+    if (hasRolledDice && !(gameMode === 'twoPlayers' && twoPlayerExtraRollAfterFinish)) {
       console.log('[DEBUG] Dice already rolled this turn, returning');
       return;
     }
@@ -593,23 +601,19 @@ window.onload = function() {
       rollCount++;
       if (rollCount >= maxRolls) {
         clearInterval(diceAnimationIntervalId);
-        diceValue = (typeof forceValue === 'number' && forceValue >= 1 && forceValue <= 6) ? forceValue : (Math.floor(Math.random() * 6) + 1);
+        // Temporarily force dice result to 6 for all local rolls
+        diceValue = 6;
         linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
         console.log('[DICE ROLL] Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
-        if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-          if (getRemainingBoxes() > 5) {
-            hasSpecialLine = true;
-            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
-          } else if (getRemainingBoxes() === 5) {
-            showMessage("Special Line Ended!", "No one will get special lines for dice roll 1 anymore.");
-          } else {
-            // No popup for <= 4 boxes left
-          }
-        }
         updateScoreDisplay();
         diceDisplayEl.classList.remove('disabled');
+        if (gameMode === 'twoPlayers' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+          setTimeout(() => {
+            triggerLuckyWheelForTwoPlayers();
+          }, 250);
+        }
         if (gameMode === 'singlePlayer' && playerTurn === 2) {
           setTimeout(aiMakeMove, AI_MOVE_DELAY);
         }
@@ -688,9 +692,11 @@ window.onload = function() {
    * Switches the current player turn.
    */
   function switchTurn() {
+      const advanceTurn = () => {
       playerTurn = playerTurn === 1 ? 2 : 1;
       linesToDraw = 0; // Reset lines to draw for the new player
       hasRolledDice = false; // Reset dice roll flag for new turn
+      hasSpunLuckyWheelThisTurn = false; // reset wheel spin allowance for the new player's turn
       displayDiceValue(0); // Show default dice face for next turn
       
       // Update display
@@ -698,13 +704,25 @@ window.onload = function() {
       
       // Update dice interactivity for new turn
       updateDiceInteractivity();
+
+        // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
+        if (skipNextTurnForPlayer === playerTurn) {
+          const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
+          skipNextTurnForPlayer = null;
+          showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
+          // Immediately advance again to the other player
+          advanceTurn();
+          return;
+        }
       
       // Check if it's AI's turn in single-player mode
       if (gameMode === 'singlePlayer' && playerTurn === 2 && !gameOver) {
           console.log("Switching to AI turn. AI will roll dice soon.");
           setTimeout(aiMakeMove, AI_MOVE_DELAY);
       }
-      // No popups or recursive calls for twoPlayers or onlineMultiplayer turn changes
+      };
+
+      advanceTurn();
   }
 
   /**
@@ -1419,18 +1437,23 @@ window.onload = function() {
               if (squaresCompletedThisTurn > 0) {
                   playerScores[playerTurn] += squaresCompletedThisTurn;
               }
-              // Always decrement linesToDraw if it's a regular line, or consume the special line.
+              // Always decrement linesToDraw for a regular line
               if (linesToDraw > 0) {
                   linesToDraw--;
-              } else if (hasSpecialLine) {
-                  hasSpecialLine = false; // Consume the special line
-                  showMessage("Special Line Used!", "You've used your special line.");
               }
               updateScoreDisplay(); // Update display after all changes
               checkGameOver();
               // Determine if turn switches
-              if (linesToDraw <= 0 && !hasSpecialLine) {
-                  switchTurn();
+              if (linesToDraw <= 0) {
+                  if (gameMode === 'twoPlayers' && twoPlayerExtraRollAfterFinish) {
+                      // Consume the extra roll and allow player to roll again now
+                      twoPlayerExtraRollAfterFinish = false;
+                      hasRolledDice = false; // allow rolling again
+                      showMessage('Lucky Draw', 'Your bonus roll is ready! Roll the dice again.');
+                      updateDiceInteractivity();
+                  } else {
+                      switchTurn();
+                  }
               }
           }
           // --- END COPIED BLOCK ---
@@ -1450,21 +1473,21 @@ window.onload = function() {
    * Handles the AI's turn in single-player mode.
    */
   function aiMakeMove() {
-      console.log(`AI Make Move START: Player Turn: ${playerTurn}, Lines to Draw: ${linesToDraw}, Special Line: ${hasSpecialLine}`);
+      console.log(`AI Make Move START: Player Turn: ${playerTurn}, Lines to Draw: ${linesToDraw}`);
       if (gameOver) {
           console.log("AI: Game is over, not making a move.");
           return;
       }
 
-      // If AI needs to roll dice (no lines yet and no special line)
-      if (linesToDraw === 0 && !hasSpecialLine) {
+      // If AI needs to roll dice (no lines yet)
+      if (linesToDraw === 0) {
           console.log("AI: No lines to draw and no special line. Rolling dice.");
           rollDice(); // This will call aiMakeMove again after rolling
           return;
       }
 
-      // If AI has lines to draw or a special line
-      if (linesToDraw > 0 || hasSpecialLine) {
+      // If AI has lines to draw
+      if (linesToDraw > 0) {
           const availableLines = [];
           for (let r = 0; r <= GRID_SIZE; r++) {
               for (let c = 0; c <= GRID_SIZE; c++) {
@@ -1526,7 +1549,7 @@ window.onload = function() {
 
                   drawLine(lineToDraw, (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
                   
-                  // AI's turn logic for decrementing linesToDraw and handling special line
+                  // AI's turn logic for decrementing linesToDraw
                   let squaresCompletedThisTurn = 0;
                   if (lineToDraw.start.row === lineToDraw.end.row) { // Horizontal line
                       const minCol = Math.min(lineToDraw.start.col, lineToDraw.end.col);
@@ -1564,13 +1587,10 @@ window.onload = function() {
                       console.log(`AI: Player ${playerTurn} score updated to: ${playerScores[playerTurn]}.`);
                   }
 
-                  console.log(`AI: Before line consumption - linesToDraw: ${linesToDraw}, hasSpecialLine: ${hasSpecialLine}`);
+                  console.log(`AI: Before line consumption - linesToDraw: ${linesToDraw}`);
                   if (linesToDraw > 0) {
                       linesToDraw--;
                       console.log(`AI: Lines to draw decremented to: ${linesToDraw}.`);
-                  } else if (hasSpecialLine) {
-                      hasSpecialLine = false;
-                      console.log("AI: Special line consumed.");
                   }
 
                   drawBoard(); // Clear and redraw
@@ -1579,9 +1599,9 @@ window.onload = function() {
                   updateScoreDisplay();
                   checkGameOver();
 
-                  // After drawing, if AI still has lines to draw or special line, make another move
-                  if (linesToDraw > 0 || hasSpecialLine) {
-                      console.log(`AI: Remaining lines: ${linesToDraw}, Special Line: ${hasSpecialLine}. Scheduling next move.`);
+                  // After drawing, if AI still has lines to draw, make another move
+                  if (linesToDraw > 0) {
+                      console.log(`AI: Remaining lines: ${linesToDraw}. Scheduling next move.`);
                       setTimeout(aiMakeMove, AI_MOVE_DELAY);
                   } else {
                       console.log("AI: No more lines to draw. Turn will switch.");
@@ -1594,7 +1614,7 @@ window.onload = function() {
               switchTurn();
           }
       } else {
-          console.log("AI Make Move END: No lines to draw or special line. Switching turn.");
+          console.log("AI Make Move END: No lines to draw. Switching turn.");
           // This case should ideally not be reached if rollDice is called first and sets linesToDraw
           switchTurn();
       }
@@ -1653,6 +1673,9 @@ window.onload = function() {
   function startGame(mode, onlineOptions) {
       gameMode = mode;
       resetGameState();
+      
+      // Ensure canvas contexts are initialized
+      initializeCanvasContexts();
 
       if (gameMode === 'singlePlayer') {
           currentCanvas = spGameCanvas;
@@ -1842,10 +1865,10 @@ window.onload = function() {
       }
   });
 
-  rulesBtnHome.addEventListener('click', () => rulesModal.style.display = 'block');
-  infoBtnHome.addEventListener('click', () => infoModal.style.display = 'block');
-  rulesModalCloseBtn.addEventListener('click', () => rulesModal.style.display = 'none');
-  infoModalCloseBtn.addEventListener('click', () => infoModal.style.display = 'none');
+  if (rulesBtnHome) rulesBtnHome.addEventListener('click', () => rulesModal && (rulesModal.style.display = 'block'));
+  if (infoBtnHome) infoBtnHome.addEventListener('click', () => infoModal && (infoModal.style.display = 'block'));
+  if (rulesModalCloseBtn) rulesModalCloseBtn.addEventListener('click', () => rulesModal && (rulesModal.style.display = 'none'));
+  if (infoModalCloseBtn) infoModalCloseBtn.addEventListener('click', () => infoModal && (infoModal.style.display = 'none'));
 
   const testResultsDiv = document.createElement('div');
   testResultsDiv.id = 'test-results';
@@ -2325,15 +2348,13 @@ window.onload = function() {
         // Decrement lines to draw for the remote player
         if (linesToDraw > 0) {
           linesToDraw--;
-        } else if (hasSpecialLine) {
-          hasSpecialLine = false;
         }
         
         updateScoreDisplay();
         checkGameOver();
         
-        // Switch turn if no lines left
-        if (linesToDraw <= 0 && !hasSpecialLine) {
+        // Switch turn if no lines left (online mode has no lucky draw extras)
+        if (linesToDraw <= 0) {
           switchTurn();
         }
       }
@@ -2352,10 +2373,6 @@ window.onload = function() {
           hasRolledDice = true; // Mark that dice has been rolled for this turn
           console.log('[DICE ROLL][REMOTE] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
           displayDiceValue(diceValue);
-          if (diceValue === SPECIAL_LINE_DICE_VALUE) {
-            hasSpecialLine = true;
-            showMessage("Special Line!", `${playerNames[playerTurn]} rolled a 1! You have a special line available.`);
-          }
           updateScoreDisplay();
         });
       } else {
@@ -2464,12 +2481,284 @@ window.onload = function() {
   };
 
   // Expose showMessage function globally
+  // Expose essentials globally for other modules
   window.showMessage = showMessage;
   window.hideMessageBox = hideMessageBox;
   window.showConfirmation = showConfirmation;
   window.showScreen = showScreen;
   window.homeScreen = homeScreen;
+  window.startGame = startGame;
+  window.resetGameState = resetGameState;
   window.gameOver = () => gameOver; // Expose gameOver state
+
+  // ------------------- Lucky Draw Wheel (Two Players only) -------------------
+  function triggerLuckyWheelForTwoPlayers() {
+    if (gameMode !== 'twoPlayers' || isLuckyWheelActive) return;
+    isLuckyWheelActive = true;
+    const modal = document.getElementById('luckyWheelModal');
+    const canvas = document.getElementById('luckyWheelCanvas');
+    const spinBtn = document.getElementById('spinWheelBtn');
+    const resultEl = document.getElementById('luckyWheelResult');
+    const closeBtn = document.getElementById('closeLuckyWheelBtn');
+    const wheelContainer = document.getElementById('wheelContainer');
+    if (!modal || !canvas || !spinBtn || !resultEl || !closeBtn) {
+      console.warn('Lucky Wheel UI elements not found');
+      isLuckyWheelActive = false;
+      return;
+    }
+
+    // Add a comfortable gap above the wheel
+    if (wheelContainer) {
+      wheelContainer.style.marginTop = '12px';
+    }
+
+    // Place result text under the wheel and above the spin button group (single line, no overlap)
+    if (modal && wheelContainer && resultEl) {
+      const buttonGroup = modal.querySelector('.button-group');
+      try {
+        if (buttonGroup) {
+          modal.insertBefore(resultEl, buttonGroup);
+        } else {
+          wheelContainer.insertAdjacentElement('afterend', resultEl);
+        }
+      } catch(e) {}
+      resultEl.style.position = 'static';
+      resultEl.style.margin = '10px auto 8px auto';
+      resultEl.style.left = '';
+      resultEl.style.top = '';
+      resultEl.style.transform = '';
+      resultEl.style.textAlign = 'center';
+      resultEl.style.pointerEvents = 'none';
+      resultEl.style.whiteSpace = 'nowrap';
+      resultEl.style.overflow = 'hidden';
+      resultEl.style.textOverflow = 'ellipsis';
+      try { resultEl.style.maxWidth = Math.round(canvas.width * 0.9) + 'px'; } catch(e) {}
+    }
+
+    // Define segments arranged alternately with "Better Luck Next time." after every option
+    const segments = [
+      'Bonus stroke! +1 line',
+      'Better Luck Next time.',
+      'Double down! Roll again (adds)',
+      'Better Luck Next time.',
+      'Oops! Your turn just vanished',
+      'Better Luck Next time.',
+      'Sneak attack! Opponent skips',
+      'Better Luck Next time.'
+    ];
+
+    // Draw wheel
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) - 5;
+    const colors = ['#F4A261','#E76F51','#2A9D8F','#E9C46A','#8AB17D','#C9ADA7'];
+    let currentHighlightIndex = null; // Highlight the top (12 o'clock) segment after spin ends
+
+    function drawWheel(rotation=0) {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const anglePer = (2*Math.PI)/segments.length;
+      for (let i=0;i<segments.length;i++) {
+        const start = i*anglePer + rotation;
+        const end = start + anglePer;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, start, end);
+        ctx.closePath();
+        ctx.fillStyle = colors[i%colors.length];
+        ctx.fill();
+        // Text (centered within slice with dynamic fitting)
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(start + anglePer/2);
+        ctx.fillStyle = '#222';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        drawWrappedSliceText(ctx, segments[i], radius, anglePer);
+        ctx.restore();
+      }
+
+      // Highlight the result segment wedge fixed at 12 o'clock (top) if available
+      if (currentHighlightIndex !== null) {
+        const pointerAngle = Math.PI / 2; // 12 o'clock in canvas coordinates
+        const hStart = pointerAngle - anglePer / 2;
+        const hEnd = pointerAngle + anglePer / 2;
+
+        // Outer rim arc highlight at top
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = '#B71C1C';
+        ctx.lineWidth = 6;
+        ctx.shadowColor = 'rgba(0,0,0,0.2)';
+        ctx.shadowBlur = 4;
+        ctx.arc(centerX, centerY, radius - 2, hStart, hEnd);
+        ctx.stroke();
+        ctx.restore();
+
+        // Soft inner wedge overlay at top
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius - 10, hStart, hEnd);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Pointer (small white arrow with red stroke) at 6 o'clock (bottom)
+      ctx.save();
+      ctx.beginPath();
+      // Place pointer at the circumference with tip pointing inward (bottom)
+      const tipY = centerY + radius - 6;   // tip slightly inside the wheel
+      const baseY = tipY + 10;             // base just outside the wheel but within canvas margin
+      ctx.moveTo(centerX, tipY);
+      ctx.lineTo(centerX - 12, baseY);
+      ctx.lineTo(centerX + 12, baseY);
+      ctx.closePath();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 3;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#B71C1C';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw multi-line centered text within a slice; dynamically fits font size and wrapping
+    function drawWrappedSliceText(context, text, radius, anglePer) {
+      const innerMargin = radius * 0.18; // keep text away from center a bit
+      const radialDistance = radius * 0.58; // where text is centered along the radius
+      const maxLineWidth = 2 * (radialDistance - innerMargin); // ensure left edge stays inside wheel
+      const maxTangential = anglePer * radius * 0.75; // available height within slice
+
+      let fontSize = 10; // start size (reduced further)
+      const minFont = 6; // allow smaller minimum
+
+      const computeLines = (fs) => {
+        context.font = `600 ${fs}px Inter, sans-serif`;
+        const words = text.split(' ');
+        const out = [];
+        let current = '';
+        for (let i = 0; i < words.length; i++) {
+          const candidate = current ? current + ' ' + words[i] : words[i];
+          if (context.measureText(candidate).width <= maxLineWidth) {
+            current = candidate;
+          } else {
+            if (current) out.push(current);
+            current = words[i];
+          }
+        }
+        if (current) out.push(current);
+        return out;
+      };
+
+      let lines = computeLines(fontSize);
+      let lineHeight = Math.round(fontSize * 1.08);
+      while ((lines.length * lineHeight > maxTangential || Math.max(...lines.map(l => context.measureText(l).width)) > maxLineWidth) && fontSize > minFont) {
+        fontSize -= 1;
+        lines = computeLines(fontSize);
+        lineHeight = Math.round(fontSize * 1.08);
+      }
+
+      // Final draw with computed font
+      context.font = `600 ${fontSize}px Inter, sans-serif`;
+      const totalHeight = lines.length * lineHeight;
+      let yStart = -totalHeight / 2 + lineHeight / 2;
+      for (let i = 0; i < lines.length; i++) {
+        context.fillText(lines[i], radialDistance, yStart + i * lineHeight);
+      }
+    }
+
+    drawWheel();
+    modal.style.display = 'block';
+    resultEl.textContent = '';
+    closeBtn.style.display = 'none';
+
+    let spinning = false;
+    let rotation = 0;
+    let spinVelocity = 0;
+
+    spinBtn.onclick = () => {
+      if (spinning || hasSpunLuckyWheelThisTurn) return; // only once per turn
+      spinning = true;
+      resultEl.textContent = 'Spinning...';
+      // Random target segment (uniform across all segments)
+      const targetIndex = Math.floor(Math.random() * segments.length);
+      const anglePer = (2*Math.PI)/segments.length;
+      // Calculate target so pointer (12 o'clock) lands at targetIndex
+      const targetAngle = (Math.PI/2) - (targetIndex * anglePer) - anglePer/2;
+      const fullSpins = 5 + Math.floor(Math.random()*3);
+      const finalRotation = targetAngle + fullSpins*2*Math.PI;
+      const duration = 2500;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const t = Math.min(1, (now - startTime)/duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        rotation = ease * finalRotation;
+        drawWheel(rotation);
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // The result is the segment directly under the 12 o'clock pointer
+          // Since we calculated the target angle to center the chosen segment under the pointer,
+          // we can directly use the targetIndex as the final result
+          const landed = targetIndex;
+          const result = segments[landed];
+          currentHighlightIndex = landed; // record and show highlight at top
+          drawWheel(rotation);
+          resultEl.textContent = `⬆️ ${result}`;
+          applyLuckyWheelOutcome(result);
+          hasSpunLuckyWheelThisTurn = true; // mark wheel used for this turn
+          closeBtn.style.display = 'inline-block';
+          spinning = false;
+        }
+      }
+      requestAnimationFrame(animate);
+    };
+
+    closeBtn.onclick = () => {
+      modal.style.display = 'none';
+      currentHighlightIndex = null;
+      isLuckyWheelActive = false;
+    };
+  }
+
+  function applyLuckyWheelOutcome(resultText) {
+    // Map outcomes to effects
+    switch (resultText) {
+      case 'Bonus stroke! +1 line':
+        linesToDraw += 1;
+        showMessage('Lucky Draw', 'Bonus stroke! You earned +1 line.');
+        updateScoreDisplay();
+        break;
+      case 'Double down! Roll again (adds)':
+        // Grant 1 extra dice roll after finishing current lines
+        twoPlayerExtraRollAfterFinish = true;
+        showMessage('Lucky Draw', 'Double down! You will get one extra dice roll after you finish drawing your lines.');
+        break;
+      case 'Oops! Your turn just vanished':
+        // Current player's remaining lines are set to 0 immediately and turn passes
+        linesToDraw = 0;
+        showMessage('Lucky Draw', 'Oops! Your turn just vanished.');
+        updateScoreDisplay();
+        switchTurn();
+        break;
+      case 'Sneak attack! Opponent skips':
+        // Set flag to skip opponent next time their turn begins
+        const opponent = playerTurn === 1 ? 2 : 1;
+        skipNextTurnForPlayer = opponent;
+        showMessage('Lucky Draw', `Sneak attack! ${playerNames[opponent]}'s next turn will be skipped. After you finish, you'll roll again.`);
+        break;
+      case 'Better Luck Next time.':
+      default:
+        showMessage('Lucky Draw', 'Better Luck Next time.');
+        break;
+    }
+  }
 
   /**
    * Gets the closest valid line to the given coordinates.

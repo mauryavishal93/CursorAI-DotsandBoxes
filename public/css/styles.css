@@ -26,6 +26,16 @@ body {
   min-height: 100vh;
   box-sizing: border-box;
 }
+
+/* Lucky Draw Wheel */
+.wheel-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.info-modal {
+  z-index: 1000;
+}
 @media (max-width: 900px) {
   .screen-container {
     max-width: 100vw;
@@ -492,17 +502,58 @@ canvas {
 }
 .player-score::after {
   content: '';
-  display: block;
-  margin: 0 auto;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-top: 14px solid transparent;
-  margin-top: 6px;
+  border-top: 10px solid transparent;  /* medium height */
+  border-bottom: 10px solid transparent;
 }
-.player-score.active::after {
-  border-top: 14px solid #0074d9;
+/* Left player's indicator → point toward center (to the right) */
+.dice-area > .player-score:first-child::after {
+  right: -8px;
+  border-left: 12px solid transparent; /* color applied when active */
+}
+.dice-area > .player-score:first-child.active::after {
+  border-left-color: #0074d9;
+}
+/* Right player's indicator → point toward center (to the left) */
+.dice-area > .player-score:last-child::after {
+  left: -8px;
+  border-right: 12px solid transparent; /* color applied when active */
+}
+.dice-area > .player-score:last-child.active::after {
+  border-right-color: #0074d9;
+}
+/* Responsive tweaks: slightly smaller on narrow screens */
+@media (max-width: 700px) {
+  .player-score::after {
+    border-top-width: 8px;
+    border-bottom-width: 8px;
+  }
+  .dice-area > .player-score:first-child::after {
+    right: -6px;
+    border-left-width: 10px;
+  }
+  .dice-area > .player-score:last-child::after {
+    left: -6px;
+    border-right-width: 10px;
+  }
+}
+@media (max-width: 500px) {
+  .player-score::after {
+    border-top-width: 6px;
+    border-bottom-width: 6px;
+  }
+  .dice-area > .player-score:first-child::after {
+    right: -5px;
+    border-left-width: 8px;
+  }
+  .dice-area > .player-score:last-child::after {
+    left: -5px;
+    border-right-width: 8px;
+  }
 }
 .dice-center-content .text-xl {
   font-size: 1.1rem;

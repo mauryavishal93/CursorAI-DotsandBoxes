@@ -1,4 +1,4 @@
-# 🚀 Deployment Checklist - Version 2.0.0
+# 🚀 Deployment Checklist - Version 2.2.0
 
 ## ✅ Pre-Deployment Verification
 
@@ -37,14 +37,33 @@
 - [x] **Game Synchronization** - Real-time state sync
 - [x] **Player Role Assignment** - Automatic X/O assignment
 
-## 📋 Version 2.0.0 Updates
+## 📋 Version 2.2.0 Updates
 
 ### ✅ New Features Added
-- [x] **Enhanced Game Rules** - Comprehensive rules documentation
+- [x] **Enhanced Lucky Draw System** - Improved Lucky Wheel mechanics with clear outcome descriptions
+- [x] **Updated Game Rules** - Comprehensive Lucky Draw rules and gameplay documentation
+- [x] **Version Update** - Updated to v2.2.0
+- [x] **Changelog Addition** - Complete version history documentation
+
+### ✅ Bug Fixes
+- [x] **Button Clickability Issues** - Resolved canvas context initialization problems
+- [x] **Lucky Wheel Result Calculation** - Fixed to ensure equal probability for all outcomes
+- [x] **Canvas Context Management** - Improved initialization and error handling
+- [x] **Event Handling** - Enhanced event listener management
+
+### ✅ Code Quality
+- [x] **Canvas Context Safety** - Added proper initialization checks
+- [x] **Lucky Wheel Logic** - Improved result mapping and pointer alignment
+- [x] **Performance Optimization** - Better canvas rendering and event handling
+- [x] **Code Documentation** - Updated comments and function descriptions
+
+## 📋 Version 2.1.0 Updates
+
+### ✅ New Features Added
+- [x] **Lucky Draw Wheel** - Added spinning wheel for Two Players mode on dice roll 6
+- [x] **Enhanced Gameplay** - Multiple random effects including extra lines, turn skips, and bonus rolls
 - [x] **Updated Information Modal** - Detailed game information
-- [x] **Version Update** - Updated to v2.0.0
-- [x] **Package.json Enhancement** - Added keywords, author, license
-- [x] **README.md Update** - Complete documentation
+- [x] **Version Update** - Updated to v2.1.0
 
 ### ✅ Bug Fixes
 - [x] **2-Player Mode Async Error** - Resolved with error handling
@@ -57,6 +76,15 @@
 - [x] **Code Documentation** - Comprehensive comments
 - [x] **Performance Optimization** - Efficient canvas operations
 - [x] **Cross-Platform Testing** - Verified on multiple browsers
+
+## 📋 Version 2.0.0 Updates
+
+### ✅ New Features Added
+- [x] **Enhanced Game Rules** - Comprehensive rules documentation
+- [x] **Updated Information Modal** - Detailed game information
+- [x] **Version Update** - Updated to v2.0.0
+- [x] **Package.json Enhancement** - Added keywords, author, license
+- [x] **README.md Update** - Complete documentation
 
 ## 🚀 Deployment Steps
 
@@ -151,4 +179,4 @@ The game is fully functional with:
 - [ ] No special line is granted for any dice value except 1.
 - [ ] All legacy popups for dice roll 6 are removed.
 - [ ] All popups and game logic match the new rules.
-- [ ] Version/tag is set to 2.1.0 everywhere. 
+- [ ] Version/tag is set to 2.2.0 everywhere. 

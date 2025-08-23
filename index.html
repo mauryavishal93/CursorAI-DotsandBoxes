@@ -77,7 +77,7 @@
                 <div class="dice-center-content">
                   <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="sp-current-player-name-display">Player 1</span></div>
                   <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="sp-lines-to-draw-count">0</span></div>
-                  <div id="sp-special-line-indicator" class="special-line-indicator">
+                  <div id="sp-special-line-indicator" class="special-line-indicator" style="display:none;">
                       Special Line Available!
                   </div>
                   <div class="dice-display" id="sp-dice-display">
@@ -113,7 +113,7 @@
                 <div class="dice-center-content">
                   <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="tp-current-player-name-display">Player 1</span></div>
                   <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="tp-lines-to-draw-count">0</span></div>
-                  <div id="tp-special-line-indicator" class="special-line-indicator">
+                  <div id="tp-special-line-indicator" class="special-line-indicator" style="display:none;">
                       Special Line Available!
                   </div>
                   <div class="dice-display" id="tp-dice-display">
@@ -149,7 +149,7 @@
                 <div class="dice-center-content">
                   <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="online-current-player-name-display">You</span></div>
                   <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="online-lines-to-draw-count">0</span></div>
-                  <div id="online-special-line-indicator" class="special-line-indicator">
+                  <div id="online-special-line-indicator" class="special-line-indicator" style="display:none;">
                       Special Line Available!
                   </div>
                   <div class="dice-display" id="online-dice-display">
@@ -178,6 +178,19 @@
         <h3 id="messageTitle"></h3>
         <p id="messageText"></p>
         <button id="messageBoxCloseBtn">OK</button>
+    </div>
+
+    <!-- Lucky Draw Wheel Modal (Two Players only, on dice=6) -->
+    <div id="luckyWheelModal" class="info-modal" style="display:none;">
+        <h3>🎁 Lucky Draw!</h3>
+        <div id="wheelContainer" class="wheel-container">
+            <canvas id="luckyWheelCanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="button-group" style="margin-top: 12px; display:flex; gap:8px; justify-content:center; align-items:center;">
+            <button id="spinWheelBtn" class="btn btn-primary">Spin</button>
+            <button id="closeLuckyWheelBtn" class="btn btn-secondary" style="display:none;">Close</button>
+        </div>
+        <p id="luckyWheelResult" style="margin-top:10px;"></p>
     </div>
 
     <!-- New Confirmation Box -->
@@ -215,10 +228,15 @@
         <ul>
             <li><strong>Roll the dice</strong> at the start of your turn to determine how many lines you can draw</li>
             <li><strong>Dice values 1-5:</strong> Draw that many lines during your turn</li>
-            <li><strong>Special Line:</strong> Granted <b>only</b> when you roll a 1 and there are more than 5 boxes left on the board</li>
-            <li><strong>Special Line End:</strong> When there are exactly 5 boxes left and you roll a 1, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."</li>
-            <li><strong>No Special Line:</strong> No special line is granted for dice roll 1 if 4 or fewer boxes are left, or for any other dice value</li>
-            <li><strong>Special Line Limit:</strong> You can only hold one special line at a time</li>
+            <li><strong>Dice value 6 (Two Players only):</strong> Triggers a Lucky Draw wheel with random effects:</li>
+            <ul>
+                <li><strong>"Bonus stroke! +1 line"</strong> - Player gets 1 extra line to draw immediately</li>
+                <li><strong>"Double down! Roll again (adds)"</strong> - Player gets an extra dice roll after finishing current lines</li>
+                <li><strong>"Oops! Your turn just vanished"</strong> - Player's remaining lines are set to 0, turn passes immediately</li>
+                <li><strong>"Sneak attack! Opponent skips"</strong> - Opponent's next turn will be skipped</li>
+                <li><strong>"Better Luck Next time"</strong> - No effect (appears multiple times)</li>
+            </ul>
+            <li><strong>Important:</strong> Lucky Wheel can only be triggered once per turn (even with extra rolls)</li>
         </ul>
 
         <h4>🏆 Winning Conditions</h4>
@@ -235,7 +253,7 @@
             <li><strong>Player Symbols:</strong> Completed squares show X (Player 1) or O (Player 2)</li>
             <li><strong>Score Tracking:</strong> Real-time score updates for both players</li>
             <li><strong>Turn Indicators:</strong> Clear display of current player's turn</li>
-            <li><strong>Special Line Indicator:</strong> Shows when special line is available</li>
+            <li><strong>Lucky Draw Wheel (2-Players on 6):</strong> Random effects such as extra line, extra dice roll, skip your turn, skip opponent's turn, or Better Luck Next time.</li>
         </ul>
 
         <h4>🌐 Online Multiplayer</h4>
@@ -249,7 +267,7 @@
         <h4>🎯 Strategy Tips</h4>
         <ul>
             <li>Try to complete squares while preventing your opponent from doing the same</li>
-            <li>Use your special line strategically - save it for crucial moments</li>
+            
             <li>Plan ahead and think about which lines will benefit you most</li>
             <li>Watch your opponent's moves to understand their strategy</li>
         </ul>
@@ -267,7 +285,7 @@
             <li>Three exciting game modes (Single Player, Two Players, Online Multiplayer)</li>
             <li>Intelligent AI opponent with strategic gameplay</li>
             <li>Dice-based line drawing system for added strategy</li>
-            <li>Special line mechanics for tactical advantage</li>
+            
             <li>Smooth, responsive touch and mouse controls</li>
             <li>Real-time multiplayer with lobby system</li>
             <li>Cross-platform compatibility (Desktop & Mobile)</li>
@@ -277,7 +295,7 @@
         <ul>
             <li><strong>Developer:</strong> Vishal Maurya</li>
             <li><strong>Organization:</strong> TBD</li>
-            <li><strong>Version:</strong> 2.1.0</li>
+            <li><strong>Version:</strong> 2.2.0</li>
             <li><strong>Technology:</strong> HTML5 Canvas, JavaScript, Node.js, Socket.IO</li>
         </ul>
 

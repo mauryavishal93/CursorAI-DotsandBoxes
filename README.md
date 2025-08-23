@@ -73,6 +73,27 @@ A modern, feature-rich implementation of the classic Dots and Boxes game with AI
 - **Styling**: Custom CSS with responsive design
 - **Audio**: Web Audio API for dice roll sounds
 
+## 📋 Changelog
+
+### Version 2.2.0 (Current)
+- **Enhanced Lucky Draw System**: Improved Lucky Wheel mechanics with clear outcome descriptions
+- **Fixed Game Logic**: Resolved button clickability issues and canvas context initialization
+- **Improved UI**: Better arrow pointer positioning and result highlighting on the wheel
+- **Bug Fixes**: Fixed result calculation to ensure equal probability for all Lucky Wheel outcomes
+- **Code Optimization**: Improved canvas context management and event handling
+
+### Version 2.1.0
+- **Lucky Draw Wheel**: Added spinning wheel for Two Players mode on dice roll 6
+- **Enhanced Gameplay**: Multiple random effects including extra lines, turn skips, and bonus rolls
+- **Improved UI**: Better visual feedback and responsive design
+- **Bug Fixes**: Various gameplay and UI improvements
+
+### Version 2.0.0
+- **Three Game Modes**: Single Player, Two Players, and Online Multiplayer
+- **AI Opponent**: Intelligent AI with strategic gameplay
+- **Online Multiplayer**: Real-time multiplayer with lobby system
+- **Enhanced Graphics**: Smooth line drawing and visual effects
+
 ## 📁 Project Structure
 
 ```
@@ -91,24 +112,44 @@ dots-and-boxes/
 └── README.md             # This file
 ```
 
-## Game Rules (v2.1.0)
+## Game Rules (v2.2.0)
 
-### Special Line Rule
-- A special line is granted **only** when the dice roll is 1 **and** there are more than 5 boxes left on the board.
-- When there are exactly 5 boxes left and a 1 is rolled, a popup appears: "Special Line Ended! No one will get special lines for dice roll 1 anymore."
-- When there are 4 or fewer boxes left, no special line is granted for any dice roll.
-- Special lines are **not** granted for any other dice value.
+### Lucky Draw (Two Players only)
+- When a player rolls a 6 in Two Players mode, a Lucky Draw spinning wheel appears with random effects:
+  - **"Bonus stroke! +1 line"** - Player gets 1 extra line to draw immediately
+  - **"Double down! Roll again (adds)"** - Player gets an extra dice roll after finishing current lines
+  - **"Oops! Your turn just vanished"** - Player's remaining lines are set to 0, turn passes immediately
+  - **"Sneak attack! Opponent skips"** - Opponent's next turn will be skipped
+  - **"Better Luck Next time."** - No effect (appears multiple times on the wheel)
 
-### Popups
-- Special Line! — You rolled a 1 and have a special line available (if >5 boxes left).
-- Special Line Ended! — No one will get special lines for dice roll 1 anymore (when 5 boxes left).
-- Game Over! — Shown when the game ends.
-- Roll the Dice First! — Shown if you try to draw a line before rolling the dice.
-- Special Line Used! — Shown when you use your special line.
+**Important Notes:**
+- Lucky Wheel can only be triggered once per turn (even with extra rolls)
+- Extra rolls from "Double down" are granted after completing current lines
+- Turn skipping effects apply on the next turn cycle
+
+### Core Gameplay Features
+- **Dice Rolling System** - Roll dice to determine how many lines you can draw
+- **Special Line Feature** - Rolling a 1 grants a special line (when >5 boxes remain)
+- **Square Completion** - Complete squares to earn points and continue your turn
+- **Turn Management** - Turn switches when you run out of lines to draw
+- **AI Opponent** - Intelligent AI in Single Player mode with strategic gameplay
+
+### Game Modes
+- **Single Player** - Play against an intelligent AI opponent
+- **Two Players** - Local multiplayer with Lucky Draw wheel on dice roll 6
+- **Online Multiplayer** - Real-time online play with lobby system
+
+### Popups & Messages
+- **Special Line!** — You rolled a 1 and have a special line available (if >5 boxes left)
+- **Special Line Ended!** — No one will get special lines for dice roll 1 anymore (when 5 boxes left)
+- **Game Over!** — Shown when the game ends
+- **Roll the Dice First!** — Shown if you try to draw a line before rolling the dice
+- **Special Line Used!** — Shown when you use your special line
+- **Lucky Draw Messages** — Various messages for Lucky Wheel outcomes
 - Game Start! — Shown at the start of the game.
 
 ### Version
-- Current version/tag: **2.1.0**
+- Current version/tag: **2.2.0**
 
 ### Basic Gameplay
 1. Players take turns drawing horizontal or vertical lines between adjacent dots
@@ -120,8 +161,7 @@ dots-and-boxes/
 ### Dice Mechanics
 - Roll the dice at the start of your turn
 - Dice values 1-5: Draw that many lines during your turn
-- Rolling a 6: Grants a "Special Line" that can be used anytime
-- Special Line: Can be used even when you run out of regular lines
+- Rolling a 6 (Two Players only): Triggers the Lucky Draw wheel
 - Special Line Limit: You can only hold one special line at a time
 
 ### Strategy Tips
