@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Wheel Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 3px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🎲 Lucky Draw Wheel Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Lucky Wheel Functionality</h3>
+        <button onclick="testLuckyWheel()">Test Lucky Wheel</button>
+        <button onclick="testSinglePlayerMode()">Test Single Player Mode</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Console Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        // Mock game state for testing
+        let gameMode = 'singlePlayer';
+        let playerTurn = 1;
+        let isLuckyWheelActive = false;
+        let hasSpunLuckyWheelThisTurn = false;
+        let diceValue = 6;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        function testLuckyWheel() {
+            log('🧪 Testing Lucky Wheel functionality...');
+            log(`Game Mode: ${gameMode}`);
+            log(`Player Turn: ${playerTurn}`);
+            log(`Dice Value: ${diceValue}`);
+            log(`Has Spun This Turn: ${hasSpunLuckyWheelThisTurn}`);
+            log(`Is Wheel Active: ${isLuckyWheelActive}`);
+            
+            if (diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+                log('✅ Conditions met for Lucky Wheel!');
+                log('🎯 Should trigger Lucky Draw wheel');
+            } else {
+                log('❌ Conditions not met for Lucky Wheel');
+                if (diceValue !== 6) log('  - Dice value is not 6');
+                if (hasSpunLuckyWheelThisTurn) log('  - Already spun this turn');
+            }
+        }
+
+        function testSinglePlayerMode() {
+            log('🎮 Testing Single Player Mode...');
+            gameMode = 'singlePlayer';
+            playerTurn = 1;
+            diceValue = 6;
+            hasSpunLuckyWheelThisTurn = false;
+            isLuckyWheelActive = false;
+            
+            log('🔄 Reset game state for Single Player mode');
+            log(`Game Mode: ${gameMode}`);
+            log(`Player Turn: ${playerTurn}`);
+            log(`Dice Value: ${diceValue}`);
+            log(`Has Spun This Turn: ${hasSpunLuckyWheelThisTurn}`);
+            log(`Is Wheel Active: ${isLuckyWheelActive}`);
+            
+            testLuckyWheel();
+        }
+
+        // Initial test
+        log('🚀 Lucky Wheel Test initialized');
+        testLuckyWheel();
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# 🚀 Deployment Checklist - Version 2.2.0
+# 🚀 Deployment Checklist - Version 2.3.0
 
 ## ✅ Pre-Deployment Verification
 
@@ -42,7 +42,7 @@
 ### ✅ New Features Added
 - [x] **Enhanced Lucky Draw System** - Improved Lucky Wheel mechanics with clear outcome descriptions
 - [x] **Updated Game Rules** - Comprehensive Lucky Draw rules and gameplay documentation
-- [x] **Version Update** - Updated to v2.2.0
+- [x] **Version Update** - Updated to v2.3.0
 - [x] **Changelog Addition** - Complete version history documentation
 
 ### ✅ Bug Fixes
@@ -179,4 +179,4 @@ The game is fully functional with:
 - [ ] No special line is granted for any dice value except 1.
 - [ ] All legacy popups for dice roll 6 are removed.
 - [ ] All popups and game logic match the new rules.
-- [ ] Version/tag is set to 2.2.0 everywhere. 
+- [ ] Version/tag is set to 2.3.0 everywhere. 

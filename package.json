@@ -1,6 +1,6 @@
 {
   "name": "dots-and-boxes",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Dots and Boxes 2D board game with dice, AI opponent, online multiplayer, and smooth line drawing. Features three game modes: Single Player vs AI, Two Players local, and Online Multiplayer with lobby system.",
   "main": "server.js",
   "scripts": {

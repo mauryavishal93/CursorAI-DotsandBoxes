@@ -221,6 +221,15 @@ window.onload = function() {
       messageText.textContent = text;
       messageBox.style.display = 'block';
       
+      // Auto-close message box for AI players in single player mode after 2.4s
+      if (gameMode === 'singlePlayer' && playerTurn === 2) {
+          console.log('[MESSAGE BOX] AI player - auto-closing message box after 2.4s for:', title);
+          setTimeout(() => {
+              hideMessageBox();
+              console.log('[MESSAGE BOX] Message box auto-closed for AI player');
+          }, 2400);
+      }
+      
       // Store the callback for when OK is clicked
       if (onClose) {
           messageBoxCloseBtn.onclick = () => {
@@ -445,6 +454,9 @@ window.onload = function() {
       gameOver = false;
       hasSpecialLine = false;
       hasRolledDice = false;
+      hasSpunLuckyWheelThisTurn = false; // Reset Lucky Wheel flag for new game
+      twoPlayerExtraRollAfterFinish = false; // Reset extra roll flag for new game
+      isLuckyWheelActive = false; // Reset Lucky Wheel active state for new game
       clearInterval(diceAnimationIntervalId);
   }
 
@@ -545,11 +557,11 @@ window.onload = function() {
         return;
       }
       
-      // Generate a random value between 1 and 6 and emit to other player
+      // Generate a random dice value 1-6 and emit to other player
       const randomValue = Math.floor(Math.random() * 6) + 1;
       const startTimestamp = Date.now() + 100; // Small delay to ensure sync
       
-      console.log('[DEBUG] Generating random value:', randomValue);
+      console.log('[DEBUG] Generating random dice value:', randomValue);
       
       // Emit the dice roll to the server
       if (onlineSocket && onlineLobbyCode) {
@@ -583,8 +595,8 @@ window.onload = function() {
     
     // Local (single/two player) fallback
     // If dice has already been rolled this turn, don't allow another roll
-    // EXCEPT if two-player Lucky Draw granted an extra chance
-    if (hasRolledDice && !(gameMode === 'twoPlayers' && twoPlayerExtraRollAfterFinish)) {
+    // EXCEPT if Lucky Draw granted an extra chance (works in all modes)
+    if (hasRolledDice && !twoPlayerExtraRollAfterFinish) {
       console.log('[DEBUG] Dice already rolled this turn, returning');
       return;
     }
@@ -601,7 +613,7 @@ window.onload = function() {
       rollCount++;
       if (rollCount >= maxRolls) {
         clearInterval(diceAnimationIntervalId);
-        // Use the final random roll value instead of hardcoded 6
+        // Use the random dice value
         diceValue = randomRoll;
         linesToDraw = diceValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
@@ -610,13 +622,30 @@ window.onload = function() {
         updateScoreDisplay();
         diceDisplayEl.classList.remove('disabled');
         if (gameMode === 'twoPlayers' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+          console.log('[LUCKY WHEEL] Triggering for Two Players mode, player:', playerTurn);
           setTimeout(() => {
-            triggerLuckyWheelForTwoPlayers();
+            triggerLuckyWheel();
           }, 250);
         }
-        if (gameMode === 'singlePlayer' && playerTurn === 2) {
-          setTimeout(aiMakeMove, AI_MOVE_DELAY);
+        if (gameMode === 'singlePlayer' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+          console.log('[LUCKY WHEEL] Triggering for Single Player mode, player:', playerTurn, 'diceValue:', diceValue, 'hasSpunLuckyWheelThisTurn:', hasSpunLuckyWheelThisTurn, 'isLuckyWheelActive:', isLuckyWheelActive);
+          
+          // For AI player, auto-trigger the wheel
+          if (playerTurn === 2) {
+            setTimeout(() => {
+              console.log('[LUCKY WHEEL] Auto-triggering for AI player');
+              triggerLuckyWheel();
+            }, 250);
+          } else {
+            // For human player, just show the wheel (they need to spin manually)
+            setTimeout(() => {
+              console.log('[LUCKY WHEEL] Showing wheel for human player to spin manually');
+              triggerLuckyWheel();
+            }, 250);
+          }
         }
+        // AI moves should only start when turn switches, not after dice roll
+        // This ensures proper turn flow like in 2-player mode
       }
     }, rollDuration);
     const diceAudio = document.getElementById('dice-audio');
@@ -692,12 +721,15 @@ window.onload = function() {
    * Switches the current player turn.
    */
   function switchTurn() {
-      const advanceTurn = () => {
+      const previousPlayer = playerTurn;
       playerTurn = playerTurn === 1 ? 2 : 1;
       linesToDraw = 0; // Reset lines to draw for the new player
       hasRolledDice = false; // Reset dice roll flag for new turn
       hasSpunLuckyWheelThisTurn = false; // reset wheel spin allowance for the new player's turn
       displayDiceValue(0); // Show default dice face for next turn
+      
+      console.log(`[TURN SWITCH] Player ${previousPlayer} -> Player ${playerTurn} (${playerNames[playerTurn]})`);
+      console.log(`[TURN SWITCH] Game Mode: ${gameMode}, Lines to Draw: ${linesToDraw}, Has Rolled Dice: ${hasRolledDice}`);
       
       // Update display
       updateScoreDisplay();
@@ -705,24 +737,27 @@ window.onload = function() {
       // Update dice interactivity for new turn
       updateDiceInteractivity();
 
-        // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
-        if (skipNextTurnForPlayer === playerTurn) {
-          const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
-          skipNextTurnForPlayer = null;
-          showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
-          // Immediately advance again to the other player
-          advanceTurn();
-          return;
-        }
-      
+      // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
+      if (skipNextTurnForPlayer === playerTurn) {
+        const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
+        skipNextTurnForPlayer = null;
+        showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
+        // Immediately advance again to the other player
+        switchTurn();
+        return;
+      }
+    
       // Check if it's AI's turn in single-player mode
       if (gameMode === 'singlePlayer' && playerTurn === 2 && !gameOver) {
-          console.log("Switching to AI turn. AI will roll dice soon.");
-          setTimeout(aiMakeMove, AI_MOVE_DELAY);
+          console.log("Switching to AI turn. AI will start after a delay.");
+          // Only start AI moves if Lucky Wheel is not active
+          if (!isLuckyWheelActive) {
+            // Add a longer delay to give human player time to see the turn switch
+            setTimeout(aiMakeMove, 1000); // 1 second delay instead of AI_MOVE_DELAY
+          } else {
+            console.log('[AI] Lucky Wheel is active, AI moves will start after wheel completes');
+          }
       }
-      };
-
-      advanceTurn();
   }
 
   /**
@@ -1445,8 +1480,8 @@ window.onload = function() {
               checkGameOver();
               // Determine if turn switches
               if (linesToDraw <= 0) {
-                  if (gameMode === 'twoPlayers' && twoPlayerExtraRollAfterFinish) {
-                      // Consume the extra roll and allow player to roll again now
+                  if (twoPlayerExtraRollAfterFinish) {
+                      // Consume the extra roll and allow player to roll again now (works in all modes)
                       twoPlayerExtraRollAfterFinish = false;
                       hasRolledDice = false; // allow rolling again
                       showMessage('Lucky Draw', 'Your bonus roll is ready! Roll the dice again.');
@@ -1482,8 +1517,28 @@ window.onload = function() {
       // If AI needs to roll dice (no lines yet)
       if (linesToDraw === 0) {
           console.log("AI: No lines to draw and no special line. Rolling dice.");
-          rollDice(); // This will call aiMakeMove again after rolling
+          
+          // AI should roll dice and then continue with its turn
+          // Instead of calling rollDice() which might cause issues, handle it directly
+          diceValue = Math.floor(Math.random() * 6) + 1; // Random dice value 1-6
+          linesToDraw = diceValue;
+          hasRolledDice = true;
+          displayDiceValue(diceValue);
+          updateScoreDisplay();
+          
+          console.log(`AI: Rolled dice, got ${diceValue} lines to draw`);
+          
+          // Check if Lucky Draw wheel should be triggered
+          if (diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+              console.log('[LUCKY WHEEL] AI rolled 6, triggering Lucky Draw wheel');
+              triggerLuckyWheel();
+              return; // Let the Lucky Draw wheel handle the rest
+          }
+          
+          // If no Lucky Draw, continue with AI moves
+          setTimeout(aiMakeMove, AI_MOVE_DELAY);
           return;
+
       }
 
       // If AI has lines to draw
@@ -1605,6 +1660,7 @@ window.onload = function() {
                       setTimeout(aiMakeMove, AI_MOVE_DELAY);
                   } else {
                       console.log("AI: No more lines to draw. Turn will switch.");
+                      console.log(`[AI TURN END] AI finished drawing all lines, switching turn from Player ${playerTurn} to Player 1`);
                       switchTurn();
                   }
               }, AI_MOVE_DELAY);
@@ -1764,8 +1820,11 @@ window.onload = function() {
       // Show game start message after everything is set up
       showMessage("Game Start!", `It's ${playerNames[playerTurn]}'s turn. Roll the dice to begin!`);
 
-      if (gameMode === 'singlePlayer' && playerTurn === 2) {
-          setTimeout(rollDice, AI_MOVE_DELAY);
+      // Single player games should always start with human player (Player 1)
+      if (gameMode === 'singlePlayer') {
+          playerTurn = 1; // Force start with human player
+          console.log('[GAME START] Single player game starting with human player (Player 1)');
+          updateScoreDisplay(); // Update display to show human player's turn
       }
   }
 
@@ -2491,10 +2550,15 @@ window.onload = function() {
   window.resetGameState = resetGameState;
   window.gameOver = () => gameOver; // Expose gameOver state
 
-  // ------------------- Lucky Draw Wheel (Two Players only) -------------------
-  function triggerLuckyWheelForTwoPlayers() {
-    if (gameMode !== 'twoPlayers' || isLuckyWheelActive) return;
+  // ------------------- Lucky Draw Wheel (All Modes) -------------------
+  function triggerLuckyWheel() {
+    console.log('[LUCKY WHEEL] Function called, gameMode:', gameMode, 'playerTurn:', playerTurn, 'hasSpunLuckyWheelThisTurn:', hasSpunLuckyWheelThisTurn);
+    if (isLuckyWheelActive) {
+      console.log('[LUCKY WHEEL] Already active, returning');
+      return;
+    }
     isLuckyWheelActive = true;
+    console.log('[LUCKY WHEEL] Setting active, searching for UI elements...');
     const modal = document.getElementById('luckyWheelModal');
     const canvas = document.getElementById('luckyWheelCanvas');
     const spinBtn = document.getElementById('spinWheelBtn');
@@ -2502,10 +2566,25 @@ window.onload = function() {
     const closeBtn = document.getElementById('closeLuckyWheelBtn');
     const wheelContainer = document.getElementById('wheelContainer');
     if (!modal || !canvas || !spinBtn || !resultEl || !closeBtn) {
-      console.warn('Lucky Wheel UI elements not found');
+      console.error('[LUCKY WHEEL] UI elements not found:', { 
+        modal: !!modal, 
+        canvas: !!canvas, 
+        spinBtn: !!spinBtn, 
+        resultEl: !!resultEl, 
+        closeBtn: !!closeBtn 
+      });
+      console.error('[LUCKY WHEEL] Modal element:', modal);
+      console.error('[LUCKY WHEEL] Canvas element:', canvas);
+      console.error('[LUCKY WHEEL] Spin button element:', spinBtn);
+      console.error('[LUCKY WHEEL] Result element:', resultEl);
+      console.error('[LUCKY WHEEL] Close button element:', closeBtn);
       isLuckyWheelActive = false;
       return;
     }
+    console.log('[LUCKY WHEEL] All UI elements found, proceeding...');
+
+    // Check if this is AI turn in Single Player mode for auto-spin
+    const isAITurn = gameMode === 'singlePlayer' && playerTurn === 2;
 
     // Add a comfortable gap above the wheel
     if (wheelContainer) {
@@ -2713,7 +2792,18 @@ window.onload = function() {
           resultEl.textContent = `⬆️ ${result}`;
           applyLuckyWheelOutcome(result);
           hasSpunLuckyWheelThisTurn = true; // mark wheel used for this turn
+          
+                  // Show close button for human players, hide for AI players
+        if (gameMode === 'singlePlayer' && playerTurn === 2) {
+          // AI player - close button will be hidden, wheel auto-closes
+          closeBtn.style.display = 'none';
+          console.log('[LUCKY WHEEL] AI player - close button hidden, wheel will auto-close');
+        } else {
+          // Human player - show close button for manual closing
           closeBtn.style.display = 'inline-block';
+          console.log('[LUCKY WHEEL] Human player - close button shown for manual closing');
+        }
+          
           spinning = false;
         }
       }
@@ -2721,13 +2811,48 @@ window.onload = function() {
     };
 
     closeBtn.onclick = () => {
+      console.log('[LUCKY WHEEL] Close button clicked by player:', playerTurn);
       modal.style.display = 'none';
       currentHighlightIndex = null;
       isLuckyWheelActive = false;
+      
+      // If this was a human player in single player mode, they need to manually close
+      if (gameMode === 'singlePlayer' && playerTurn === 1) {
+        console.log('[LUCKY WHEEL] Human player closed the wheel manually');
+        // The wheel is now closed, human player can continue their turn
+      }
     };
+
+    // Show the modal
+    modal.style.display = 'block';
+    console.log('[LUCKY WHEEL] Modal displayed, isAITurn:', isAITurn);
+    
+    // Handle AI vs Human players differently in Single Player mode
+    if (isAITurn) {
+      // For AI player: Auto-spin and auto-close
+      console.log('[LUCKY WHEEL] AI turn - setting up auto-spin and auto-close');
+      spinBtn.style.display = 'none';
+      resultEl.textContent = 'AI is spinning the wheel...';
+      
+      // Auto-spin after 300ms delay
+      setTimeout(() => {
+        if (!hasSpunLuckyWheelThisTurn) {
+          console.log('[LUCKY WHEEL] AI auto-spinning the wheel');
+          spinBtn.click(); // Trigger the spin automatically
+        }
+      }, 300);
+    } else {
+      // For human player: Manual spin and manual close
+      console.log('[LUCKY WHEEL] Human turn - setting up manual spin and close');
+      spinBtn.style.display = 'inline-block';
+      closeBtn.style.display = 'none'; // Hide close button initially, show after spin
+      resultEl.textContent = 'Spin the wheel to see your luck!';
+    }
   }
 
   function applyLuckyWheelOutcome(resultText) {
+    console.log('[LUCKY WHEEL] Applying outcome:', resultText, 'for player:', playerTurn, 'in mode:', gameMode);
+    
     // Map outcomes to effects
     switch (resultText) {
       case '🎯 Bullseye! +1 line':
@@ -2758,6 +2883,74 @@ window.onload = function() {
         const remainingLines = linesToDraw > 0 ? linesToDraw : 0;
         showMessage('Lucky Draw', `🤞 Better luck next time! You still have ${remainingLines} lines to draw.`);
         break;
+    }
+
+    // Handle AI vs Human players differently in Single Player mode
+    if (gameMode === 'singlePlayer') {
+      if (playerTurn === 2) {
+        // For AI player: Auto-close the wheel and continue
+        console.log('[LUCKY WHEEL] AI got outcome:', resultText);
+        
+        // Auto-close the wheel after a short delay so human can see the result
+        setTimeout(() => {
+          const modal = document.getElementById('luckyWheelModal');
+          if (modal) {
+            modal.style.display = 'none';
+            isLuckyWheelActive = false;
+            console.log('[LUCKY WHEEL] Wheel auto-closed for AI');
+            
+            // Wait for message box to auto-close (2.4s) before starting AI moves
+            // This ensures better user experience - human sees result before AI starts
+            console.log('[LUCKY WHEEL] Waiting 2.45s for message box to auto-close before starting AI moves');
+            setTimeout(() => {
+              console.log('[LUCKY WHEEL] Message box should be closed now, starting AI moves');
+              
+              // Handle different outcomes for AI
+              switch (resultText) {
+                case '💨 Poof! Turn vanished':
+                  // AI's turn vanished, but first ensure wheel and message box are fully closed
+                  console.log('[LUCKY WHEEL] AI turn vanished, ensuring wheel and message box are closed before switching turn');
+                  // The wheel is already closed, and message box will auto-close after 2.4s
+                  // Wait for message box to fully close, then switch turn
+                  setTimeout(() => {
+                    console.log('[LUCKY WHEEL] Message box should be fully closed now, switching turn');
+                    switchTurn();
+                  }, 100); // Small buffer to ensure message box is closed
+                  break;
+                case '🎲 Double Trouble! Roll again':
+                  // AI gets extra roll, but should finish current lines first
+                  console.log('[LUCKY WHEEL] AI got Double Trouble, continuing with current lines');
+                  if (linesToDraw > 0) {
+                    console.log('[LUCKY WHEEL] AI has lines to draw, continuing');
+                    setTimeout(aiMakeMove, AI_MOVE_DELAY);
+                  } else {
+                    // If no lines to draw, AI should roll dice again
+                    console.log('[LUCKY WHEEL] AI has no lines, will roll dice again');
+                    setTimeout(aiMakeMove, AI_MOVE_DELAY);
+                  }
+                  break;
+                default:
+                  // For all other outcomes (Bullseye, Lightning Strike, Better Luck), AI continues
+                  console.log('[LUCKY WHEEL] AI continuing with current turn (outcome:', resultText, ')');
+                  if (linesToDraw > 0) {
+                    console.log('[LUCKY WHEEL] AI has lines to draw, continuing');
+                    setTimeout(aiMakeMove, AI_MOVE_DELAY);
+                  } else {
+                    // If no lines to draw, AI should roll dice
+                    console.log('[LUCKY WHEEL] AI has no lines, will roll dice');
+                    setTimeout(aiMakeMove, AI_MOVE_DELAY);
+                  }
+                  break;
+              }
+            }, 2450); // Wait 2.45s to ensure message box is closed (2.4s + 50ms buffer)
+          }
+        }, 1500); // 1.5 second delay to show the result
+      } else {
+        // For human player: Keep wheel open, they need to close it manually
+        console.log('[LUCKY WHEEL] Human player got outcome:', resultText);
+        console.log('[LUCKY WHEEL] Wheel stays open for human player to close manually');
+        // The wheel will stay open until the human player clicks the close button
+      }
     }
   }
 
