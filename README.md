@@ -32,6 +32,12 @@ A modern, feature-rich implementation of the classic Dots and Boxes game with AI
 - **IMPORTANT**: Lucky Wheel can only be triggered once per turn (even with extra rolls)
 - This rule applies to ALL outcomes including Lightning Strike, Poof, and others
 
+### 🎛️ Lucky Wheel Deployment Configuration
+- **NEW**: Lucky Draw wheel can be enabled/disabled during app deployment
+- **Deployment Control**: Set via configuration parameter (not user-controllable)
+- **Visual Feedback**: Status indicators show current Lucky Wheel state
+- **Classic Mode**: When disabled, game plays without Lucky Wheel (dice roll 6 = normal 6 lines)
+
 ### 🎨 Enhanced Gameplay
 - **Smooth Line Drawing**: Click and drag to draw lines smoothly
 - **Visual Feedback**: See preview while drawing lines
@@ -82,6 +88,10 @@ A modern, feature-rich implementation of the classic Dots and Boxes game with AI
 
 ### Version 2.3.0 (Current) - Major Enhancements
 - **🎲 Random Dice Values**: Dice now rolls random values 1-6 for dynamic gameplay
+- **🎛️ Lucky Wheel Deployment Configuration**: 
+  - Lucky Draw wheel can be enabled/disabled during app deployment
+  - Deployment-only setting (not user-controllable)
+  - Visual status indicators show current Lucky Wheel state
 - **🎯 Enhanced Lucky Wheel System**: 
   - Works in ALL game modes (Single Player, Two Players, Online)
   - All outcomes properly implemented and tested
@@ -257,6 +267,48 @@ dots-and-boxes/
 - **Reliability**: Robust turn management and outcome handling
 
 ## 🚀 Deployment
+
+### 🎛️ Lucky Wheel Deployment Configuration
+
+The Lucky Wheel feature can be enabled or disabled during deployment using command-line arguments:
+
+#### **Method 1: Direct Command Line**
+```bash
+# Enable Lucky Wheel (Enhanced Mode)
+npm start DEFAULT_LUCKY_WHEEL_ENABLED=true
+
+# Disable Lucky Wheel (Classic Mode)
+npm start DEFAULT_LUCKY_WHEEL_ENABLED=false
+```
+
+#### **Method 2: Convenient Scripts**
+```bash
+# Enable Lucky Wheel
+npm run start:lucky-wheel-on
+npm run deploy:enhanced
+
+# Disable Lucky Wheel
+npm run start:lucky-wheel-off
+npm run deploy:classic
+```
+
+#### **Method 3: Custom Value**
+```bash
+# Any custom configuration
+npm start DEFAULT_LUCKY_WHEEL_ENABLED=true
+npm start DEFAULT_LUCKY_WHEEL_ENABLED=false
+```
+
+**Note**: This is a deployment-only setting. Players cannot change this during gameplay - it's controlled entirely by the deployment configuration.
+
+#### **Server Configuration Endpoint**
+The server provides a configuration endpoint at `/api/config` that returns the current Lucky Wheel setting:
+```json
+{
+  "DEFAULT_LUCKY_WHEEL_ENABLED": true,
+  "message": "Lucky Wheel is ENABLED for this deployment"
+}
+```
 
 ### Local Development
 ```bash

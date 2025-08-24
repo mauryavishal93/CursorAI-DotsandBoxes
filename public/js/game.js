@@ -3,6 +3,15 @@ window.onload = function() {
   // Guard against double-initialization
   if (window.__gameInitDone) return;
   window.__gameInitDone = true;
+  
+  // ========================================
+  // DEPLOYMENT CONFIGURATION - LUCKY WHEEL
+  // ========================================
+  // This value is now set via command line argument during deployment
+  // Example: npm start DEFAULT_LUCKY_WHEEL_ENABLED=true
+  // Example: npm start DEFAULT_LUCKY_WHEEL_ENABLED=false
+  let DEFAULT_LUCKY_WHEEL_ENABLED = true; // Will be updated from server
+  // ========================================
   // Global constants for game configuration
   const GRID_SIZE = 5; // 5x5 squares, means 6x6 dots
   const DOT_RADIUS = 6;
@@ -57,11 +66,17 @@ window.onload = function() {
   let skipNextTurnForPlayer = null;   // 1 or 2, skip on next switchTurn
   let hasSpunLuckyWheelThisTurn = false; // Prevent multiple spins in the same turn
   let twoPlayerExtraRollAfterFinish = false; // Grant one extra dice roll after current lines are drawn
+  
+  // Lucky Wheel Toggle Feature
+  let isLuckyWheelEnabled = DEFAULT_LUCKY_WHEEL_ENABLED; // Default from deployment configuration
 
   // Initialize game state immediately when window loads
   // This ensures drawnLineKeys and other state variables are properly initialized
   // before any functions (like runAllTests) try to access them.
   resetGameState();
+  
+  // Fetch Lucky Wheel configuration from server
+  fetchLuckyWheelConfig();
 
   // UI elements references (common screens)
   const homeScreen = document.getElementById('home-screen');
@@ -71,6 +86,8 @@ window.onload = function() {
   const twoPlayerBtn = document.getElementById('two-player-btn'); 
   const onlineGameBtn = document.getElementById('online-game-btn'); // Re-added
   const runUnitTestsBtn = document.getElementById('run-unit-tests-btn'); // New button
+  
+
 
   const spPlayerNameInput = document.getElementById('sp-player-name-input'); 
   const startSinglePlayerGameBtn = document.getElementById('start-single-player-game-btn');
@@ -303,8 +320,34 @@ window.onload = function() {
       
       hideAllScreens();
       screenToShow.style.display = 'flex';
+      
+      
   }
+  
+  
+  
+  /**
+   * Fetches Lucky Wheel configuration from server and initializes the game state.
+   */
+  async function fetchLuckyWheelConfig() {
+      try {
+          const response = await fetch('/api/config');
+          const config = await response.json();
+          
+          DEFAULT_LUCKY_WHEEL_ENABLED = config.DEFAULT_LUCKY_WHEEL_ENABLED;
+          isLuckyWheelEnabled = DEFAULT_LUCKY_WHEEL_ENABLED;
+          
+          console.log('[LUCKY WHEEL] Configuration loaded from server:', config.message);
+          console.log('[LUCKY WHEEL] Lucky Wheel is:', isLuckyWheelEnabled ? 'ENABLED' : 'DISABLED');
+          
 
+          
+      } catch (error) {
+          console.warn('[LUCKY WHEEL] Failed to fetch configuration from server, using default:', DEFAULT_LUCKY_WHEEL_ENABLED);
+          isLuckyWheelEnabled = DEFAULT_LUCKY_WHEEL_ENABLED;
+      }
+  }
+  
   /**
    * Initializes canvas dimensions based on the container size.
    * Adjusts for smaller screens to ensure visibility.
@@ -621,13 +664,15 @@ window.onload = function() {
         displayDiceValue(diceValue);
         updateScoreDisplay();
         diceDisplayEl.classList.remove('disabled');
-        if (gameMode === 'twoPlayers' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+        // Check if Lucky Wheel is enabled before triggering
+        if (isLuckyWheelEnabled && gameMode === 'twoPlayers' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
           console.log('[LUCKY WHEEL] Triggering for Two Players mode, player:', playerTurn);
           setTimeout(() => {
             triggerLuckyWheel();
           }, 250);
         }
-        if (gameMode === 'singlePlayer' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+        // Check if Lucky Wheel is enabled before triggering
+        if (isLuckyWheelEnabled && gameMode === 'singlePlayer' && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
           console.log('[LUCKY WHEEL] Triggering for Single Player mode, player:', playerTurn, 'diceValue:', diceValue, 'hasSpunLuckyWheelThisTurn:', hasSpunLuckyWheelThisTurn, 'isLuckyWheelActive:', isLuckyWheelActive);
           
           // For AI player, auto-trigger the wheel
@@ -1528,14 +1573,14 @@ window.onload = function() {
           
           console.log(`AI: Rolled dice, got ${diceValue} lines to draw`);
           
-          // Check if Lucky Draw wheel should be triggered
-          if (diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+          // Check if Lucky Draw wheel should be triggered (only when enabled)
+          if (isLuckyWheelEnabled && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
               console.log('[LUCKY WHEEL] AI rolled 6, triggering Lucky Draw wheel');
               triggerLuckyWheel();
               return; // Let the Lucky Draw wheel handle the rest
           }
           
-          // If no Lucky Draw, continue with AI moves
+          // If no Lucky Draw or Lucky Wheel is disabled, continue with AI moves
           setTimeout(aiMakeMove, AI_MOVE_DELAY);
           return;
 
@@ -2553,6 +2598,13 @@ window.onload = function() {
   // ------------------- Lucky Draw Wheel (All Modes) -------------------
   function triggerLuckyWheel() {
     console.log('[LUCKY WHEEL] Function called, gameMode:', gameMode, 'playerTurn:', playerTurn, 'hasSpunLuckyWheelThisTurn:', hasSpunLuckyWheelThisTurn);
+    
+    // Check if Lucky Wheel is enabled via toggle
+    if (!isLuckyWheelEnabled) {
+      console.log('[LUCKY WHEEL] Lucky Wheel is disabled via toggle, skipping');
+      return;
+    }
+    
     if (isLuckyWheelActive) {
       console.log('[LUCKY WHEEL] Already active, returning');
       return;

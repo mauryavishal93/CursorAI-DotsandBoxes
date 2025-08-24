@@ -6,11 +6,38 @@ const http = require('http');
 const { Server } = require('socket.io');
 const os = require('os');
 
+// Parse command line arguments for Lucky Wheel configuration
+const args = process.argv.slice(2);
+let DEFAULT_LUCKY_WHEEL_ENABLED = true; // Default value
+
+// Parse arguments like "DEFAULT_LUCKY_WHEEL_ENABLED=true" or "DEFAULT_LUCKY_WHEEL_ENABLED=false"
+args.forEach(arg => {
+  if (arg.startsWith('DEFAULT_LUCKY_WHEEL_ENABLED=')) {
+    const value = arg.split('=')[1].toLowerCase();
+    if (value === 'true') {
+      DEFAULT_LUCKY_WHEEL_ENABLED = true;
+    } else if (value === 'false') {
+      DEFAULT_LUCKY_WHEEL_ENABLED = false;
+    }
+  }
+});
+
+console.log(`🎛️ Lucky Wheel Configuration: ${DEFAULT_LUCKY_WHEEL_ENABLED ? 'ENABLED' : 'DISABLED'}`);
+console.log(`🚀 Server starting with Lucky Wheel: ${DEFAULT_LUCKY_WHEEL_ENABLED ? 'ON' : 'OFF'}`);
+
 // Serve static files from public directory
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/socket.io', express.static(path.join(__dirname, 'node_modules', 'socket.io', 'client-dist')));
+
+// Configuration endpoint for Lucky Wheel setting
+app.get('/api/config', (req, res) => {
+  res.json({
+    DEFAULT_LUCKY_WHEEL_ENABLED: DEFAULT_LUCKY_WHEEL_ENABLED,
+    message: `Lucky Wheel is ${DEFAULT_LUCKY_WHEEL_ENABLED ? 'ENABLED' : 'DISABLED'} for this deployment`
+  });
+});
 
 // Serve index.html from root directory
 app.get('*', (req, res) => {
