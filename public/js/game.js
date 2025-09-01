@@ -1563,25 +1563,31 @@ window.onload = function() {
       if (linesToDraw === 0) {
           console.log("AI: No lines to draw and no special line. Rolling dice.");
           
-          // AI should roll dice and then continue with its turn
-          // Instead of calling rollDice() which might cause issues, handle it directly
-          diceValue = Math.floor(Math.random() * 6) + 1; // Random dice value 1-6
-          linesToDraw = diceValue;
-          hasRolledDice = true;
-          displayDiceValue(diceValue);
-          updateScoreDisplay();
+          // Generate random dice value and animate the roll
+          const randomValue = Math.floor(Math.random() * 6) + 1;
+          console.log(`AI: Rolling dice, got ${randomValue}`);
           
-          console.log(`AI: Rolled dice, got ${diceValue} lines to draw`);
-          
-          // Check if Lucky Draw wheel should be triggered (only when enabled)
-          if (isLuckyWheelEnabled && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
-              console.log('[LUCKY WHEEL] AI rolled 6, triggering Lucky Draw wheel');
-              triggerLuckyWheel();
-              return; // Let the Lucky Draw wheel handle the rest
-          }
-          
-          // If no Lucky Draw or Lucky Wheel is disabled, continue with AI moves
-          setTimeout(aiMakeMove, AI_MOVE_DELAY);
+          // Use proper dice animation
+          animateDiceRoll(randomValue, () => {
+              // Set the values after animation completes
+              diceValue = randomValue;
+              linesToDraw = randomValue;
+              hasRolledDice = true;
+              displayDiceValue(diceValue);
+              updateScoreDisplay();
+              
+              console.log(`AI: Dice animation complete. Got ${diceValue} lines to draw`);
+              
+              // Check if Lucky Draw wheel should be triggered (only when enabled)
+              if (isLuckyWheelEnabled && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+                  console.log('[LUCKY WHEEL] AI rolled 6, triggering Lucky Draw wheel');
+                  triggerLuckyWheel();
+                  return; // Let the Lucky Draw wheel handle the rest
+              }
+              
+              // If no Lucky Draw or Lucky Wheel is disabled, continue with AI moves
+              setTimeout(aiMakeMove, AI_MOVE_DELAY);
+          });
           return;
 
       }
@@ -1704,20 +1710,51 @@ window.onload = function() {
                       console.log(`AI: Remaining lines: ${linesToDraw}. Scheduling next move.`);
                       setTimeout(aiMakeMove, AI_MOVE_DELAY);
                   } else {
-                      console.log("AI: No more lines to draw. Turn will switch.");
-                      console.log(`[AI TURN END] AI finished drawing all lines, switching turn from Player ${playerTurn} to Player 1`);
-                      switchTurn();
+                      console.log("AI: No more lines to draw. Checking for extra roll.");
+                      // Check if AI has an extra roll from Double Trouble
+                      if (twoPlayerExtraRollAfterFinish) {
+                          console.log("AI: Has extra roll from Double Trouble, rolling dice again.");
+                          // Consume the extra roll and allow AI to roll dice again
+                          twoPlayerExtraRollAfterFinish = false;
+                          hasRolledDice = false; // allow rolling again
+                          // AI will roll dice and continue with its turn
+                          setTimeout(aiMakeMove, AI_MOVE_DELAY);
+                      } else {
+                          console.log(`[AI TURN END] AI finished drawing all lines, switching turn from Player ${playerTurn} to Player 1`);
+                          switchTurn();
+                      }
                   }
               }, AI_MOVE_DELAY);
           } else {
-              console.log("AI: No valid line could be chosen from available lines. Switching turn.");
-              // This happens if availableLines is empty or no valid line could be picked.
-              switchTurn();
+              console.log("AI: No valid line could be chosen from available lines. Checking for extra roll.");
+              // Check if AI has an extra roll from Double Trouble even when no lines available
+              if (twoPlayerExtraRollAfterFinish) {
+                  console.log("AI: Has extra roll from Double Trouble, rolling dice again.");
+                  // Consume the extra roll and allow AI to roll dice again
+                  twoPlayerExtraRollAfterFinish = false;
+                  hasRolledDice = false; // allow rolling again
+                  // AI will roll dice and continue with its turn
+                  setTimeout(aiMakeMove, AI_MOVE_DELAY);
+              } else {
+                  console.log("AI: No valid lines and no extra roll. Switching turn.");
+                  switchTurn();
+              }
           }
       } else {
-          console.log("AI Make Move END: No lines to draw. Switching turn.");
-          // This case should ideally not be reached if rollDice is called first and sets linesToDraw
-          switchTurn();
+          console.log("AI Make Move END: No lines to draw. Checking for extra roll.");
+          // Check if AI has an extra roll from Double Trouble
+          if (twoPlayerExtraRollAfterFinish) {
+              console.log("AI: Has extra roll from Double Trouble, rolling dice again.");
+              // Consume the extra roll and allow AI to roll dice again
+              twoPlayerExtraRollAfterFinish = false;
+              hasRolledDice = false; // allow rolling again
+              // AI will roll dice and continue with its turn
+              setTimeout(aiMakeMove, AI_MOVE_DELAY);
+          } else {
+              console.log("AI: No lines to draw and no extra roll. Switching turn.");
+              // This case should ideally not be reached if rollDice is called first and sets linesToDraw
+              switchTurn();
+          }
       }
   }
 
@@ -2289,7 +2326,8 @@ window.onload = function() {
   // --- DICE ROLL SYNC ANIMATION FOR ONLINE MULTIPLAYER ---
   // Helper to animate dice roll
   function animateDiceRoll(finalValue, onComplete) {
-    const diceDisplayEl = (gameMode === 'onlineMultiplayer') ? onlineDiceDisplayEl : tpDiceDisplayEl;
+    const diceDisplayEl = (gameMode === 'singlePlayer') ? spDiceDisplayEl : 
+                         (gameMode === 'twoPlayers') ? tpDiceDisplayEl : onlineDiceDisplayEl;
     let rollCount = 0;
     const maxRolls = 15;
     const rollDuration = 50;
