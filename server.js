@@ -146,12 +146,24 @@ class ProductionServer {
       etag: true,
       lastModified: true,
       setHeaders: (res, path) => {
-        // Set proper MIME types for JavaScript files
+        // Set proper MIME types for different file types
         if (path.endsWith('.js')) {
-          res.setHeader('Content-Type', 'application/javascript');
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        }
+        if (path.endsWith('.mjs')) {
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         }
         if (path.endsWith('.css')) {
-          res.setHeader('Content-Type', 'text/css');
+          res.setHeader('Content-Type', 'text/css; charset=utf-8');
+        }
+        if (path.endsWith('.html')) {
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        }
+        if (path.endsWith('.json')) {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        }
+        if (path.endsWith('.svg')) {
+          res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
         }
       }
     }));
@@ -159,6 +171,18 @@ class ProductionServer {
     // Serve root HTML file
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(__dirname, 'index.html'));
+    });
+
+    // Ensure JavaScript files are served with correct MIME type
+    this.app.get('*.js', (req, res, next) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      next();
+    });
+
+    // Ensure CSS files are served with correct MIME type
+    this.app.get('*.css', (req, res, next) => {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      next();
     });
   }
 
@@ -181,7 +205,26 @@ class ProductionServer {
       });
     });
 
-    // Catch-all handler for SPA routing
+    // Specific routes for static files to ensure proper MIME types
+    this.app.get('/js/*', (req, res, next) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      next();
+    });
+
+    this.app.get('/css/*', (req, res, next) => {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      next();
+    });
+
+    this.app.get('/assets/*', (req, res, next) => {
+      const filePath = req.path;
+      if (filePath.endsWith('.wav') || filePath.endsWith('.mp3')) {
+        res.setHeader('Content-Type', 'audio/wav');
+      }
+      next();
+    });
+
+    // Catch-all handler for SPA routing (must be last)
     this.app.get('*', (req, res) => {
       res.sendFile(path.join(__dirname, 'index.html'));
     });

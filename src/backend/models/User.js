@@ -100,4 +100,15 @@ userSchema.methods.updateGameStats = function(won, score) {
   return this.save();
 };
 
+// Static method to delete user by ID
+userSchema.statics.deleteById = async function(id) {
+  try {
+    const result = await this.findByIdAndDelete(id);
+    return !!result;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return false;
+  }
+};
+
 module.exports = mongoose.model('User', userSchema);

@@ -86,6 +86,8 @@ window.onload = function() {
   const twoPlayerBtn = document.getElementById('two-player-btn'); 
   const onlineGameBtn = document.getElementById('online-game-btn'); // Re-added
   const runUnitTestsBtn = document.getElementById('run-unit-tests-btn'); // New button
+
+
   
 
 
@@ -2087,98 +2089,126 @@ window.onload = function() {
   /**
    * Event Listeners for screen navigation and game actions.
    */
-  singlePlayerBtn.addEventListener('click', () => {
-      showScreen(singlePlayerSetupScreen);
-  });
+  if (singlePlayerBtn) {
+    singlePlayerBtn.addEventListener('click', () => {
+        showScreen(singlePlayerSetupScreen);
+    });
+  }
 
-  twoPlayerBtn.addEventListener('click', () => {
-      showScreen(twoPlayerSetupScreen);
-  });
+  if (twoPlayerBtn) {
+    twoPlayerBtn.addEventListener('click', () => {
+        showScreen(twoPlayerSetupScreen);
+    });
+  }
 
-  onlineGameBtn.addEventListener('click', () => {
-      const onlineLobbyUI = document.getElementById('online-lobby-ui');
-      if (onlineLobbyUI) onlineLobbyUI.style.display = 'block';
-  });
+  if (onlineGameBtn) {
+    onlineGameBtn.addEventListener('click', () => {
+        const onlineLobbyUI = document.getElementById('online-lobby-ui');
+        if (onlineLobbyUI) onlineLobbyUI.style.display = 'block';
+    });
+  }
 
   // Online game screen event listeners
-  onlineRestartBtn.addEventListener('click', () => {
-      if (gameMode === 'onlineMultiplayer') {
-          showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
-              // Emit leave lobby event to notify opponent
-              if (onlineSocket && onlineLobbyCode) {
-                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
-              }
-              showScreen(homeScreen);
-          }, () => {});
-      }
-  });
+  if (onlineRestartBtn) {
+    onlineRestartBtn.addEventListener('click', () => {
+        if (gameMode === 'onlineMultiplayer') {
+            showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
+                // Emit leave lobby event to notify opponent
+                if (onlineSocket && onlineLobbyCode) {
+                    onlineSocket.emit('leaveLobby', onlineLobbyCode);
+                }
+                showScreen(homeScreen);
+            }, () => {});
+        }
+    });
+  }
 
-  onlineBackToHomeBtn.addEventListener('click', () => {
-      if (gameMode === 'onlineMultiplayer') {
-          if (gameOver) {
-              // If game is over, just leave lobby and go home without confirmation
-              if (onlineSocket && onlineLobbyCode) {
-                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
-              }
-              showScreen(homeScreen);
-          } else {
-              showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
-                  // Emit leave lobby event to notify opponent
-                  if (onlineSocket && onlineLobbyCode) {
-                      onlineSocket.emit('leaveLobby', onlineLobbyCode);
-                  }
-                  showScreen(homeScreen);
-              }, () => {});
-          }
-      }
-  });
+  if (onlineBackToHomeBtn) {
+    onlineBackToHomeBtn.addEventListener('click', () => {
+        if (gameMode === 'onlineMultiplayer') {
+            if (gameOver) {
+                // If game is over, just leave lobby and go home without confirmation
+                if (onlineSocket && onlineLobbyCode) {
+                    onlineSocket.emit('leaveLobby', onlineLobbyCode);
+                }
+                showScreen(homeScreen);
+            } else {
+                showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
+                    // Emit leave lobby event to notify opponent
+                    if (onlineSocket && onlineLobbyCode) {
+                        onlineSocket.emit('leaveLobby', onlineLobbyCode);
+                    }
+                    showScreen(homeScreen);
+                }, () => {});
+            }
+        }
+    });
+  }
 
-  startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
-  startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
+  if (startSinglePlayerGameBtn) {
+    startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
+  }
+  if (startTwoPlayerGameBtn) {
+    startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
+  }
 
   // Setup screen back button handlers
-  spSetupBackToHomeBtn.addEventListener('click', () => {
-      showScreen(homeScreen);
-  });
-  tpSetupBackToHomeBtn.addEventListener('click', () => {
-      showScreen(homeScreen);
-  });
+  if (spSetupBackToHomeBtn) {
+    spSetupBackToHomeBtn.addEventListener('click', () => {
+        showScreen(homeScreen);
+    });
+  }
+  if (tpSetupBackToHomeBtn) {
+    tpSetupBackToHomeBtn.addEventListener('click', () => {
+        showScreen(homeScreen);
+    });
+  }
 
-  messageBoxCloseBtn.addEventListener('click', hideMessageBox);
+  if (messageBoxCloseBtn) {
+    messageBoxCloseBtn.addEventListener('click', hideMessageBox);
+  }
 
-  spRestartBtn.addEventListener('click', () => {
-      if (gameOver) {
-          startGame('singlePlayer'); // No confirmation if game is over
-      } else {
-          showConfirmation("Restart Game?", "Are you sure you want to restart the single player game?",
-              () => startGame('singlePlayer'));
-      }
-  });
-  spBackToHomeBtn.addEventListener('click', () => {
-      if (gameOver) {
-          showScreen(homeScreen); // No confirmation if game is over
-      } else {
-          showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
-              () => showScreen(homeScreen));
-      }
-  });
+  if (spRestartBtn) {
+    spRestartBtn.addEventListener('click', () => {
+        if (gameOver) {
+            startGame('singlePlayer'); // No confirmation if game is over
+        } else {
+            showConfirmation("Restart Game?", "Are you sure you want to restart the single player game?",
+                () => startGame('singlePlayer'));
+        }
+    });
+  }
+  if (spBackToHomeBtn) {
+    spBackToHomeBtn.addEventListener('click', () => {
+        if (gameOver) {
+            showScreen(homeScreen); // No confirmation if game is over
+        } else {
+            showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
+                () => showScreen(homeScreen));
+        }
+    });
+  }
 
-  tpRestartBtn.addEventListener('click', () => {
-      if (gameOver) {
-          startGame('twoPlayers'); // No confirmation if game is over
-      } else {
-          showConfirmation("Restart Game?", "Are you sure you want to restart the two player game?",
-              () => startGame('twoPlayers'));
-      }
-  });
-  tpBackToHomeBtn.addEventListener('click', () => {
-      if (gameOver) {
-          showScreen(homeScreen); // No confirmation if game is over
-      } else {
-          showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
-              () => showScreen(homeScreen));
-      }
-  });
+  if (tpRestartBtn) {
+    tpRestartBtn.addEventListener('click', () => {
+        if (gameOver) {
+            startGame('twoPlayers'); // No confirmation if game is over
+        } else {
+            showConfirmation("Restart Game?", "Are you sure you want to restart the two player game?",
+                () => startGame('twoPlayers'));
+        }
+    });
+  }
+  if (tpBackToHomeBtn) {
+    tpBackToHomeBtn.addEventListener('click', () => {
+        if (gameOver) {
+            showScreen(homeScreen); // No confirmation if game is over
+        } else {
+            showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
+                () => showScreen(homeScreen));
+        }
+    });
+  }
 
   if (rulesBtnHome) rulesBtnHome.addEventListener('click', () => rulesModal && (rulesModal.style.display = 'block'));
   if (infoBtnHome) infoBtnHome.addEventListener('click', () => infoModal && (infoModal.style.display = 'block'));

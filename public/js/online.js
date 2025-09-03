@@ -23,9 +23,11 @@ function hideLobbyUI() {
   onlineLobbyUI.style.display = 'none';
 }
 
-onlineGameBtn.addEventListener('click', () => {
-  showLobbyUI();
-});
+if (onlineGameBtn) {
+  onlineGameBtn.addEventListener('click', () => {
+    showLobbyUI();
+  });
+}
 
 // Socket connection event handlers
 socket.on('connect', () => {
@@ -63,7 +65,8 @@ socket.on('connect_error', (error) => {
 // Expose socket globally for game.js
 window.socket = socket;
 
-createLobbyBtn.addEventListener('click', () => {
+if (createLobbyBtn) {
+  createLobbyBtn.addEventListener('click', () => {
   console.log('Create lobby button clicked');
   console.log('Current state - isInLobby:', isInLobby, 'currentLobbyCode:', currentLobbyCode);
   
@@ -129,9 +132,11 @@ createLobbyBtn.addEventListener('click', () => {
     window.lobbyCode = currentLobbyCode;
     console.log('New lobby created successfully:', currentLobbyCode);
   });
-});
+  });
+}
 
-joinLobbyBtn.addEventListener('click', () => {
+if (joinLobbyBtn) {
+  joinLobbyBtn.addEventListener('click', () => {
   console.log('Join lobby button clicked');
   const code = joinLobbyCodeInput.value.trim().toUpperCase();
   console.log('Attempting to join lobby code:', code);
@@ -203,7 +208,8 @@ joinLobbyBtn.addEventListener('click', () => {
       console.log('Failed to join lobby:', response.message);
     }
   });
-});
+  });
+}
 
 socket.on('lobbyUpdate', ({ players }) => {
   console.log('Lobby update received:', { players: players.length, currentLobbyCode, isInLobby, playerRole });

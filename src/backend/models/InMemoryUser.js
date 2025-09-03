@@ -23,6 +23,12 @@ class InMemoryUser {
   }
 
   async comparePassword(candidatePassword) {
+    if (!candidatePassword) {
+      throw new Error('Candidate password is required');
+    }
+    if (!this.password) {
+      throw new Error('User password is not set');
+    }
     return bcrypt.compare(candidatePassword, this.password);
   }
 
@@ -53,25 +59,37 @@ class InMemoryUser {
 
   static async findOne(query) {
     const users = InMemoryUser.getAllUsers();
+    let userData = null;
     
     if (query.$or) {
       // Handle $or queries (for email or username)
       for (const condition of query.$or) {
-        const user = users.find(u => u[Object.keys(condition)[0]] === condition[Object.keys(condition)[0]]);
-        if (user) return user;
+        userData = users.find(u => u[Object.keys(condition)[0]] === condition[Object.keys(condition)[0]]);
+        if (userData) break;
       }
-      return null;
+    } else {
+      // Handle simple queries
+      const key = Object.keys(query)[0];
+      const value = query[key];
+      userData = users.find(u => u[key] === value);
     }
     
-    // Handle simple queries
-    const key = Object.keys(query)[0];
-    const value = query[key];
-    return users.find(u => u[key] === value) || null;
+    // Return null if no user found
+    if (!userData) return null;
+    
+    // Return as InMemoryUser instance to ensure methods are available
+    return new InMemoryUser(userData);
   }
 
   static async findById(id) {
     const users = InMemoryUser.getAllUsers();
-    return users.find(u => u._id === id || u.id === id) || null;
+    const userData = users.find(u => u._id === id || u.id === id);
+    
+    // Return null if no user found
+    if (!userData) return null;
+    
+    // Return as InMemoryUser instance to ensure methods are available
+    return new InMemoryUser(userData);
   }
 
   static getAllUsers() {
@@ -98,6 +116,17 @@ class InMemoryUser {
     global.inMemoryUsers.push(user);
     
     return user;
+  }
+
+  static async deleteById(id) {
+    if (!global.inMemoryUsers) {
+      return false;
+    }
+    
+    const initialLength = global.inMemoryUsers.length;
+    global.inMemoryUsers = global.inMemoryUsers.filter(u => u._id !== id && u.id !== id);
+    
+    return global.inMemoryUsers.length < initialLength;
   }
 }
 

@@ -115,8 +115,8 @@ body {
   max-width: 900px;
   border: 5px solid #654321;
   position: relative;
-  min-height: calc(100vh - 80px); /* Account for fixed auth header */
-  margin-top: 80px; /* Account for fixed auth header */
+  min-height: calc(100vh - 100px); /* Account for fixed auth header */
+  margin-top: 100px; /* Increased margin to prevent overlap with auth header */
   box-sizing: border-box;
 }
 
@@ -152,7 +152,9 @@ body {
   height: 100%;
   text-align: center;
   width: 100%; /* Ensure it takes full width to allow button positioning */
-  padding-top: 1rem; /* Default padding-top */
+  padding-top: 2rem; /* Increased padding-top for web view to prevent overlap */
+  position: relative; /* Ensure proper stacking context */
+  z-index: 1; /* Ensure buttons are above other elements */
 }
 /* Add more padding-top for mobile views to prevent overlap */
 @media (max-width: 767px) { /* Up to small breakpoint */
@@ -192,11 +194,16 @@ body {
   gap: 0.8rem;
   width: 90%;
   max-width: 250px;
+  position: relative;
+  z-index: 2; /* Ensure buttons are above other elements */
 }
 #home-screen .button-group .btn {
   width: 100%;
   padding: 0.7rem 1.2rem;
   font-size: 1rem;
+  position: relative;
+  z-index: 3; /* Ensure individual buttons are clickable */
+  pointer-events: auto; /* Ensure buttons can receive clicks */
 }
 
 

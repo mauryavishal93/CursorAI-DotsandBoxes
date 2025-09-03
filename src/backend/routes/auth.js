@@ -149,11 +149,19 @@ router.post('/login', loginValidation, async (req, res) => {
     }
 
     // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
+    try {
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Invalid email or password'
+        message: 'Server error during login'
       });
     }
 
@@ -310,19 +318,53 @@ router.get('/profile', authenticate, async (req, res) => {
 });
 
 // Logout
-router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        message: 'Error during logout'
-      });
+router.post('/logout', async (req, res) => {
+  try {
+    // Check if user is a guest and delete them from database
+    if (req.session.userId) {
+      const User = getUserModel();
+      const user = await User.findById(req.session.userId);
+      
+      if (user && user.isGuest) {
+        console.log('Deleting guest user on logout:', user.username);
+        const deleted = await User.deleteById(req.session.userId);
+        if (deleted) {
+          console.log('Guest user successfully deleted from database');
+        } else {
+          console.log('Failed to delete guest user from database');
+        }
+      }
     }
-    res.json({
-      success: true,
-      message: 'Logout successful'
+    
+    // Destroy session
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: 'Error during logout'
+        });
+      }
+      res.json({
+        success: true,
+        message: 'Logout successful'
+      });
     });
-  });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Still try to destroy session even if deletion fails
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: 'Error during logout'
+        });
+      }
+      res.json({
+        success: true,
+        message: 'Logout successful'
+      });
+    });
+  }
 });
 
 // Update user stats (after game completion)
