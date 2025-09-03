@@ -32,27 +32,68 @@ class ProductionServer {
 
   async connectDatabase() {
     try {
-      // Try local MongoDB first, then Atlas
-      const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dots-and-boxes';
+      // Check if MONGODB_URI environment variable is set
+      const mongoUri = process.env.MONGODB_URI;
+      
+      if (!mongoUri) {
+        throw new Error('MONGODB_URI environment variable is not set');
+      }
+      
+      console.log('🔄 Connecting to MongoDB Atlas...');
+      console.log(`📍 Connection URI: ${mongoUri.replace(/\/\/.*@/, '//***:***@')}`); // Hide credentials in logs
       
       await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
+        serverSelectionTimeoutMS: 10000, // Increased timeout for Atlas
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        retryWrites: true,
+        w: 'majority'
       });
-      console.log('✅ Connected to MongoDB');
+      
+      console.log('✅ Successfully connected to MongoDB Atlas');
       global.useInMemoryStorage = false;
-      console.log('📊 Using MongoDB storage system');
+      console.log('📊 Using MongoDB Atlas storage system');
+      console.log('💾 Database: dots-and-boxes');
+      
+      // Test the connection
+      const db = mongoose.connection.db;
+      const collections = await db.listCollections().toArray();
+      console.log(`📋 Available collections: ${collections.length > 0 ? collections.map(c => c.name).join(', ') : 'None (will be created as needed)'}`);
+      
+      // Set up connection event handlers
+      mongoose.connection.on('connected', () => {
+        console.log('🔗 Mongoose connected to MongoDB Atlas');
+      });
+      
+      mongoose.connection.on('error', (err) => {
+        console.log('❌ Mongoose connection error:', err);
+      });
+      
+      mongoose.connection.on('disconnected', () => {
+        console.log('🔌 Mongoose disconnected from MongoDB Atlas');
+      });
       
     } catch (error) {
-      console.log('⚠️  MongoDB not available, using in-memory storage');
-      console.log('💡 To use MongoDB:');
-      console.log('   1. Install MongoDB locally: https://www.mongodb.com/try/download/community');
-      console.log('   2. Start MongoDB service: net start MongoDB');
-      console.log('   3. Or set up MongoDB Atlas and set MONGODB_URI environment variable');
+      console.log('❌ Failed to connect to MongoDB Atlas');
+      console.log('🔍 Error details:', error.message);
+      
+      if (error.message.includes('MONGODB_URI environment variable is not set')) {
+        console.log('💡 To connect to MongoDB Atlas:');
+        console.log('   1. Set the MONGODB_URI environment variable');
+        console.log('   2. Example: $env:MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/dots-and-boxes"');
+        console.log('   3. Or create a .env file with MONGODB_URI=your_connection_string');
+      } else if (error.message.includes('authentication failed')) {
+        console.log('💡 Authentication failed - check your username and password');
+      } else if (error.message.includes('network')) {
+        console.log('💡 Network error - check your internet connection and Atlas network access settings');
+      } else {
+        console.log('💡 Check your MongoDB Atlas connection string and network access settings');
+      }
       
       // Use in-memory storage as fallback
       global.useInMemoryStorage = true;
-      console.log('📊 Using in-memory storage system');
+      console.log('⚠️  Falling back to in-memory storage');
       console.log('📝 Note: Data will be lost on server restart');
     }
   }
@@ -80,12 +121,15 @@ class ProductionServer {
       }
     };
 
-    // Use MongoDB store if available, otherwise use memory store
-    if (!global.useInMemoryStorage) {
+    // Use MongoDB Atlas store if available, otherwise use memory store
+    if (!global.useInMemoryStorage && process.env.MONGODB_URI) {
       sessionConfig.store = MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/dots-and-boxes',
-        touchAfter: 24 * 3600 // lazy session update
+        mongoUrl: process.env.MONGODB_URI,
+        touchAfter: 24 * 3600, // lazy session update
+        ttl: 24 * 60 * 60, // 24 hours
+        autoIndex: false // disable auto-indexing for better performance
       });
+      console.log('🔐 Using MongoDB Atlas session store');
     } else {
       console.log('⚠️  Using memory session store (sessions will be lost on restart)');
     }
