@@ -1047,11 +1047,31 @@
   }
   
   .avatar-actions {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    gap: 0.8rem;
+    justify-content: center;
   }
   
   .avatar-actions .btn {
-    width: 100%;
+    flex: 1;
+    max-width: 120px;
+    min-width: 80px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 500px) {
+  .avatar-actions {
+    flex-direction: row;
+    gap: 0.6rem;
+    justify-content: center;
+  }
+  
+  .avatar-actions .btn {
+    flex: 1;
+    max-width: 100px;
+    min-width: 70px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
   }
 }

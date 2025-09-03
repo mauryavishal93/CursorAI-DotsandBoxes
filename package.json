@@ -5,11 +5,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:production": "node deploy-production.js",
     "start:backend": "node src/backend/server.js",
     "start:lucky-wheel-on": "node server.js DEFAULT_LUCKY_WHEEL_ENABLED=true",
     "start:lucky-wheel-off": "node server.js DEFAULT_LUCKY_WHEEL_ENABLED=false",
     "deploy:classic": "node server.js DEFAULT_LUCKY_WHEEL_ENABLED=false",
     "deploy:enhanced": "node server.js DEFAULT_LUCKY_WHEEL_ENABLED=true",
+    "deploy:atlas": "node deploy-production.js",
     "dev": "nodemon server.js",
     "build": "echo 'No build step required for this project'",
     "test": "echo 'No tests specified'"

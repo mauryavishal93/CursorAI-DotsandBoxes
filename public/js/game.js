@@ -347,7 +347,7 @@ window.onload = function() {
           isLuckyWheelEnabled = DEFAULT_LUCKY_WHEEL_ENABLED;
       }
   }
-  
+
   /**
    * Initializes canvas dimensions based on the container size.
    * Adjusts for smaller screens to ensure visibility.
@@ -798,16 +798,16 @@ window.onload = function() {
       // Update dice interactivity for new turn
       updateDiceInteractivity();
 
-      // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
-      if (skipNextTurnForPlayer === playerTurn) {
-        const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
-        skipNextTurnForPlayer = null;
-        showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
-        // Immediately advance again to the other player
+        // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
+        if (skipNextTurnForPlayer === playerTurn) {
+          const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
+          skipNextTurnForPlayer = null;
+          showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
+          // Immediately advance again to the other player
         switchTurn();
-        return;
-      }
-    
+          return;
+        }
+      
       // Check if it's AI's turn in single-player mode
       if (gameMode === 'singlePlayer' && playerTurn === 2 && !gameOver) {
           console.log("Switching to AI turn. AI will start after a delay.");
@@ -1621,7 +1621,7 @@ window.onload = function() {
                       if (gameMode === 'onlineMultiplayer' && playerTurn === onlinePlayerRole) {
                           switchTurn();
                       } else if (gameMode !== 'onlineMultiplayer') {
-                          switchTurn();
+                      switchTurn();
                       }
                   }
               }
@@ -1811,7 +1811,7 @@ window.onload = function() {
                           setTimeout(aiMakeMove, AI_MOVE_DELAY);
                       } else {
                           console.log(`[AI TURN END] AI finished drawing all lines, switching turn from Player ${playerTurn} to Player 1`);
-                          switchTurn();
+                      switchTurn();
                       }
                   }
               }, AI_MOVE_DELAY);
@@ -1827,7 +1827,7 @@ window.onload = function() {
                   setTimeout(aiMakeMove, AI_MOVE_DELAY);
               } else {
                   console.log("AI: No valid lines and no extra roll. Switching turn.");
-                  switchTurn();
+              switchTurn();
               }
           }
       } else {
@@ -1842,8 +1842,8 @@ window.onload = function() {
               setTimeout(aiMakeMove, AI_MOVE_DELAY);
           } else {
               console.log("AI: No lines to draw and no extra roll. Switching turn.");
-              // This case should ideally not be reached if rollDice is called first and sets linesToDraw
-              switchTurn();
+          // This case should ideally not be reached if rollDice is called first and sets linesToDraw
+          switchTurn();
           }
       }
   }
@@ -2972,8 +2972,8 @@ window.onload = function() {
         const hEnd = pointerAngle + anglePer / 2;
 
         // Outer rim arc highlight at top
-        ctx.save();
-        ctx.beginPath();
+      ctx.save();
+      ctx.beginPath();
         ctx.strokeStyle = '#B71C1C';
         ctx.lineWidth = 6;
         ctx.shadowColor = 'rgba(0,0,0,0.2)';
@@ -3210,7 +3210,7 @@ window.onload = function() {
         updateScoreDisplay();
         // For online multiplayer, only the current player should trigger turn switch
         if (gameMode === 'onlineMultiplayer' && playerTurn === onlinePlayerRole) {
-          switchTurn();
+        switchTurn();
         } else if (gameMode !== 'onlineMultiplayer') {
           switchTurn();
         }

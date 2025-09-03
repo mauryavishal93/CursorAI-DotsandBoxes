@@ -99,10 +99,14 @@ class ProductionServer {
   }
 
   setupMiddleware() {
-    // CORS configuration
+    // CORS configuration for production deployment
     this.app.use(cors({
-      origin: process.env.NODE_ENV === 'production' ? false : true,
-      credentials: true
+      origin: process.env.NODE_ENV === 'production' ? 
+        [process.env.FRONTEND_URL || 'http://localhost:3000'] : 
+        true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     }));
 
     // Body parsing middleware
@@ -136,8 +140,21 @@ class ProductionServer {
 
     this.app.use(session(sessionConfig));
 
-    // Serve static files from public directory
-    this.app.use(express.static(path.join(__dirname, 'public')));
+    // Serve static files from public directory with proper headers
+    this.app.use(express.static(path.join(__dirname, 'public'), {
+      maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+      etag: true,
+      lastModified: true,
+      setHeaders: (res, path) => {
+        // Set proper MIME types for JavaScript files
+        if (path.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        }
+        if (path.endsWith('.css')) {
+          res.setHeader('Content-Type', 'text/css');
+        }
+      }
+    }));
     
     // Serve root HTML file
     this.app.get('/', (req, res) => {
@@ -196,8 +213,8 @@ class ProductionServer {
       this.server.close(() => {
         console.log('✅ Server closed');
         process.exit(0);
-      });
-    });
+  });
+});
 
     process.on('SIGINT', () => {
       console.log('🛑 SIGINT received, shutting down gracefully');
