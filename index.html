@@ -1,0 +1,2425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dots and Boxes</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+    <div class="screen-container">
+        <!-- Authentication Header -->
+        <div id="auth-header" class="auth-header">
+            <div class="auth-header-content">
+                <div class="auth-logo">
+                    <div class="user-avatar" id="user-avatar">U</div>
+                </div>
+                <div id="auth-buttons" class="auth-buttons">
+                    <button id="login-btn" class="auth-button">Login</button>
+                    <button id="register-btn" class="auth-button">Register</button>
+                    <button id="guest-btn" class="auth-button">Play as Guest</button>
+                </div>
+                <div id="user-info" class="user-info" style="display: none;">
+                    <div>
+                        <p class="user-name" id="user-name">Username</p>
+                        <button id="profile-btn" class="btn btn-sm">Profile</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Screen -->
+        <div id="home-screen">
+            <!-- Top-right icon buttons for Rules and Info -->
+            <div class="top-right-buttons">
+                <button id="rules-btn-home" class="btn-icon" title="Rules">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.44 12.9 13 13.5 13 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.35 1.7-.92 2.35z"/>
+                    </svg>
+                </button>
+                <button id="info-btn-home" class="btn-icon" title="Information">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                </button>
+            </div>
+
+
+            <div class="button-group">
+                <button id="single-player-btn" class="btn btn-primary">Single Player</button>
+                <button id="two-player-btn" class="btn btn-secondary">2 Players</button>
+                <button id="online-game-btn" class="btn btn-secondary">Online Game</button>
+                <!-- The "Run Unit Tests" button is now hidden by default -->
+                <button id="run-unit-tests-btn" class="btn btn-secondary" style="display: none;">Run Unit Tests</button>
+            </div>
+            
+
+            <div id="online-lobby-ui" style="display:none; margin-top: 16px;">
+              <div class="button-group">
+                <button id="create-lobby-btn" class="btn btn-primary">Create Lobby</button>
+              </div>
+              <div class="button-group" style="margin-top: 8px;">
+                <input id="join-lobby-code" type="text" placeholder="Enter Lobby Code" maxlength="6" style="text-transform:uppercase;" />
+                <button id="join-lobby-btn" class="btn btn-secondary">Join Lobby</button>
+              </div>
+              <div id="lobby-status" style="margin-top: 8px;"></div>
+              <div id="share-icon-container" style="display: none; margin-top: 8px; text-align: center;">
+                <button id="share-lobby-icon" class="share-icon-btn" title="Share Lobby">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+        </div>
+
+        <!-- Single Player Setup Screen -->
+        <div id="single-player-setup-screen" class="setup-screen-base">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6">Single Player Setup</h2>
+            <input type="text" id="sp-player-name-input" placeholder="Enter Your Name" value="">
+            <div class="button-group">
+                <button id="start-single-player-game-btn" class="btn btn-primary">Start Game</button>
+                <button id="sp-setup-back-to-home-btn" class="btn btn-secondary">Back to Home</button>
+            </div>
+        </div>
+
+        <!-- Two Player Setup Screen -->
+        <div id="two-player-setup-screen" class="setup-screen-base">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6">2 Players Setup</h2>
+            <input type="text" id="tp-player1-name-input" placeholder="Enter Player 1 Name" value="">
+            <input type="text" id="tp-player2-name-input" placeholder="Enter Player 2 Name" value="Player 2">
+            <div class="button-group">
+                <button id="start-two-player-game-btn" class="btn btn-primary">Start Game</button>
+                <button id="tp-setup-back-to-home-btn" class="btn btn-secondary">Back to Home</button>
+            </div>
+        </div>
+
+        <!-- Single Player Game Screen (Initially Hidden) -->
+        <div id="single-player-game-screen" class="game-screen-base">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-6">Dots and Boxes (Single Player)</h1>
+
+            <div class="dice-area">
+                <div id="sp-player1-score" class="player-score">
+                    <span class="player-label" id="sp-player1-name-display">Player 1 (X)</span><br>
+                    Squares: <span id="sp-player1-count">0</span>
+                </div>
+                <div class="dice-center-content">
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="sp-current-player-name-display">Player 1</span></div>
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="sp-lines-to-draw-count">0</span></div>
+                  
+                  <div id="sp-special-line-indicator" class="special-line-indicator" style="display:none;">
+                      Special Line Available!
+                  </div>
+                  <div class="dice-display" id="sp-dice-display">
+                      <!-- SVG for dice face will be inserted here -->
+                      <svg viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r="10"/>
+                      </svg>
+                  </div>
+                </div>
+                <div id="sp-player2-score" class="player-score">
+                    <span class="player-label" id="sp-player2-name-display">AI Agent (O)</span><br>
+                    Squares: <span id="sp-player2-count">0</span>
+                </div>
+            </div>
+
+            <canvas id="sp-gameCanvas"></canvas>
+
+            <div class="button-group">
+                <button id="sp-restart-btn" class="btn btn-secondary">Restart Game</button>
+                <button id="sp-back-to-home-btn" class="btn btn-secondary">Back to Home</button>
+            </div>
+        </div>
+
+        <!-- Two Player Game Screen (Initially Hidden) -->
+        <div id="two-player-game-screen" class="game-screen-base">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-6">Dots and Boxes (2 Players)</h1>
+
+            <div class="dice-area">
+                <div id="tp-player1-score" class="player-score">
+                    <span class="player-label" id="tp-player1-name-display">Player 1 (X)</span><br>
+                    Squares: <span id="tp-player1-count">0</span>
+                </div>
+                <div class="dice-center-content">
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="tp-current-player-name-display">Player 1</span></div>
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="tp-lines-to-draw-count">0</span></div>
+
+                  <div id="tp-special-line-indicator" class="special-line-indicator" style="display:none;">
+                      Special Line Available!
+                  </div>
+                  <div class="dice-display" id="tp-dice-display">
+                      <!-- SVG for dice face will be inserted here -->
+                      <svg viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r="10"/>
+                      </svg>
+                  </div>
+                </div>
+                <div id="tp-player2-score" class="player-score">
+                    <span class="player-label" id="tp-player2-name-display">Player 2 (O)</span><br>
+                    Squares: <span id="tp-player2-count">0</span>
+                </div>
+            </div>
+
+            <canvas id="tp-gameCanvas"></canvas>
+
+            <div class="button-group">
+                <button id="tp-restart-btn" class="btn btn-secondary">Restart Game</button>
+                <button id="tp-back-to-home-btn" class="btn btn-secondary">Back to Home</button>
+            </div>
+        </div>
+
+        <!-- Online Multiplayer Game Screen (Initially Hidden) -->
+        <div id="online-game-screen" class="game-screen-base">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-6">Dots and Boxes (Online)</h1>
+
+            <div class="dice-area">
+                <div id="online-player1-score" class="player-score">
+                    <span class="player-label" id="online-player1-name-display">You (X)</span><br>
+                    Squares: <span id="online-player1-count">0</span>
+                </div>
+                <div class="dice-center-content">
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Current Turn: <span id="online-current-player-name-display">Player</span></div>
+                  <div class="text-xl font-semibold text-gray-700 mb-2">Lines to Draw: <span id="online-lines-to-draw-count">0</span></div>
+                  <div id="online-special-line-indicator" class="special-line-indicator" style="display:none;">
+                      Special Line Available!
+                  </div>
+                  <div class="dice-display" id="online-dice-display">
+                      <!-- SVG for dice face will be inserted here -->
+                      <svg viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r="10"/>
+                      </svg>
+                  </div>
+                </div>
+                <div id="online-player2-score" class="player-score">
+                    <span class="player-label" id="online-player2-name-display">Opponent (O)</span><br>
+                    Squares: <span id="online-player2-count">0</span>
+                </div>
+            </div>
+
+            <canvas id="online-gameCanvas"></canvas>
+
+            <div class="button-group">
+                <button id="online-restart-btn" class="btn btn-secondary">Restart Game</button>
+                <button id="online-back-to-home-btn" class="btn btn-secondary">Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageBox" class="message-box">
+        <h3 id="messageTitle"></h3>
+        <p id="messageText"></p>
+        <button id="messageBoxCloseBtn">OK</button>
+    </div>
+
+    <!-- Lucky Draw Wheel Modal (All modes, on dice=6) -->
+    <div id="luckyWheelModal" class="info-modal" style="display:none;">
+        <h3>🎁 Lucky Draw!</h3>
+        <div id="wheelContainer" class="wheel-container">
+            <canvas id="luckyWheelCanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="button-group" style="margin-top: 12px; display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:nowrap;">
+            <button id="spinWheelBtn" class="btn btn-primary">Spin</button>
+            <button id="closeLuckyWheelBtn" class="btn btn-secondary" style="display:none;">Close</button>
+        </div>
+        <p id="luckyWheelResult" style="margin-top:10px;"></p>
+    </div>
+
+    <!-- New Confirmation Box -->
+    <div id="confirmationBox" class="confirmation-box">
+        <h3 id="confirmationTitle"></h3>
+        <p id="confirmationText"></p>
+        <div class="button-group">
+            <button id="confirmYesBtn" class="btn btn-primary">Yes</button>
+            <button id="confirmNoBtn" class="btn btn-secondary">No</button>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rulesModal" class="info-modal">
+        <h3>🎮 Dots and Boxes - Complete Game Rules</h3>
+        <p><strong>Welcome to Dots and Boxes!</strong> A strategic game that enhances your thinking capability and focus.</p>
+        
+        <h4>🎯 Game Modes</h4>
+        <ul>
+            <li><strong>Single Player:</strong> Play against an intelligent AI opponent with strategic gameplay</li>
+            <li><strong>Two Players:</strong> Play with a friend on the same device with local multiplayer</li>
+            <li><strong>Online Multiplayer:</strong> Play with friends online using lobby codes with real-time synchronization</li>
+        </ul>
+
+        <h4>🎲 Core Gameplay</h4>
+        <ul>
+            <li>Players take turns drawing horizontal or vertical lines between adjacent dots</li>
+            <li>Complete the fourth side of a square to claim it and earn 1 point</li>
+            <li>Completing a square does NOT grant an extra turn</li>
+            <li>The game ends when all possible lines are drawn</li>
+            <li>Player with the most completed squares wins!</li>
+        </ul>
+
+        <h4>🎲 Dice System</h4>
+        <ul>
+            <li><strong>Roll the dice</strong> at the start of your turn to determine how many lines you can draw</li>
+            <li><strong>Dice values 1-5:</strong> Draw that many lines during your turn</li>
+            <li><strong>Dice value 6:</strong> Triggers special effects based on game mode:</li>
+            <ul>
+                <li><strong>Single Player & Two Players:</strong> Lucky Draw wheel with random effects</li>
+                <li><strong>Online Multiplayer:</strong> Lucky Draw wheel is disabled for balanced gameplay</li>
+            </ul>
+        </ul>
+
+        <h4>🎡 Lucky Draw Wheel (Single Player & Two Players Only)</h4>
+        <ul>
+            <li><strong>Trigger:</strong> Activated when you roll a 6 on the dice</li>
+            <li><strong>Wheel Effects:</strong></li>
+            <ul>
+                <li><strong>"🎯 Extra Turn"</strong> - Get an additional turn immediately</li>
+                <li><strong>"🎲 Roll Again"</strong> - Get an extra dice roll after finishing current lines</li>
+                <li><strong>"💨 Poof! Turn vanished"</strong> - Your turn ends immediately, skip to opponent</li>
+                <li><strong>"⭐ Bonus Points"</strong> - Earn bonus points for completed squares</li>
+                <li><strong>"🔄 Switch Turns"</strong> - Immediately switch to opponent's turn</li>
+            </ul>
+            <li><strong>Important:</strong> Lucky Wheel can only be triggered once per turn</li>
+            <li><strong>Note:</strong> Lucky Wheel is disabled in Online Multiplayer mode for fair gameplay</li>
+        </ul>
+
+        <h4>🏆 Winning Conditions</h4>
+        <ul>
+            <li><strong>Normal Win:</strong> Player with most squares when all lines are drawn</li>
+            <li><strong>Early Win:</strong> Player who completes more than 50% of total squares wins immediately</li>
+            <li><strong>Tie Game:</strong> If scores are equal when game ends</li>
+        </ul>
+
+        <h4>🎨 Game Features</h4>
+        <ul>
+            <li><strong>Smooth Line Drawing:</strong> Click and drag to draw lines smoothly with visual feedback</li>
+            <li><strong>Player Symbols:</strong> Completed squares show X (Player 1) or O (Player 2)</li>
+            <li><strong>Score Tracking:</strong> Real-time score updates for both players</li>
+            <li><strong>Turn Indicators:</strong> Clear display of current player's turn and remaining lines</li>
+            <li><strong>Dice Animation:</strong> Beautiful SVG dice with smooth roll animations</li>
+            <li><strong>Responsive Design:</strong> Works perfectly on desktop and mobile devices</li>
+            <li><strong>Audio Effects:</strong> Dice roll sound effects for enhanced experience</li>
+        </ul>
+
+        <h4>🌐 Online Multiplayer</h4>
+        <ul>
+            <li><strong>Create Lobby:</strong> Generate a unique 6-character lobby code</li>
+            <li><strong>Join Lobby:</strong> Enter a friend's lobby code to join their game</li>
+            <li><strong>Real-time Sync:</strong> Game state synchronizes between players instantly</li>
+            <li><strong>Player Roles:</strong> Automatic assignment of Player 1 (X) and Player 2 (O)</li>
+            <li><strong>Turn Management:</strong> Only the current player can make moves</li>
+            <li><strong>Connection Handling:</strong> Graceful handling of disconnections and reconnections</li>
+            <li><strong>Balanced Gameplay:</strong> Lucky Wheel disabled for fair online competition</li>
+        </ul>
+
+        <h4>🔐 User Authentication</h4>
+        <ul>
+            <li><strong>Guest Mode:</strong> Play immediately without registration</li>
+            <li><strong>User Registration:</strong> Create an account to save progress and statistics</li>
+            <li><strong>User Login:</strong> Sign in to access your profile and game history</li>
+            <li><strong>Profile Management:</strong> View statistics, change avatar, and manage account</li>
+            <li><strong>Session Management:</strong> Secure session handling with automatic logout</li>
+        </ul>
+
+        <h4>🎯 Strategy Tips</h4>
+        <ul>
+            <li>Try to complete squares while preventing your opponent from doing the same</li>
+            <li>Plan ahead and think about which lines will benefit you most</li>
+            <li>Watch your opponent's moves to understand their strategy</li>
+            <li>In Single Player mode, observe the AI's patterns to improve your gameplay</li>
+            <li>In Online mode, focus on pure strategy since Lucky Wheel is disabled</li>
+            <li>Use the dice system strategically - sometimes fewer lines can be more beneficial</li>
+        </ul>
+
+        <h4>📱 Controls</h4>
+        <ul>
+            <li><strong>Mouse:</strong> Click and drag to draw lines</li>
+            <li><strong>Touch:</strong> Tap and drag on mobile devices</li>
+            <li><strong>Keyboard:</strong> Use arrow keys for navigation (where applicable)</li>
+            <li><strong>Buttons:</strong> Click buttons for dice rolling and game actions</li>
+        </ul>
+
+        <button id="rulesModalCloseBtn">Got It!</button>
+    </div>
+
+    <!-- Information Modal -->
+    <div id="infoModal" class="info-modal">
+        <h3>ℹ️ Game Information</h3>
+        <p><strong>Dots and Boxes</strong> is a classic strategic game designed to enhance your thinking capability, focus, and strategic planning skills.</p>
+        
+        <h4>🎮 Game Features</h4>
+        <ul>
+            <li><strong>Three Game Modes:</strong> Single Player vs AI, Two Players local, Online Multiplayer</li>
+            <li><strong>Intelligent AI:</strong> Strategic AI opponent with advanced gameplay algorithms</li>
+            <li><strong>Dice System:</strong> Dice-based line drawing system for added strategy and excitement</li>
+            <li><strong>Lucky Draw Wheel:</strong> Special feature with random effects (Single Player & Two Players only)</li>
+            <li><strong>Real-time Multiplayer:</strong> Online gameplay with lobby system and instant synchronization</li>
+            <li><strong>User Authentication:</strong> Register, login, or play as guest with profile management</li>
+            <li><strong>Responsive Design:</strong> Smooth, responsive touch and mouse controls</li>
+            <li><strong>Cross-platform:</strong> Works perfectly on Desktop, Mobile, and Tablet devices</li>
+            <li><strong>Audio Effects:</strong> Dice roll sound effects for enhanced gaming experience</li>
+            <li><strong>Modern UI/UX:</strong> Beautiful, intuitive interface with smooth animations</li>
+        </ul>
+
+        <h4>🎡 Lucky Draw Wheel Features</h4>
+        <ul>
+            <li><strong>Trigger:</strong> Activated when rolling a 6 on the dice</li>
+            <li><strong>Effects:</strong> Extra Turn, Roll Again, Turn Skip, Bonus Points, Turn Switch</li>
+            <li><strong>Mode Support:</strong> Available in Single Player and Two Players modes</li>
+            <li><strong>Balanced Gameplay:</strong> Disabled in Online Multiplayer for fair competition</li>
+            <li><strong>Visual Design:</strong> Beautiful spinning wheel with smooth animations</li>
+        </ul>
+
+        <h4>🌐 Online Multiplayer Features</h4>
+        <ul>
+            <li><strong>Lobby System:</strong> Create or join games with 6-character lobby codes</li>
+            <li><strong>Real-time Sync:</strong> Instant game state synchronization between players</li>
+            <li><strong>Turn Management:</strong> Only current player can make moves</li>
+            <li><strong>Connection Handling:</strong> Graceful handling of disconnections and reconnections</li>
+            <li><strong>Balanced Competition:</strong> Lucky Wheel disabled for pure strategic gameplay</li>
+        </ul>
+
+        <h4>🔐 Authentication & User Management</h4>
+        <ul>
+            <li><strong>Guest Mode:</strong> Play immediately without registration</li>
+            <li><strong>User Registration:</strong> Create account with email and password</li>
+            <li><strong>Secure Login:</strong> JWT-based authentication with session management</li>
+            <li><strong>Profile System:</strong> View statistics, change avatar, manage account</li>
+            <li><strong>Game Statistics:</strong> Track games played, wins, and win rate</li>
+        </ul>
+
+        <h4>👨‍💻 Technical Information</h4>
+        <ul>
+            <li><strong>Developer:</strong> Vishal Maurya</li>
+            <li><strong>Version:</strong> 3.0.0</li>
+            <li><strong>Frontend:</strong> HTML5 Canvas, CSS3, JavaScript (ES6+)</li>
+            <li><strong>Backend:</strong> Node.js, Express.js, Socket.IO</li>
+            <li><strong>Database:</strong> MongoDB with in-memory fallback</li>
+            <li><strong>Authentication:</strong> JWT tokens, bcrypt password hashing</li>
+            <li><strong>Real-time:</strong> Socket.IO for instant communication</li>
+            <li><strong>Deployment:</strong> Heroku, Vercel, Railway, Render ready</li>
+        </ul>
+
+        <h4>🎯 Game Benefits</h4>
+        <ul>
+            <li><strong>Strategic Thinking:</strong> Enhances planning and decision-making skills</li>
+            <li><strong>Focus & Concentration:</strong> Improves attention span and mental focus</li>
+            <li><strong>Spatial Reasoning:</strong> Develops geometric and spatial awareness</li>
+            <li><strong>Social Interaction:</strong> Provides engaging multiplayer experience</li>
+            <li><strong>Accessibility:</strong> Suitable for players of all ages and skill levels</li>
+            <li><strong>Entertainment:</strong> Fun and engaging gameplay with modern features</li>
+        </ul>
+
+        <h4>🚀 Recent Updates</h4>
+        <ul>
+            <li><strong>Lucky Wheel Layout:</strong> Spin and Close buttons positioned left and right</li>
+            <li><strong>Online Mode Optimization:</strong> Lucky Wheel disabled for balanced online gameplay</li>
+            <li><strong>Turn Synchronization:</strong> Improved turn management in online multiplayer</li>
+            <li><strong>User Authentication:</strong> Complete user management system with profiles</li>
+            <li><strong>Performance Optimization:</strong> Enhanced game performance and responsiveness</li>
+            <li><strong>Mobile Compatibility:</strong> Improved touch controls and mobile experience</li>
+        </ul>
+
+        <p><strong>Enjoy the game and challenge your mind!</strong> 🧠✨</p>
+        <button id="infoModalCloseBtn">OK</button>
+    </div>
+    
+    <!-- Authentication Modal -->
+    <div id="auth-modal" class="auth-modal">
+        <div class="modal-content">
+            <!-- Content will be dynamically loaded -->
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div id="user-profile" class="user-profile" style="display: none;">
+        <div class="modal-content">
+            <div class="profile-header">
+                <h2>Player Profile</h2>
+                <button id="profile-close-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="profile-content">
+                <div class="profile-info">
+                    <div class="profile-avatar clickable" id="profile-avatar">U</div>
+                    <div class="profile-details">
+                        <h3 id="profile-username">Username</h3>
+                        <p id="profile-email">email@example.com</p>
+                        <p id="profile-account-type">Account Type</p>
+                    </div>
+                </div>
+
+                <div class="profile-stats">
+                    <h4>📊 Game Statistics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-games-played">0</div>
+                            <div class="stat-label">🎮 Games</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-games-won">0</div>
+                            <div class="stat-label">🏆 Wins</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-win-rate">0%</div>
+                            <div class="stat-label">📈 Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-total-score">0</div>
+                            <div class="stat-label">⭐ Score</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-actions">
+                    <button id="profile-logout-btn" class="btn btn-secondary">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avatar Selection Modal -->
+    <div id="avatar-selection-modal" class="avatar-selection-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Choose Your Avatar</h2>
+                <button id="avatar-close-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="avatar-error-message" class="error-message" style="display: none;"></div>
+                <div id="avatar-success-message" class="success-message" style="display: none;"></div>
+                <div class="avatar-categories">
+                    <button class="category-btn active" data-category="classic">Classic</button>
+                    <button class="category-btn" data-category="fantasy">Fantasy</button>
+                    <button class="category-btn" data-category="profession">Profession</button>
+                    <button class="category-btn" data-category="futuristic">Futuristic</button>
+                    <button class="category-btn" data-category="mythical">Mythical</button>
+                    <button class="category-btn" data-category="master">Master</button>
+                </div>
+                <div class="avatar-grid" id="avatar-grid">
+                    <!-- Classic Avatars -->
+                    <div class="avatar-option category-classic" data-avatar="default-1">
+                        <div class="avatar-preview">👤</div>
+                        <span>Default 1</span>
+                    </div>
+                    <div class="avatar-option category-classic" data-avatar="default-2">
+                        <div class="avatar-preview">👨</div>
+                        <span>Default 2</span>
+                    </div>
+                    <div class="avatar-option category-classic" data-avatar="default-3">
+                        <div class="avatar-preview">👩</div>
+                        <span>Default 3</span>
+                    </div>
+                    <div class="avatar-option category-classic" data-avatar="default-4">
+                        <div class="avatar-preview">🧑</div>
+                        <span>Default 4</span>
+                    </div>
+                    <div class="avatar-option category-classic" data-avatar="default-5">
+                        <div class="avatar-preview">👦</div>
+                        <span>Default 5</span>
+                    </div>
+                    <div class="avatar-option category-classic" data-avatar="default-6">
+                        <div class="avatar-preview">👧</div>
+                        <span>Default 6</span>
+                    </div>
+                    
+                    <!-- Fantasy Avatars -->
+                    <div class="avatar-option category-fantasy" data-avatar="3d-warrior" style="display: none;">
+                        <div class="avatar-preview">🛡️</div>
+                        <span>Warrior</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-mage" style="display: none;">
+                        <div class="avatar-preview">🧙</div>
+                        <span>Mage</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-archer" style="display: none;">
+                        <div class="avatar-preview">🏹</div>
+                        <span>Archer</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-knight" style="display: none;">
+                        <div class="avatar-preview">⚔️</div>
+                        <span>Knight</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-ninja" style="display: none;">
+                        <div class="avatar-preview">🥷</div>
+                        <span>Ninja</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-wizard" style="display: none;">
+                        <div class="avatar-preview">🧙‍♂️</div>
+                        <span>Wizard</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-witch" style="display: none;">
+                        <div class="avatar-preview">🧙‍♀️</div>
+                        <span>Witch</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-vampire" style="display: none;">
+                        <div class="avatar-preview">🧛</div>
+                        <span>Vampire</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-werewolf" style="display: none;">
+                        <div class="avatar-preview">🐺</div>
+                        <span>Werewolf</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-samurai" style="display: none;">
+                        <div class="avatar-preview">🗡️</div>
+                        <span>Samurai</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-viking" style="display: none;">
+                        <div class="avatar-preview">⚔️</div>
+                        <span>Viking</span>
+                    </div>
+                    <div class="avatar-option category-fantasy" data-avatar="3d-pirate" style="display: none;">
+                        <div class="avatar-preview">🏴‍☠️</div>
+                        <span>Pirate</span>
+                    </div>
+                    
+                    <!-- Profession Avatars -->
+                    <div class="avatar-option category-profession" data-avatar="3d-doctor" style="display: none;">
+                        <div class="avatar-preview">👨‍⚕️</div>
+                        <span>Doctor</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-teacher" style="display: none;">
+                        <div class="avatar-preview">👨‍🏫</div>
+                        <span>Teacher</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-artist" style="display: none;">
+                        <div class="avatar-preview">👨‍🎨</div>
+                        <span>Artist</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-musician" style="display: none;">
+                        <div class="avatar-preview">👨‍🎤</div>
+                        <span>Musician</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-scientist" style="display: none;">
+                        <div class="avatar-preview">👨‍🔬</div>
+                        <span>Scientist</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-engineer" style="display: none;">
+                        <div class="avatar-preview">👨‍💻</div>
+                        <span>Engineer</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-pilot" style="display: none;">
+                        <div class="avatar-preview">👨‍✈️</div>
+                        <span>Pilot</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-firefighter" style="display: none;">
+                        <div class="avatar-preview">👨‍🚒</div>
+                        <span>Firefighter</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-police" style="display: none;">
+                        <div class="avatar-preview">👮</div>
+                        <span>Police</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-chef" style="display: none;">
+                        <div class="avatar-preview">👨‍🍳</div>
+                        <span>Chef</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-astronaut" style="display: none;">
+                        <div class="avatar-preview">👨‍🚀</div>
+                        <span>Astronaut</span>
+                    </div>
+                    <div class="avatar-option category-profession" data-avatar="3d-superhero" style="display: none;">
+                        <div class="avatar-preview">🦸</div>
+                        <span>Superhero</span>
+                    </div>
+                    
+                    <!-- Futuristic Avatars -->
+                    <div class="avatar-option category-futuristic" data-avatar="3d-robot" style="display: none;">
+                        <div class="avatar-preview">🤖</div>
+                        <span>Robot</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-cyber" style="display: none;">
+                        <div class="avatar-preview">👾</div>
+                        <span>Cyber</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-alien" style="display: none;">
+                        <div class="avatar-preview">👽</div>
+                        <span>Alien</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-digital" style="display: none;">
+                        <div class="avatar-preview">💻</div>
+                        <span>Digital</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-virtual" style="display: none;">
+                        <div class="avatar-preview">🕶️</div>
+                        <span>Virtual</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-hologram" style="display: none;">
+                        <div class="avatar-preview">💿</div>
+                        <span>Hologram</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-cyberpunk" style="display: none;">
+                        <div class="avatar-preview">🔮</div>
+                        <span>Cyberpunk</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-steampunk" style="display: none;">
+                        <div class="avatar-preview">⚙️</div>
+                        <span>Steampunk</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-futuristic" style="display: none;">
+                        <div class="avatar-preview">🚀</div>
+                        <span>Futuristic</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-space" style="display: none;">
+                        <div class="avatar-preview">🛸</div>
+                        <span>Space</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-quantum" style="display: none;">
+                        <div class="avatar-preview">⚛️</div>
+                        <span>Quantum</span>
+                    </div>
+                    <div class="avatar-option category-futuristic" data-avatar="3d-neural" style="display: none;">
+                        <div class="avatar-preview">🧠</div>
+                        <span>Neural</span>
+                    </div>
+                    
+                    <!-- Mythical Avatars -->
+                    <div class="avatar-option category-mythical" data-avatar="3d-dragon" style="display: none;">
+                        <div class="avatar-preview">🐉</div>
+                        <span>Dragon</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-unicorn" style="display: none;">
+                        <div class="avatar-preview">🦄</div>
+                        <span>Unicorn</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-phoenix" style="display: none;">
+                        <div class="avatar-preview">🦅</div>
+                        <span>Phoenix</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-ghost" style="display: none;">
+                        <div class="avatar-preview">👻</div>
+                        <span>Ghost</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-divine" style="display: none;">
+                        <div class="avatar-preview">👼</div>
+                        <span>Divine</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-celestial" style="display: none;">
+                        <div class="avatar-preview">🌌</div>
+                        <span>Celestial</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-cosmic" style="display: none;">
+                        <div class="avatar-preview">🌠</div>
+                        <span>Cosmic</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-stellar" style="display: none;">
+                        <div class="avatar-preview">⭐</div>
+                        <span>Stellar</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-galactic" style="display: none;">
+                        <div class="avatar-preview">🌌</div>
+                        <span>Galactic</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-legend" style="display: none;">
+                        <div class="avatar-preview">🌟</div>
+                        <span>Legend</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-myth" style="display: none;">
+                        <div class="avatar-preview">🌙</div>
+                        <span>Myth</span>
+                    </div>
+                    <div class="avatar-option category-mythical" data-avatar="3d-legendary" style="display: none;">
+                        <div class="avatar-preview">⭐</div>
+                        <span>Legendary</span>
+                    </div>
+                    
+                    <!-- Master Avatars -->
+                    <div class="avatar-option category-master" data-avatar="3d-master" style="display: none;">
+                        <div class="avatar-preview">🎯</div>
+                        <span>Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-grandmaster" style="display: none;">
+                        <div class="avatar-preview">🏅</div>
+                        <span>Grandmaster</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-legendary-master" style="display: none;">
+                        <div class="avatar-preview">💎</div>
+                        <span>Legendary Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-divine-master" style="display: none;">
+                        <div class="avatar-preview">👼</div>
+                        <span>Divine Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-cosmic-master" style="display: none;">
+                        <div class="avatar-preview">🌌</div>
+                        <span>Cosmic Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-quantum-master" style="display: none;">
+                        <div class="avatar-preview">⚛️</div>
+                        <span>Quantum Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-digital-master" style="display: none;">
+                        <div class="avatar-preview">💻</div>
+                        <span>Digital Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-virtual-master" style="display: none;">
+                        <div class="avatar-preview">🕶️</div>
+                        <span>Virtual Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-holographic-master" style="display: none;">
+                        <div class="avatar-preview">💿</div>
+                        <span>Holographic Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-cyberpunk-master" style="display: none;">
+                        <div class="avatar-preview">🔮</div>
+                        <span>Cyberpunk Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-futuristic-master" style="display: none;">
+                        <div class="avatar-preview">🚀</div>
+                        <span>Futuristic Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-ultimate-master" style="display: none;">
+                        <div class="avatar-preview">🔥</div>
+                        <span>Ultimate Master</span>
+                    </div>
+                    <div class="avatar-option category-master" data-avatar="3d-supreme-master" style="display: none;">
+                        <div class="avatar-preview">👑</div>
+                        <span>Supreme Master</span>
+                    </div>
+                </div>
+                <div class="avatar-actions">
+                    <button id="avatar-cancel-btn" class="btn btn-secondary">Cancel</button>
+                    <button id="avatar-save-btn" class="btn btn-primary">Save Avatar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+  <!-- Authentication System -->
+  <script>
+    // Authentication System
+    class AuthService {
+      constructor() {
+        this.currentUser = null;
+        this.token = null;
+        this.isAuthenticated = false;
+        this.loadFromStorage();
+      }
+
+      loadFromStorage() {
+        try {
+          const userData = localStorage.getItem('dotsAndBoxesUser');
+          const token = localStorage.getItem('dotsAndBoxesToken');
+          
+          if (userData && token) {
+            this.currentUser = JSON.parse(userData);
+            this.token = token;
+            this.isAuthenticated = true;
+          }
+        } catch (error) {
+          console.error('Error loading user data from storage:', error);
+          this.clearStorage();
+        }
+      }
+
+      saveToStorage(user, token) {
+        try {
+          localStorage.setItem('dotsAndBoxesUser', JSON.stringify(user));
+          localStorage.setItem('dotsAndBoxesToken', token);
+        } catch (error) {
+          console.error('Error saving user data to storage:', error);
+        }
+      }
+
+      clearStorage() {
+        localStorage.removeItem('dotsAndBoxesUser');
+        localStorage.removeItem('dotsAndBoxesToken');
+        this.currentUser = null;
+        this.token = null;
+        this.isAuthenticated = false;
+      }
+
+      getToken() {
+        return this.token || localStorage.getItem('dotsAndBoxesToken');
+      }
+
+      async register(username, email, password) {
+        try {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            this.currentUser = data.user;
+            this.token = data.token;
+            this.isAuthenticated = true;
+            this.saveToStorage(data.user, data.token);
+            return { success: true, user: data.user };
+          } else {
+            return { success: false, message: data.message };
+          }
+        } catch (error) {
+          console.error('Registration error:', error);
+          return { success: false, message: 'Network error during registration' };
+        }
+      }
+
+      async login(email, password) {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            this.currentUser = data.user;
+            this.token = data.token;
+            this.isAuthenticated = true;
+            this.saveToStorage(data.user, data.token);
+            return { success: true, user: data.user };
+          } else {
+            return { success: false, message: data.message };
+          }
+        } catch (error) {
+          console.error('Login error:', error);
+          return { success: false, message: 'Network error during login' };
+        }
+      }
+
+      async guestLogin(username) {
+        try {
+          const response = await fetch('/api/auth/guest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            this.currentUser = data.user;
+            this.token = data.token;
+            this.isAuthenticated = true;
+            this.saveToStorage(data.user, data.token);
+            return { success: true, user: data.user };
+          } else {
+            return { success: false, message: data.message };
+          }
+        } catch (error) {
+          console.error('Guest login error:', error);
+          return { success: false, message: 'Network error during guest login' };
+        }
+      }
+
+      async logout() {
+        try {
+          if (this.token) {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${this.token}`,
+                'Content-Type': 'application/json',
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          this.clearStorage();
+        }
+      }
+
+      getCurrentUser() {
+        return this.currentUser;
+      }
+
+      isUserAuthenticated() {
+        return this.isAuthenticated && this.currentUser !== null;
+      }
+    }
+
+    // Initialize authentication system
+    window.authService = new AuthService();
+    
+    // Avatar mapping - Enhanced with 3D options (Global scope)
+    window.avatarMap = {
+      // Classic 2D Emoji Avatars
+      'default-1': '👤',
+      'default-2': '👨',
+      'default-3': '👩',
+      'default-4': '🧑',
+      'default-5': '👦',
+      'default-6': '👧',
+      
+      // Enhanced 3D-style Avatars (using Unicode and CSS styling)
+      '3d-warrior': '🛡️',
+      '3d-mage': '🧙',
+      '3d-archer': '🏹',
+      '3d-knight': '⚔️',
+      '3d-ninja': '🥷',
+      '3d-robot': '🤖',
+      '3d-cyber': '👾',
+      '3d-alien': '👽',
+      '3d-ghost': '👻',
+      '3d-dragon': '🐉',
+      '3d-unicorn': '🦄',
+      '3d-phoenix': '🦅',
+      '3d-wizard': '🧙‍♂️',
+      '3d-witch': '🧙‍♀️',
+      '3d-vampire': '🧛',
+      '3d-werewolf': '🐺',
+      '3d-samurai': '🗡️',
+      '3d-viking': '⚔️',
+      '3d-pirate': '🏴‍☠️',
+      '3d-cowboy': '🤠',
+      '3d-astronaut': '👨‍🚀',
+      '3d-superhero': '🦸',
+      '3d-detective': '🕵️',
+      '3d-chef': '👨‍🍳',
+      '3d-doctor': '👨‍⚕️',
+      '3d-teacher': '👨‍🏫',
+      '3d-artist': '👨‍🎨',
+      '3d-musician': '👨‍🎤',
+      '3d-athlete': '🏃',
+      '3d-gamer': '🎮',
+      '3d-scientist': '👨‍🔬',
+      '3d-engineer': '👨‍💻',
+      '3d-pilot': '👨‍✈️',
+      '3d-firefighter': '👨‍🚒',
+      '3d-police': '👮',
+      '3d-soldier': '💂',
+      '3d-monk': '🧘',
+      '3d-yogi': '🧘‍♀️',
+      '3d-dancer': '💃',
+      '3d-clown': '🤡',
+      '3d-jester': '🎭',
+      '3d-king': '👑',
+      '3d-queen': '👸',
+      '3d-prince': '🤴',
+      '3d-princess': '👸',
+      '3d-noble': '🎩',
+      '3d-merchant': '💰',
+      '3d-farmer': '👨‍🌾',
+      '3d-fisherman': '🎣',
+      '3d-hunter': '🏹',
+      '3d-miner': '⛏️',
+      '3d-blacksmith': '🔨',
+      '3d-carpenter': '🔧',
+      '3d-tailor': '🧵',
+      '3d-baker': '🥖',
+      '3d-brewer': '🍺',
+      '3d-alchemist': '🧪',
+      '3d-herbalist': '🌿',
+      '3d-sage': '📚',
+      '3d-scholar': '🎓',
+      '3d-philosopher': '🤔',
+      '3d-poet': '✍️',
+      '3d-storyteller': '📖',
+      '3d-bard': '🎼',
+      '3d-minstrel': '🎵',
+      '3d-troubadour': '🎶',
+      '3d-juggler': '🤹',
+      '3d-acrobat': '🤸',
+      '3d-magician': '🎩',
+      '3d-illusionist': '✨',
+      '3d-fortune-teller': '🔮',
+      '3d-priest': '⛪',
+      '3d-shaman': '🔮',
+      '3d-druid': '🌳',
+      '3d-ranger': '🌲',
+      '3d-scout': '🔍',
+      '3d-spy': '🕵️‍♂️',
+      '3d-assassin': '🗡️',
+      '3d-thief': '🦹',
+      '3d-mercenary': '⚔️',
+      '3d-gladiator': '🏛️',
+      '3d-champion': '🏆',
+      '3d-hero': '🦸‍♂️',
+      '3d-legend': '🌟',
+      '3d-myth': '🌙',
+      '3d-legendary': '⭐',
+      '3d-divine': '👼',
+      '3d-celestial': '🌌',
+      '3d-cosmic': '🌠',
+      '3d-stellar': '⭐',
+      '3d-galactic': '🌌',
+      '3d-quantum': '⚛️',
+      '3d-neural': '🧠',
+      '3d-digital': '💻',
+      '3d-virtual': '🕶️',
+      '3d-hologram': '💿',
+      '3d-matrix': '📟',
+      '3d-cyberpunk': '🔮',
+      '3d-steampunk': '⚙️',
+      '3d-retro': '📺',
+      '3d-vintage': '📻',
+      '3d-classic': '🎬',
+      '3d-modern': '📱',
+      '3d-futuristic': '🚀',
+      '3d-space': '🛸',
+      '3d-time': '⏰',
+      '3d-dimension': '🌀',
+      '3d-reality': '🌍',
+      '3d-dream': '💭',
+      '3d-fantasy': '🌈',
+      '3d-magic': '🔮',
+      '3d-mystical': '✨',
+      '3d-enchanted': '🧚',
+      '3d-ethereal': '💫',
+      '3d-transcendent': '☁️',
+      '3d-immortal': '💎',
+      '3d-eternal': '♾️',
+      '3d-infinite': '∞',
+      '3d-absolute': '⚡',
+      '3d-ultimate': '🔥',
+      '3d-supreme': '👑',
+      '3d-master': '🎯',
+      '3d-grandmaster': '🏅',
+      '3d-legendary-master': '💎',
+      '3d-divine-master': '👼',
+      '3d-cosmic-master': '🌌',
+      '3d-quantum-master': '⚛️',
+      '3d-digital-master': '💻',
+      '3d-virtual-master': '🕶️',
+      '3d-holographic-master': '💿',
+      '3d-matrix-master': '📟',
+      '3d-cyberpunk-master': '🔮',
+      '3d-steampunk-master': '⚙️',
+      '3d-retro-master': '📺',
+      '3d-vintage-master': '📻',
+      '3d-classic-master': '🎬',
+      '3d-modern-master': '📱',
+      '3d-futuristic-master': '🚀',
+      '3d-space-master': '🛸',
+      '3d-time-master': '⏰',
+      '3d-dimension-master': '🌀',
+      '3d-reality-master': '🌍',
+      '3d-dream-master': '💭',
+      '3d-fantasy-master': '🌈',
+      '3d-magic-master': '🔮',
+      '3d-mystical-master': '✨',
+      '3d-enchanted-master': '🧚',
+      '3d-ethereal-master': '💫',
+      '3d-transcendent-master': '☁️',
+      '3d-immortal-master': '💎',
+      '3d-eternal-master': '♾️',
+      '3d-infinite-master': '∞',
+      '3d-absolute-master': '⚡',
+      '3d-ultimate-master': '🔥',
+      '3d-supreme-master': '👑'
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('Setting up authentication system...');
+      
+      const loginBtn = document.getElementById('login-btn');
+      const registerBtn = document.getElementById('register-btn');
+      const guestBtn = document.getElementById('guest-btn');
+      const profileBtn = document.getElementById('profile-btn');
+      const authButtons = document.getElementById('auth-buttons');
+      const userInfo = document.getElementById('user-info');
+      const userAvatar = document.getElementById('user-avatar');
+      const userName = document.getElementById('user-name');
+      
+      // Setup event listeners
+      if (loginBtn) {
+        loginBtn.addEventListener('click', () => showAuthModal('login'));
+      }
+      
+      if (registerBtn) {
+        registerBtn.addEventListener('click', () => showAuthModal('register'));
+      }
+      
+      if (guestBtn) {
+        guestBtn.addEventListener('click', () => showAuthModal('guest'));
+      }
+      
+      if (profileBtn) {
+        profileBtn.addEventListener('click', () => showUserProfile());
+        
+        // Profile modal event listeners
+        const profileCloseBtn = document.getElementById('profile-close-btn');
+        const profileLogoutBtn = document.getElementById('profile-logout-btn');
+        
+        if (profileCloseBtn) {
+          profileCloseBtn.addEventListener('click', closeUserProfile);
+        }
+        
+        if (profileLogoutBtn) {
+          profileLogoutBtn.addEventListener('click', logout);
+        }
+      }
+      
+      // Check authentication status
+      checkAuthStatus();
+      
+      // Update input fields on page load
+      setTimeout(() => {
+        updateAllInputFieldsWithUsername();
+      }, 500);
+      
+      // Function to update input field with current user's username
+      function updateInputFieldWithUsername(inputId) {
+        const input = document.getElementById(inputId);
+        if (input) {
+          let currentUser = null;
+          if (window.authService) {
+            currentUser = window.authService.getCurrentUser();
+          }
+          
+          // If no user from auth service, try to get from localStorage directly
+          if (!currentUser) {
+            try {
+              const userData = localStorage.getItem('dotsAndBoxesUser');
+              if (userData) {
+                currentUser = JSON.parse(userData);
+              }
+            } catch (error) {
+              console.error('Error reading user from localStorage:', error);
+            }
+          }
+          
+          if (currentUser && currentUser.username) {
+            input.value = currentUser.username;
+            console.log(`Updated ${inputId} with username:`, currentUser.username);
+          } else {
+            input.value = 'Username';
+            console.log(`Updated ${inputId} with default: Username`);
+          }
+        }
+      }
+      
+      // Function to update all input fields with current username
+      function updateAllInputFieldsWithUsername() {
+        updateInputFieldWithUsername('sp-player-name-input');
+        updateInputFieldWithUsername('tp-player1-name-input');
+      }
+      
+      // Make the function globally available
+      window.updateAllInputFieldsWithUsername = updateAllInputFieldsWithUsername;
+      
+      function checkAuthStatus() {
+        if (window.authService.isUserAuthenticated()) {
+          showAuthenticatedUI();
+        } else {
+          showUnauthenticatedUI();
+        }
+      }
+      
+      function showAuthenticatedUI() {
+        const user = window.authService.getCurrentUser();
+        
+        if (authButtons) authButtons.style.display = 'none';
+        if (userInfo) userInfo.style.display = 'flex';
+        if (userAvatar) {
+          // Use the complete enhanced avatarMap for all avatars including 3D ones
+          const userAvatarId = user.avatar || 'default-1';
+          const avatarEmoji = window.avatarMap ? window.avatarMap[userAvatarId] : null;
+          
+          if (avatarEmoji) {
+            userAvatar.textContent = avatarEmoji;
+          } else {
+            // Fallback to username first letter if avatar not found
+            userAvatar.textContent = user.username.charAt(0).toUpperCase();
+            console.warn('Avatar not found in avatarMap:', userAvatarId);
+          }
+        }
+        if (userName) userName.style.display = 'none'; // Hide username label
+        if (profileBtn) profileBtn.textContent = user.username; // Show username on button
+        
+        // Update any visible input fields with the current username
+        updateInputFieldWithUsername('sp-player-name-input');
+        updateInputFieldWithUsername('tp-player1-name-input');
+        
+        enableGameButtons();
+      }
+      
+      function showUnauthenticatedUI() {
+        if (authButtons) authButtons.style.display = 'flex';
+        if (userInfo) userInfo.style.display = 'none';
+        if (profileBtn) profileBtn.textContent = 'Profile'; // Reset button text
+        if (userName) userName.style.display = 'block'; // Show username label again
+        
+        disableGameButtons();
+      }
+      
+      function enableGameButtons() {
+        const gameButtons = document.querySelectorAll('#single-player-btn, #two-player-btn, #online-game-btn');
+        gameButtons.forEach(btn => {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.style.cursor = 'pointer';
+        });
+      }
+      
+      function disableGameButtons() {
+        const gameButtons = document.querySelectorAll('#single-player-btn, #two-player-btn, #online-game-btn');
+        gameButtons.forEach(btn => {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+        });
+      }
+    });
+    
+    function showAuthModal(mode) {
+      const modal = document.getElementById('auth-modal');
+      if (!modal) return;
+      
+      const content = modal.querySelector('.modal-content');
+      if (!content) return;
+      
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      
+      switch (mode) {
+        case 'login':
+          content.innerHTML = getLoginHTML();
+          break;
+        case 'register':
+          content.innerHTML = getRegisterHTML();
+          break;
+        case 'guest':
+          content.innerHTML = getGuestHTML();
+          break;
+      }
+      
+      setupFormHandlers();
+      setupGameButtonHandlers();
+    }
+    
+    function getLoginHTML() {
+      return `
+        <div class="modal-header">
+          <h2>Welcome Back!</h2>
+          <span class="close" onclick="closeAuthModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="loginForm" class="auth-form">
+            <div id="loginError" class="error-message" style="display: none;"></div>
+            <div id="loginSuccess" class="success-message" style="display: none;"></div>
+            <div class="form-group">
+              <label for="loginEmail">Email</label>
+              <input type="email" id="loginEmail" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <input type="password" id="loginPassword" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+          </form>
+          <div class="auth-links">
+            <p>Don't have an account? <a href="#" onclick="showAuthModal('register')">Register</a></p>
+            <p>Or <a href="#" onclick="showAuthModal('guest')">play as guest</a></p>
+          </div>
+        </div>
+      `;
+    }
+    
+    function getRegisterHTML() {
+      return `
+        <div class="modal-header">
+          <h2>Create Account</h2>
+          <span class="close" onclick="closeAuthModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="registerForm" class="auth-form">
+            <div id="registerError" class="error-message" style="display: none;"></div>
+            <div id="registerSuccess" class="success-message" style="display: none;"></div>
+            <div class="form-group">
+              <label for="registerUsername">Username</label>
+              <input type="text" id="registerUsername" name="username" required minlength="3" maxlength="20">
+              <small>3-20 characters, letters, numbers, and underscores only</small>
+            </div>
+            <div class="form-group">
+              <label for="registerEmail">Email</label>
+              <input type="email" id="registerEmail" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="registerPassword">Password</label>
+              <input type="password" id="registerPassword" name="password" required minlength="6">
+              <small>At least 6 characters</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Account</button>
+          </form>
+          <div class="auth-links">
+            <p>Already have an account? <a href="#" onclick="showAuthModal('login')">Login</a></p>
+            <p>Or <a href="#" onclick="showAuthModal('guest')">play as guest</a></p>
+          </div>
+        </div>
+      `;
+    }
+    
+    function getGuestHTML() {
+      return `
+        <div class="modal-header">
+          <h2>Play as Guest</h2>
+          <span class="close" onclick="closeAuthModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="guestForm" class="auth-form">
+            <div id="guestError" class="error-message" style="display: none;"></div>
+            <div id="guestSuccess" class="success-message" style="display: none;"></div>
+            <div class="form-group">
+              <label for="guestUsername">Choose a Username</label>
+              <input type="text" id="guestUsername" name="username" required minlength="3" maxlength="20">
+              <small>3-20 characters, letters, numbers, and underscores only</small>
+            </div>
+            <button type="submit" class="btn btn-secondary">Play as Guest</button>
+          </form>
+          <div class="auth-links">
+            <p>Want to save your progress? <a href="#" onclick="showAuthModal('register')">Create Account</a></p>
+            <p>Already have an account? <a href="#" onclick="showAuthModal('login')">Login</a></p>
+          </div>
+          <div class="guest-info">
+            <p><strong>Note:</strong> Guest accounts are temporary and won't save your game progress.</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    function setupFormHandlers() {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const guestForm = document.getElementById('guestForm');
+      
+      if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        
+        // Clear messages when user starts typing
+        const loginInputs = loginForm.querySelectorAll('input');
+        loginInputs.forEach(input => {
+          input.addEventListener('input', () => {
+            const errorDiv = document.getElementById('loginError');
+            const successDiv = document.getElementById('loginSuccess');
+            if (errorDiv && errorDiv.style.display !== 'none') {
+              errorDiv.style.display = 'none';
+              errorDiv.textContent = '';
+            }
+            if (successDiv && successDiv.style.display !== 'none') {
+              successDiv.style.display = 'none';
+              successDiv.textContent = '';
+            }
+          });
+        });
+      }
+      
+      if (registerForm) {
+        registerForm.addEventListener('submit', handleRegister);
+        
+        // Clear messages when user starts typing
+        const registerInputs = registerForm.querySelectorAll('input');
+        registerInputs.forEach(input => {
+          input.addEventListener('input', () => {
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+            if (errorDiv && errorDiv.style.display !== 'none') {
+              errorDiv.style.display = 'none';
+              errorDiv.textContent = '';
+            }
+            if (successDiv && successDiv.style.display !== 'none') {
+              successDiv.style.display = 'none';
+              successDiv.textContent = '';
+            }
+          });
+        });
+      }
+      
+      if (guestForm) {
+        guestForm.addEventListener('submit', handleGuest);
+        
+        // Clear messages when user starts typing
+        const guestInputs = guestForm.querySelectorAll('input');
+        guestInputs.forEach(input => {
+          input.addEventListener('input', () => {
+            const errorDiv = document.getElementById('guestError');
+            const successDiv = document.getElementById('guestSuccess');
+            if (errorDiv && errorDiv.style.display !== 'none') {
+              errorDiv.style.display = 'none';
+              errorDiv.textContent = '';
+            }
+            if (successDiv && successDiv.style.display !== 'none') {
+              successDiv.style.display = 'none';
+              successDiv.textContent = '';
+            }
+          });
+        });
+      }
+      
+
+    }
+
+    function setupGameButtonHandlers() {
+      // Game button event handlers
+      const singlePlayerBtn = document.getElementById('single-player-btn');
+      const twoPlayerBtn = document.getElementById('two-player-btn');
+      const onlineGameBtn = document.getElementById('online-game-btn');
+
+      if (singlePlayerBtn) {
+        singlePlayerBtn.addEventListener('click', () => {
+          const singlePlayerSetupScreen = document.getElementById('single-player-setup-screen');
+          if (singlePlayerSetupScreen) {
+            // Show the setup screen first
+            showScreen(singlePlayerSetupScreen);
+            
+            // Update the input field with username after a short delay to ensure DOM is ready
+            setTimeout(() => {
+              updateInputFieldWithUsername('sp-player-name-input');
+            }, 100);
+          }
+        });
+      }
+
+      if (twoPlayerBtn) {
+        twoPlayerBtn.addEventListener('click', () => {
+          const twoPlayerSetupScreen = document.getElementById('two-player-setup-screen');
+          if (twoPlayerSetupScreen) {
+            // Show the setup screen first
+            showScreen(twoPlayerSetupScreen);
+            
+            // Update the input field with username after a short delay to ensure DOM is ready
+            setTimeout(() => {
+              updateInputFieldWithUsername('tp-player1-name-input');
+            }, 100);
+          }
+        });
+      }
+
+      if (onlineGameBtn) {
+        onlineGameBtn.addEventListener('click', () => {
+          const onlineLobbyUI = document.getElementById('online-lobby-ui');
+          if (onlineLobbyUI) {
+            onlineLobbyUI.style.display = 'block';
+          }
+        });
+      }
+    }
+
+    function showScreen(screenElement) {
+      // Hide all screens
+      const screens = document.querySelectorAll('[id$="-screen"], [id$="-ui"]');
+      screens.forEach(screen => {
+        if (screen !== screenElement) {
+          screen.style.display = 'none';
+        }
+      });
+      
+      // Show the target screen
+      if (screenElement) {
+        screenElement.style.display = 'block';
+      }
+    }
+    
+    async function handleLogin(e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      const errorDiv = document.getElementById('loginError');
+      const successDiv = document.getElementById('loginSuccess');
+      
+      // Clear any previous messages
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
+      if (successDiv) {
+        successDiv.style.display = 'none';
+        successDiv.textContent = '';
+      }
+      
+      submitBtn.textContent = 'Loading...';
+      submitBtn.disabled = true;
+      
+      try {
+        const result = await window.authService.login(data.email, data.password);
+        
+        if (result.success) {
+          // Show success message within the form
+          if (successDiv) {
+            successDiv.textContent = 'Login successful! Redirecting...';
+            successDiv.style.display = 'block';
+          }
+          
+          // Update input fields immediately after successful login
+          setTimeout(() => {
+            updateAllInputFieldsWithUsername();
+          }, 100);
+          
+          setTimeout(() => {
+            closeAuthModal();
+            window.location.reload();
+          }, 1500);
+        } else {
+          // Show error within the form
+          if (errorDiv) {
+            errorDiv.textContent = result.message;
+            errorDiv.style.display = 'block';
+          }
+        }
+      } catch (error) {
+        // Show error within the form
+        if (errorDiv) {
+          errorDiv.textContent = 'Login failed. Please try again.';
+          errorDiv.style.display = 'block';
+        }
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+    
+    async function handleRegister(e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      const errorDiv = document.getElementById('registerError');
+      const successDiv = document.getElementById('registerSuccess');
+      
+      // Clear any previous messages
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
+      if (successDiv) {
+        successDiv.style.display = 'none';
+        successDiv.textContent = '';
+      }
+      
+      submitBtn.textContent = 'Loading...';
+      submitBtn.disabled = true;
+      
+      try {
+        const result = await window.authService.register(data.username, data.email, data.password);
+        
+        if (result.success) {
+          // Show success message within the form
+          if (successDiv) {
+            successDiv.textContent = 'Account created successfully! Redirecting...';
+            successDiv.style.display = 'block';
+          }
+          setTimeout(() => {
+            closeAuthModal();
+            window.location.reload();
+          }, 1500);
+        } else {
+          // Show error within the form
+          if (errorDiv) {
+            errorDiv.textContent = result.message;
+            errorDiv.style.display = 'block';
+          }
+        }
+      } catch (error) {
+        // Show error within the form
+        if (errorDiv) {
+          errorDiv.textContent = 'Registration failed. Please try again.';
+          errorDiv.style.display = 'block';
+        }
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+    
+    async function handleGuest(e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Loading...';
+      submitBtn.disabled = true;
+      
+      // Clear any previous messages
+      const errorDiv = document.getElementById('guestError');
+      const successDiv = document.getElementById('guestSuccess');
+      if (errorDiv) errorDiv.style.display = 'none';
+      if (successDiv) successDiv.style.display = 'none';
+      
+      try {
+        const result = await window.authService.guestLogin(data.username);
+        
+        if (result.success) {
+          if (successDiv) {
+            successDiv.textContent = 'Guest login successful!';
+            successDiv.style.display = 'block';
+          }
+          
+          // Update input fields immediately after successful guest login
+          setTimeout(() => {
+            updateAllInputFieldsWithUsername();
+          }, 100);
+          
+          setTimeout(() => {
+            closeAuthModal();
+            window.location.reload();
+          }, 1000);
+        } else {
+          if (errorDiv) {
+            errorDiv.textContent = result.message;
+            errorDiv.style.display = 'block';
+          }
+        }
+      } catch (error) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Guest login failed. Please try again.';
+          errorDiv.style.display = 'block';
+        }
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+    
+    function showMessage(message, type) {
+      // Try to find a suitable container for the message
+      let container = document.getElementById('auth-modal');
+      let modalBody = null;
+      
+      if (container) {
+        modalBody = container.querySelector('.modal-body');
+      }
+      
+      // If auth modal is not available, try to find another modal or create a temporary container
+      if (!container || !modalBody) {
+        // Create a temporary message container
+        container = document.createElement('div');
+        container.id = 'temp-message-container';
+        container.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 10000;
+          max-width: 300px;
+        `;
+        document.body.appendChild(container);
+        modalBody = container;
+      }
+      
+      // Remove existing messages
+      const existingMessage = container.querySelector('.auth-message');
+      if (existingMessage) {
+        existingMessage.remove();
+      }
+      
+      // Create new message
+      const messageEl = document.createElement('div');
+      messageEl.className = `auth-message auth-message-${type}`;
+      messageEl.textContent = message;
+      messageEl.style.cssText = `
+        padding: 10px 15px;
+        margin: 5px 0;
+        border-radius: 4px;
+        font-size: 14px;
+        ${type === 'error' ? 'background-color: #fee; color: #c33; border: 1px solid #fcc;' : ''}
+        ${type === 'success' ? 'background-color: #efe; color: #3c3; border: 1px solid #cfc;' : ''}
+        ${type === 'info' ? 'background-color: #eef; color: #33c; border: 1px solid #ccf;' : ''}
+      `;
+      
+      // Insert message
+      if (modalBody && modalBody.insertBefore) {
+        modalBody.insertBefore(messageEl, modalBody.firstChild);
+      } else if (modalBody && modalBody.appendChild) {
+        modalBody.appendChild(messageEl);
+      }
+      
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (messageEl.parentNode) {
+          messageEl.remove();
+        }
+        // Remove temporary container if it was created
+        if (container.id === 'temp-message-container' && container.parentNode) {
+          container.remove();
+        }
+      }, 5000);
+    }
+    
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+    
+    async function showUserProfile() {
+      const user = window.authService.getCurrentUser();
+      if (!user) return;
+      
+      const modal = document.getElementById('user-profile');
+      if (!modal) return;
+      
+      // Show modal immediately with current data
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      
+      // Update profile info
+      document.getElementById('profile-username').textContent = user.username;
+      document.getElementById('profile-email').textContent = user.email;
+      document.getElementById('profile-account-type').textContent = user.isGuest ? 'Guest Account' : 'Registered Account';
+      
+      // Set avatar based on user's selected avatar
+      const userAvatar = user.avatar || 'default-1';
+      updateProfileAvatar(userAvatar);
+      
+      // Set up avatar click event listener
+      setupAvatarEventListeners();
+      
+      // Update stats with current data
+      const stats = user.stats || {};
+      document.getElementById('stat-games-played').textContent = stats.gamesPlayed || 0;
+      document.getElementById('stat-games-won').textContent = stats.gamesWon || 0;
+      document.getElementById('stat-win-rate').textContent = stats.winRate ? `${stats.winRate}%` : '0%';
+      document.getElementById('stat-total-score').textContent = stats.totalScore || 0;
+      
+      // Fetch fresh profile data from server
+      try {
+        const response = await fetch('/api/auth/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${window.authService.getToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.profile) {
+            const profile = data.profile;
+            
+            // Update with fresh data
+            document.getElementById('stat-games-played').textContent = profile.gamesPlayed;
+            document.getElementById('stat-games-won').textContent = profile.gamesWon;
+            document.getElementById('stat-win-rate').textContent = `${profile.winRate}%`;
+            document.getElementById('stat-total-score').textContent = profile.totalScore;
+            
+            // Update user object with fresh stats
+            if (window.authService.currentUser) {
+              window.authService.currentUser.stats = {
+                gamesPlayed: profile.gamesPlayed,
+                gamesWon: profile.gamesWon,
+                totalScore: profile.totalScore,
+                winRate: profile.winRate
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+        // Keep showing the cached data if fetch fails
+      }
+    }
+
+    // Avatar mapping - Enhanced with 3D options (Global scope)
+    window.avatarMap = {
+      // Classic 2D Emoji Avatars
+      'default-1': '👤',
+      'default-2': '👨',
+      'default-3': '👩',
+      'default-4': '🧑',
+      'default-5': '👦',
+      'default-6': '👧',
+      
+      // Enhanced 3D-style Avatars (using Unicode and CSS styling)
+      '3d-warrior': '🛡️',
+      '3d-mage': '🧙',
+      '3d-archer': '🏹',
+      '3d-knight': '⚔️',
+      '3d-ninja': '🥷',
+      '3d-robot': '🤖',
+      '3d-cyber': '👾',
+      '3d-alien': '👽',
+      '3d-ghost': '👻',
+      '3d-dragon': '🐉',
+      '3d-unicorn': '🦄',
+      '3d-phoenix': '🦅',
+      '3d-wizard': '🧙‍♂️',
+      '3d-witch': '🧙‍♀️',
+      '3d-vampire': '🧛',
+      '3d-werewolf': '🐺',
+      '3d-samurai': '🗡️',
+      '3d-viking': '⚔️',
+      '3d-pirate': '🏴‍☠️',
+      '3d-cowboy': '🤠',
+      '3d-astronaut': '👨‍🚀',
+      '3d-superhero': '🦸',
+      '3d-detective': '🕵️',
+      '3d-chef': '👨‍🍳',
+      '3d-doctor': '👨‍⚕️',
+      '3d-teacher': '👨‍🏫',
+      '3d-artist': '👨‍🎨',
+      '3d-musician': '👨‍🎤',
+      '3d-athlete': '🏃',
+      '3d-gamer': '🎮',
+      '3d-scientist': '👨‍🔬',
+      '3d-engineer': '👨‍💻',
+      '3d-pilot': '👨‍✈️',
+      '3d-firefighter': '👨‍🚒',
+      '3d-police': '👮',
+      '3d-soldier': '💂',
+      '3d-monk': '🧘',
+      '3d-yogi': '🧘‍♀️',
+      '3d-dancer': '💃',
+      '3d-clown': '🤡',
+      '3d-jester': '🎭',
+      '3d-king': '👑',
+      '3d-queen': '👸',
+      '3d-prince': '🤴',
+      '3d-princess': '👸',
+      '3d-noble': '🎩',
+      '3d-merchant': '💰',
+      '3d-farmer': '👨‍🌾',
+      '3d-fisherman': '🎣',
+      '3d-hunter': '🏹',
+      '3d-miner': '⛏️',
+      '3d-blacksmith': '🔨',
+      '3d-carpenter': '🔧',
+      '3d-tailor': '🧵',
+      '3d-baker': '🥖',
+      '3d-brewer': '🍺',
+      '3d-alchemist': '🧪',
+      '3d-herbalist': '🌿',
+      '3d-sage': '📚',
+      '3d-scholar': '🎓',
+      '3d-philosopher': '🤔',
+      '3d-poet': '✍️',
+      '3d-storyteller': '📖',
+      '3d-bard': '🎼',
+      '3d-minstrel': '🎵',
+      '3d-troubadour': '🎶',
+      '3d-juggler': '🤹',
+      '3d-acrobat': '🤸',
+      '3d-magician': '🎩',
+      '3d-illusionist': '✨',
+      '3d-fortune-teller': '🔮',
+      '3d-priest': '⛪',
+      '3d-shaman': '🔮',
+      '3d-druid': '🌳',
+      '3d-ranger': '🌲',
+      '3d-scout': '🔍',
+      '3d-spy': '🕵️‍♂️',
+      '3d-assassin': '🗡️',
+      '3d-thief': '🦹',
+      '3d-mercenary': '⚔️',
+      '3d-gladiator': '🏛️',
+      '3d-champion': '🏆',
+      '3d-hero': '🦸‍♂️',
+      '3d-legend': '🌟',
+      '3d-myth': '🌙',
+      '3d-legendary': '⭐',
+      '3d-divine': '👼',
+      '3d-celestial': '🌌',
+      '3d-cosmic': '🌠',
+      '3d-stellar': '⭐',
+      '3d-galactic': '🌌',
+      '3d-quantum': '⚛️',
+      '3d-neural': '🧠',
+      '3d-digital': '💻',
+      '3d-virtual': '🕶️',
+      '3d-hologram': '💿',
+      '3d-matrix': '📟',
+      '3d-cyberpunk': '🔮',
+      '3d-steampunk': '⚙️',
+      '3d-retro': '📺',
+      '3d-vintage': '📻',
+      '3d-classic': '🎬',
+      '3d-modern': '📱',
+      '3d-futuristic': '🚀',
+      '3d-space': '🛸',
+      '3d-time': '⏰',
+      '3d-dimension': '🌀',
+      '3d-reality': '🌍',
+      '3d-dream': '💭',
+      '3d-fantasy': '🌈',
+      '3d-magic': '🔮',
+      '3d-mystical': '✨',
+      '3d-enchanted': '🧚',
+      '3d-ethereal': '💫',
+      '3d-transcendent': '☁️',
+      '3d-immortal': '💎',
+      '3d-eternal': '♾️',
+      '3d-infinite': '∞',
+      '3d-absolute': '⚡',
+      '3d-ultimate': '🔥',
+      '3d-supreme': '👑',
+      '3d-master': '🎯',
+      '3d-grandmaster': '🏅',
+      '3d-legendary-master': '💎',
+      '3d-divine-master': '👼',
+      '3d-cosmic-master': '🌌',
+      '3d-quantum-master': '⚛️',
+      '3d-digital-master': '💻',
+      '3d-virtual-master': '🕶️',
+      '3d-holographic-master': '💿',
+      '3d-matrix-master': '📟',
+      '3d-cyberpunk-master': '🔮',
+      '3d-steampunk-master': '⚙️',
+      '3d-retro-master': '📺',
+      '3d-vintage-master': '📻',
+      '3d-classic-master': '🎬',
+      '3d-modern-master': '📱',
+      '3d-futuristic-master': '🚀',
+      '3d-space-master': '🛸',
+      '3d-time-master': '⏰',
+      '3d-dimension-master': '🌀',
+      '3d-reality-master': '🌍',
+      '3d-dream-master': '💭',
+      '3d-fantasy-master': '🌈',
+      '3d-magic-master': '🔮',
+      '3d-mystical-master': '✨',
+      '3d-enchanted-master': '🧚',
+      '3d-ethereal-master': '💫',
+      '3d-transcendent-master': '☁️',
+      '3d-immortal-master': '💎',
+      '3d-eternal-master': '♾️',
+      '3d-infinite-master': '∞',
+      '3d-absolute-master': '⚡',
+      '3d-ultimate-master': '🔥',
+      '3d-supreme-master': '👑'
+    };
+
+    let selectedAvatarId = null;
+
+    function updateProfileAvatar(avatarId) {
+      const avatarElement = document.getElementById('profile-avatar');
+      if (avatarElement && window.avatarMap[avatarId]) {
+        avatarElement.textContent = window.avatarMap[avatarId];
+      }
+    }
+
+    function showAvatarSelectionModal() {
+      console.log('showAvatarSelectionModal called');
+      const modal = document.getElementById('avatar-selection-modal');
+      if (!modal) {
+        console.error('Avatar selection modal not found');
+        return;
+      }
+
+      // Clear any previous messages
+      showAvatarMessage('', 'error');
+      showAvatarMessage('', 'success');
+
+      // Get current user avatar
+      const user = window.authService.getCurrentUser();
+      const currentAvatar = user?.avatar || 'default-1';
+      selectedAvatarId = currentAvatar;
+
+      console.log('Current avatar:', currentAvatar);
+      console.log('Modal element:', modal);
+
+      // Show modal
+      modal.style.display = 'block';
+      modal.style.zIndex = '1001';
+      document.body.style.overflow = 'hidden';
+
+      // Update avatar selection UI
+      updateAvatarSelectionUI(currentAvatar);
+      console.log('Avatar selection modal shown');
+      
+      // Force a reflow to ensure the modal is visible
+      modal.offsetHeight;
+    }
+
+    function closeAvatarSelectionModal() {
+      const modal = document.getElementById('avatar-selection-modal');
+      if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+
+    function showAvatarMessage(message, type) {
+      const errorDiv = document.getElementById('avatar-error-message');
+      const successDiv = document.getElementById('avatar-success-message');
+      
+      // Hide both messages first
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
+      if (successDiv) {
+        successDiv.style.display = 'none';
+        successDiv.textContent = '';
+      }
+      
+      // Show the appropriate message
+      if (type === 'error' && errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+      } else if (type === 'success' && successDiv) {
+        successDiv.textContent = message;
+        successDiv.style.display = 'block';
+      }
+      
+      // Auto-hide success messages after 3 seconds
+      if (type === 'success' && successDiv) {
+        setTimeout(() => {
+          if (successDiv.style.display === 'block') {
+            successDiv.style.display = 'none';
+            successDiv.textContent = '';
+          }
+        }, 3000);
+      }
+    }
+
+    function updateAvatarSelectionUI(avatarId) {
+      console.log('updateAvatarSelectionUI called with:', avatarId);
+      const avatarOptions = document.querySelectorAll('.avatar-option');
+      console.log('Found avatar options:', avatarOptions.length);
+      
+      // Remove selected class from all options
+      avatarOptions.forEach(option => {
+        option.classList.remove('selected');
+        option.classList.remove('current-user-avatar');
+      });
+      
+      // Add selected class to the chosen avatar
+      avatarOptions.forEach(option => {
+        if (option.dataset.avatar === avatarId) {
+          option.classList.add('selected');
+          console.log('Selected avatar option:', option.dataset.avatar);
+        }
+      });
+      
+      // Highlight current user's avatar with a different class
+      const currentUser = window.authService.getCurrentUser();
+      if (currentUser && currentUser.avatar) {
+        avatarOptions.forEach(option => {
+          if (option.dataset.avatar === currentUser.avatar) {
+            option.classList.add('current-user-avatar');
+            console.log('Current user avatar highlighted:', option.dataset.avatar);
+          }
+        });
+      }
+    }
+
+    async function saveUserAvatar() {
+      console.log('saveUserAvatar called with selectedAvatarId:', selectedAvatarId);
+      
+      // Clear any previous messages
+      showAvatarMessage('', 'error');
+      showAvatarMessage('', 'success');
+      
+      if (!selectedAvatarId) {
+        console.error('No avatar selected');
+        showAvatarMessage('Please select an avatar first', 'error');
+        return;
+      }
+
+      // Check if user is authenticated
+      const user = window.authService.getCurrentUser();
+      if (!user) {
+        console.error('User not authenticated');
+        showAvatarMessage('Please login to change avatar', 'error');
+        return;
+      }
+
+      try {
+        const token = window.authService.getToken();
+        console.log('Token available:', !!token);
+        console.log('Token from localStorage:', token);
+        console.log('Token length:', token ? token.length : 0);
+        console.log('User authenticated:', !!user);
+        console.log('User ID:', user.id);
+        
+        const response = await fetch('/api/auth/avatar', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ avatar: selectedAvatarId })
+        });
+
+        console.log('API response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('API response data:', data);
+        
+        if (data.success) {
+          // Update local user data
+          if (user) {
+            user.avatar = selectedAvatarId;
+            window.authService.saveToStorage(user, window.authService.getToken());
+            console.log('User avatar updated locally:', user.avatar);
+          }
+          
+          // Update profile avatar display
+          updateProfileAvatar(selectedAvatarId);
+          
+          // Update avatar in other parts of the UI
+          updateAvatarInUI(selectedAvatarId);
+          
+          // Show success message
+          showAvatarMessage('Avatar updated successfully!', 'success');
+          
+          // Close the modal after a short delay
+          setTimeout(() => {
+            closeAvatarSelectionModal();
+          }, 1500);
+        } else {
+          console.error('API returned error:', data.message);
+          if (data.message && data.message.includes('session expired')) {
+            showAvatarMessage('Your session has expired. Please log in again.', 'error');
+            // Redirect to login after a delay
+            setTimeout(() => {
+              closeAvatarSelectionModal();
+              showAuthModal('login');
+            }, 2000);
+          } else {
+            showAvatarMessage(data.message || 'Failed to update avatar', 'error');
+          }
+        }
+      } catch (error) {
+        console.error('Error updating avatar:', error);
+        
+        // If it's a guest user or API fails, update locally
+        if (user && user.isGuest) {
+          console.log('Guest user - updating avatar locally');
+          user.avatar = selectedAvatarId;
+          window.authService.saveToStorage(user, localStorage.getItem('token'));
+          
+          // Update profile avatar display
+          updateProfileAvatar(selectedAvatarId);
+          
+          // Update avatar in other parts of the UI
+          updateAvatarInUI(selectedAvatarId);
+          
+          // Show success message
+          showAvatarMessage('Avatar updated successfully!', 'success');
+          
+          // Close the modal after a short delay
+          setTimeout(() => {
+            closeAvatarSelectionModal();
+          }, 1500);
+        } else {
+          if (error.message && error.message.includes('401')) {
+            showAvatarMessage('Your session has expired. Please log in again.', 'error');
+            // Redirect to login after a delay
+            setTimeout(() => {
+              closeAvatarSelectionModal();
+              showAuthModal('login');
+            }, 2000);
+          } else {
+            showAvatarMessage('Failed to update avatar. Please try again.', 'error');
+          }
+        }
+      }
+    }
+
+    function updateAvatarInUI(avatarId) {
+      // Update avatar in header/profile button if it exists
+      const headerAvatar = document.querySelector('.header-avatar');
+      if (headerAvatar && window.avatarMap[avatarId]) {
+        headerAvatar.textContent = window.avatarMap[avatarId];
+      }
+      
+      // Update home screen user-avatar div
+      const homeUserAvatar = document.getElementById('user-avatar');
+      if (homeUserAvatar && window.avatarMap[avatarId]) {
+        homeUserAvatar.textContent = window.avatarMap[avatarId];
+      }
+      
+      // Update any other avatar displays in the game
+      const gameAvatars = document.querySelectorAll('.player-avatar');
+      gameAvatars.forEach(avatar => {
+        if (avatar.dataset.player === 'current-user' && window.avatarMap[avatarId]) {
+          avatar.textContent = window.avatarMap[avatarId];
+        }
+      });
+    }
+
+    function setupAvatarEventListeners() {
+      console.log('setupAvatarEventListeners called');
+      
+      // Profile avatar click to open selection modal
+      const profileAvatar = document.getElementById('profile-avatar');
+      console.log('Profile avatar element:', profileAvatar);
+      if (profileAvatar) {
+        // Remove any existing event listeners
+        profileAvatar.removeEventListener('click', showAvatarSelectionModal);
+        // Add new event listener
+        profileAvatar.addEventListener('click', showAvatarSelectionModal);
+        console.log('Avatar click event listener added to profile avatar');
+      } else {
+        console.error('Profile avatar element not found');
+      }
+
+      // Category switching event listeners
+      const categoryButtons = document.querySelectorAll('.category-btn');
+      console.log('Found category buttons:', categoryButtons.length);
+      categoryButtons.forEach((btn, index) => {
+        // Remove any existing event listeners
+        btn.removeEventListener('click', handleCategoryClick);
+        // Add new event listener
+        btn.addEventListener('click', handleCategoryClick);
+        console.log(`Event listener added to category button ${index + 1}:`, btn.dataset.category);
+      });
+
+      // Avatar selection modal event listeners
+      const avatarOptions = document.querySelectorAll('.avatar-option');
+      console.log('Found avatar options:', avatarOptions.length);
+      avatarOptions.forEach((option, index) => {
+        // Remove any existing event listeners
+        option.removeEventListener('click', handleAvatarOptionClick);
+        // Add new event listener
+        option.addEventListener('click', handleAvatarOptionClick);
+        console.log(`Event listener added to avatar option ${index + 1}:`, option.dataset.avatar);
+      });
+
+      // Avatar modal buttons
+      const avatarCloseBtn = document.getElementById('avatar-close-btn');
+      const avatarCancelBtn = document.getElementById('avatar-cancel-btn');
+      const avatarSaveBtn = document.getElementById('avatar-save-btn');
+
+      console.log('Avatar modal buttons:', {
+        closeBtn: !!avatarCloseBtn,
+        cancelBtn: !!avatarCancelBtn,
+        saveBtn: !!avatarSaveBtn
+      });
+
+      if (avatarCloseBtn) {
+        avatarCloseBtn.removeEventListener('click', closeAvatarSelectionModal);
+        avatarCloseBtn.addEventListener('click', closeAvatarSelectionModal);
+        console.log('Close button event listener added');
+      }
+
+      if (avatarCancelBtn) {
+        avatarCancelBtn.removeEventListener('click', closeAvatarSelectionModal);
+        avatarCancelBtn.addEventListener('click', closeAvatarSelectionModal);
+        console.log('Cancel button event listener added');
+      }
+
+      if (avatarSaveBtn) {
+        avatarSaveBtn.removeEventListener('click', saveUserAvatar);
+        avatarSaveBtn.addEventListener('click', saveUserAvatar);
+        console.log('Save button event listener added');
+      }
+    }
+
+    function handleCategoryClick(event) {
+      const category = event.currentTarget.dataset.category;
+      console.log('Category clicked:', category);
+      
+      // Update active category button
+      const categoryButtons = document.querySelectorAll('.category-btn');
+      categoryButtons.forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.currentTarget.classList.add('active');
+      
+      // Show/hide avatar options based on category
+      const avatarOptions = document.querySelectorAll('.avatar-option');
+      avatarOptions.forEach(option => {
+        if (option.classList.contains(`category-${category}`)) {
+          option.style.display = 'block';
+        } else {
+          option.style.display = 'none';
+        }
+      });
+      
+      console.log(`Switched to ${category} category`);
+    }
+
+    function handleAvatarOptionClick(event) {
+      const avatarId = event.currentTarget.dataset.avatar;
+      selectedAvatarId = avatarId;
+      updateAvatarSelectionUI(avatarId);
+      console.log('Avatar selected:', avatarId);
+    }
+    
+    function closeUserProfile() {
+      const modal = document.getElementById('user-profile');
+      if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+    
+    async function logout() {
+      try {
+        await window.authService.logout();
+        closeUserProfile();
+        window.location.reload();
+      } catch (error) {
+        console.error('Logout error:', error);
+        window.authService.clearStorage();
+        closeUserProfile();
+        window.location.reload();
+      }
+    }
+    
+    // Close modals when clicking outside
+    document.addEventListener('click', (e) => {
+      const authModal = document.getElementById('auth-modal');
+      const userProfile = document.getElementById('user-profile');
+      const avatarModal = document.getElementById('avatar-selection-modal');
+      
+      if (e.target === authModal) {
+        closeAuthModal();
+      }
+      
+      if (e.target === userProfile) {
+        closeUserProfile();
+      }
+      
+      if (e.target === avatarModal) {
+        closeAvatarSelectionModal();
+      }
+    });
+    
+    // Close modals with escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const authModal = document.getElementById('auth-modal');
+        const userProfile = document.getElementById('user-profile');
+        const avatarModal = document.getElementById('avatar-selection-modal');
+        
+        if (authModal && authModal.style.display === 'block') {
+          closeAuthModal();
+        }
+        
+        if (userProfile && userProfile.style.display === 'block') {
+          closeUserProfile();
+        }
+        
+        if (avatarModal && avatarModal.style.display === 'block') {
+          closeAvatarSelectionModal();
+        }
+      }
+    });
+  </script>
+  
+  <!-- Try to load modular system first, fallback to original -->
+  <script type="module">
+    try {
+      // Try to load the new modular system
+      import('/js/game-compat.js').then(() => {
+        console.log('Modular game system loaded successfully');
+      }).catch((error) => {
+        console.warn('Modular system failed to load, falling back to original:', error);
+        // Fallback to original system
+        const script = document.createElement('script');
+        script.src = '/js/game.js';
+        document.head.appendChild(script);
+      });
+    } catch (error) {
+      console.warn('ES6 modules not supported, loading original system:', error);
+      // Fallback to original system
+      const script = document.createElement('script');
+      script.src = '/js/game.js';
+      document.head.appendChild(script);
+    }
+  </script>
+  
+  <!-- Always load these dependencies -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/online.js"></script>
+  <audio id="dice-audio" src="/assets/dice-roll.wav" preload="auto"></audio>
+</body>
+</html> 
