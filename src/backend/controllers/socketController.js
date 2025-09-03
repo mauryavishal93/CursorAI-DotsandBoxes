@@ -26,18 +26,32 @@ class SocketController {
           socket.join(lobbyCode);
           callback({ success: true });
           this.io.to(lobbyCode).emit('lobbyUpdate', { players: result.lobby.players });
-          // Start game if 2 players - add small delay to ensure socket is properly joined
+          // Start game if 2 players - add delay to ensure socket is properly joined (increased for iOS compatibility)
           if (result.lobby.players.length === 2) {
             result.lobby.gameOver = false;
             console.log(`Starting game for lobby ${lobbyCode} with ${result.lobby.players.length} players`);
-            // Small delay to ensure socket is properly joined to room
+            // Increased delay to ensure socket is properly joined to room (especially for iOS)
             setTimeout(() => {
               const room = this.io.sockets.adapter.rooms.get(lobbyCode);
               const socketCount = room ? room.size : 0;
               console.log(`Emitting startGame to lobby ${lobbyCode} - Room has ${socketCount} sockets`);
-            this.io.to(lobbyCode).emit('startGame', { lobbyCode });
-              console.log(`startGame event emitted to lobby ${lobbyCode}`);
-            }, 100);
+              
+              // Double-check that both players are in the room before starting
+              if (socketCount >= 2) {
+                this.io.to(lobbyCode).emit('startGame', { lobbyCode });
+                console.log(`startGame event emitted to lobby ${lobbyCode}`);
+              } else {
+                console.log(`Not enough players in room (${socketCount}/2), retrying in 200ms...`);
+                // Retry after another delay if not enough players
+                setTimeout(() => {
+                  const retryRoom = this.io.sockets.adapter.rooms.get(lobbyCode);
+                  const retrySocketCount = retryRoom ? retryRoom.size : 0;
+                  console.log(`Retry: Emitting startGame to lobby ${lobbyCode} - Room has ${retrySocketCount} sockets`);
+                  this.io.to(lobbyCode).emit('startGame', { lobbyCode });
+                  console.log(`startGame event emitted to lobby ${lobbyCode} (retry)`);
+                }, 200);
+              }
+            }, 300); // Increased from 100ms to 300ms for better iOS compatibility
           }
         } else {
           callback({ success: false, message: result.message });

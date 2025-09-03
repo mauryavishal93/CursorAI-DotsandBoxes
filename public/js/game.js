@@ -2210,10 +2210,146 @@ window.onload = function() {
     });
   }
 
-  if (rulesBtnHome) rulesBtnHome.addEventListener('click', () => rulesModal && (rulesModal.style.display = 'block'));
-  if (infoBtnHome) infoBtnHome.addEventListener('click', () => infoModal && (infoModal.style.display = 'block'));
-  if (rulesModalCloseBtn) rulesModalCloseBtn.addEventListener('click', () => rulesModal && (rulesModal.style.display = 'none'));
-  if (infoModalCloseBtn) infoModalCloseBtn.addEventListener('click', () => infoModal && (infoModal.style.display = 'none'));
+  // Enhanced rules and info button event handlers with debugging
+  if (rulesBtnHome) {
+    rulesBtnHome.addEventListener('click', () => {
+      console.log('Rules button clicked');
+      if (rulesModal) {
+        console.log('Showing rules modal');
+        rulesModal.style.display = 'block';
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+      } else {
+        console.error('Rules modal not found');
+      }
+    });
+  } else {
+    console.error('Rules button not found');
+  }
+
+  if (infoBtnHome) {
+    infoBtnHome.addEventListener('click', () => {
+      console.log('Info button clicked');
+      if (infoModal) {
+        console.log('Showing info modal');
+        infoModal.style.display = 'block';
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+      } else {
+        console.error('Info modal not found');
+      }
+    });
+  } else {
+    console.error('Info button not found');
+  }
+
+  if (rulesModalCloseBtn) {
+    rulesModalCloseBtn.addEventListener('click', () => {
+      console.log('Rules modal close button clicked');
+      if (rulesModal) {
+        rulesModal.style.display = 'none';
+        document.body.style.overflow = 'auto'; // Restore scrolling
+      }
+    });
+  }
+
+  if (infoModalCloseBtn) {
+    infoModalCloseBtn.addEventListener('click', () => {
+      console.log('Info modal close button clicked');
+      if (infoModal) {
+        infoModal.style.display = 'none';
+        document.body.style.overflow = 'auto'; // Restore scrolling
+      }
+    });
+  }
+
+  // Add click-outside-to-close functionality for modals
+  if (rulesModal) {
+    rulesModal.addEventListener('click', (e) => {
+      if (e.target === rulesModal) {
+        console.log('Rules modal clicked outside, closing');
+        rulesModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    });
+  }
+
+  if (infoModal) {
+    infoModal.addEventListener('click', (e) => {
+      if (e.target === infoModal) {
+        console.log('Info modal clicked outside, closing');
+        infoModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    });
+  }
+
+  // Function to ensure rules and info buttons are always accessible
+  function ensureRulesInfoButtonsAccessible() {
+    const topRightButtons = document.querySelector('.top-right-buttons');
+    if (topRightButtons) {
+      topRightButtons.style.display = 'flex';
+      topRightButtons.style.visibility = 'visible';
+      topRightButtons.style.pointerEvents = 'auto';
+    }
+    
+    if (rulesBtnHome) {
+      rulesBtnHome.style.display = 'block';
+      rulesBtnHome.style.visibility = 'visible';
+      rulesBtnHome.style.pointerEvents = 'auto';
+    }
+    
+    if (infoBtnHome) {
+      infoBtnHome.style.display = 'block';
+      infoBtnHome.style.visibility = 'visible';
+      infoBtnHome.style.pointerEvents = 'auto';
+    }
+  }
+
+  // Ensure buttons are accessible when home screen is shown
+  const originalShowScreen = showScreen;
+  showScreen = function(screen) {
+    originalShowScreen(screen);
+    if (screen === homeScreen) {
+      ensureRulesInfoButtonsAccessible();
+    }
+  };
+
+  // Also ensure buttons are accessible on page load
+  ensureRulesInfoButtonsAccessible();
+
+  // Fallback mechanism: Re-attach event listeners if buttons are clicked but don't work
+  function attachFallbackEventListeners() {
+    // Remove existing event listeners and re-attach
+    if (rulesBtnHome) {
+      const newRulesBtn = rulesBtnHome.cloneNode(true);
+      rulesBtnHome.parentNode.replaceChild(newRulesBtn, rulesBtnHome);
+      newRulesBtn.addEventListener('click', () => {
+        console.log('Fallback: Rules button clicked');
+        if (rulesModal) {
+          console.log('Fallback: Showing rules modal');
+          rulesModal.style.display = 'block';
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    }
+
+    if (infoBtnHome) {
+      const newInfoBtn = infoBtnHome.cloneNode(true);
+      infoBtnHome.parentNode.replaceChild(newInfoBtn, infoBtnHome);
+      newInfoBtn.addEventListener('click', () => {
+        console.log('Fallback: Info button clicked');
+        if (infoModal) {
+          console.log('Fallback: Showing info modal');
+          infoModal.style.display = 'block';
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    }
+  }
+
+  // Set up fallback mechanism after a delay
+  setTimeout(() => {
+    attachFallbackEventListeners();
+  }, 1000);
 
   const testResultsDiv = document.createElement('div');
   testResultsDiv.id = 'test-results';

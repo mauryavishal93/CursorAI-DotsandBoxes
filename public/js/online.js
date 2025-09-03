@@ -1,5 +1,21 @@
 // Online lobby and multiplayer logic for Dots and Boxes
-const socket = io();
+
+// Platform detection for iOS-specific handling
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+console.log('Platform detected:', { isIOS, userAgent: navigator.userAgent });
+
+// Configure socket for better iOS compatibility
+const socket = io({
+  transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+  timeout: isIOS ? 30000 : 20000, // Longer timeout for iOS
+  forceNew: false, // Reuse existing connection if available
+  reconnection: true,
+  reconnectionDelay: isIOS ? 2000 : 1000, // Longer delay for iOS
+  reconnectionAttempts: 5,
+  maxReconnectionAttempts: 5
+});
 
 const onlineGameBtn = document.getElementById('online-game-btn');
 const onlineLobbyUI = document.getElementById('online-lobby-ui');
@@ -48,18 +64,31 @@ socket.on('connect', () => {
 
 socket.on('connect_error', (error) => {
   console.error('Socket connection error:', error);
+  // Show user-friendly error message
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Connection error. Please check your internet connection.';
+  }
 });
 
 socket.on('reconnect', (attemptNumber) => {
   console.log('Socket reconnected after', attemptNumber, 'attempts');
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Reconnected! Game should continue normally.';
+  }
 });
 
-socket.on('disconnect', () => {
-  console.log('Socket disconnected');
+socket.on('disconnect', (reason) => {
+  console.log('Socket disconnected:', reason);
+  if (lobbyStatus && reason !== 'io client disconnect') {
+    lobbyStatus.textContent = 'Connection lost. Attempting to reconnect...';
+  }
 });
 
-socket.on('connect_error', (error) => {
-  console.log('Socket connection error:', error);
+socket.on('reconnect_error', (error) => {
+  console.error('Socket reconnection error:', error);
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Reconnection failed. Please refresh the page.';
+  }
 });
 
 // Expose socket globally for game.js
@@ -244,7 +273,11 @@ socket.on('startGame', ({ lobbyCode }) => {
       return;
     }
     
-    startOnlineGame(lobbyCode);
+    // Add delay for iOS compatibility before starting game
+    const startDelay = isIOS ? 300 : 100;
+    setTimeout(() => {
+      startOnlineGame(lobbyCode);
+    }, startDelay);
   } else {
     console.log('startGame event ignored:', { 
       lobbyCodeMatch: currentLobbyCode === lobbyCode, 
@@ -260,28 +293,14 @@ function startOnlineGame(lobbyCode) {
     
     console.log('Starting online game with:', { player1Name, player2Name, playerRole, lobbyCode });
     
-    // Start the online game
-    if (typeof window.startGame === 'function') {
-      console.log('Calling window.startGame...');
-      try {
-      window.startGame('onlineMultiplayer', { 
-        player1Name, 
-        player2Name, 
-        playerRole, 
-        lobbyCode,
-        socket 
-      });
-        console.log('window.startGame called successfully');
-      } catch (error) {
-        console.error('Error calling window.startGame:', error);
-      }
-    } else {
-      console.log('window.startGame not available, using fallback...');
-      // Fallback if startGame is not available yet
-      setTimeout(() => {
-        if (typeof window.startGame === 'function') {
-          console.log('Fallback: Calling window.startGame...');
-          try {
+    // Start the online game with retry logic for iOS compatibility
+    const maxAttempts = isIOS ? 5 : 3; // More attempts for iOS
+    const retryDelay = isIOS ? 300 : 200; // Longer delay for iOS
+    
+    const attemptStartGame = (attempt = 1) => {
+      if (typeof window.startGame === 'function') {
+        console.log(`Attempt ${attempt}: Calling window.startGame...`);
+        try {
           window.startGame('onlineMultiplayer', { 
             player1Name, 
             player2Name, 
@@ -289,15 +308,29 @@ function startOnlineGame(lobbyCode) {
             lobbyCode,
             socket 
           });
-            console.log('Fallback: window.startGame called successfully');
-          } catch (error) {
-            console.error('Fallback: Error calling window.startGame:', error);
+          console.log(`Attempt ${attempt}: window.startGame called successfully`);
+        } catch (error) {
+          console.error(`Attempt ${attempt}: Error calling window.startGame:`, error);
+          if (attempt < maxAttempts) {
+            console.log(`Retrying in ${attempt * retryDelay}ms...`);
+            setTimeout(() => attemptStartGame(attempt + 1), attempt * retryDelay);
+          } else {
+            console.error('All attempts failed to start game');
           }
-        } else {
-          console.error('window.startGame still not available after fallback');
         }
-      }, 100);
-    }
+      } else {
+        console.log(`Attempt ${attempt}: window.startGame not available`);
+        if (attempt < maxAttempts) {
+          console.log(`Retrying in ${attempt * retryDelay}ms...`);
+          setTimeout(() => attemptStartGame(attempt + 1), attempt * retryDelay);
+        } else {
+          console.error('window.startGame not available after all attempts');
+        }
+      }
+    };
+    
+    // Start with first attempt
+    attemptStartGame();
   }
 
 // Listen for game actions from the other player

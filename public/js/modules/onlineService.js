@@ -2,7 +2,8 @@ import { io } from 'socket.io-client';
 
 export class OnlineService {
   constructor() {
-    this.socket = io();
+    // Use the global socket instance if available to avoid multiple connections
+    this.socket = window.socket || io();
     this.currentLobbyCode = null;
     this.isInLobby = false;
     this.isGameStarted = false;
