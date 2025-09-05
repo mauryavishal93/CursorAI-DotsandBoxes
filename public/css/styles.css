@@ -199,7 +199,7 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
   max-width: 567px;
   max-height: 875px;
   min-width: 320px;
-  min-height: 494px; /* 320 / 0.648 */
+  min-height: 800px; /* 320 / 0.648 */
   
   /* Maintain aspect ratio */
   aspect-ratio: 567 / 875;
@@ -1657,6 +1657,43 @@ canvas {
   
   .spinner-text {
     font-size: 12px;
+  }
+}
+
+/* Authentication Required Button Styles */
+.btn.auth-required {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important; /* Completely disable clicks */
+  background-color: #e2e8f0 !important;
+  color: #a0aec0 !important;
+  border-color: #e2e8f0 !important;
+  position: relative;
+}
+
+.btn.auth-required:hover {
+  background-color: #e2e8f0 !important;
+  color: #a0aec0 !important;
+  border-color: #e2e8f0 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn.auth-required::after {
+  content: '🔒';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+/* Mobile adjustments for auth-required buttons */
+@media (max-width: 480px) {
+  .btn.auth-required::after {
+    font-size: 12px;
+    right: 6px;
   }
 }
 

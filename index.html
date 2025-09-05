@@ -1015,6 +1015,102 @@
     // Initialize authentication system
     window.authService = new AuthService();
     
+    // Function to check if user is authenticated
+    function isUserAuthenticated() {
+      return window.authService && window.authService.isAuthenticated;
+    }
+    
+    // Function to show authentication required popup
+    function showAuthRequiredPopup() {
+      const popup = {
+        title: '🎮 Ready to Play?',
+        message: 'Please login with a registered account or continue as a guest to start your gaming adventure!',
+        type: 'info'
+      };
+      
+      if (typeof window.showMessage === 'function') {
+        window.showMessage(popup.title, popup.message);
+      } else {
+        // Fallback alert
+        alert(`${popup.title}\n\n${popup.message}`);
+      }
+    }
+    
+    // Function to update game button states based on authentication
+    function updateGameButtonStates() {
+      const singlePlayerBtn = document.getElementById('single-player-btn');
+      const twoPlayerBtn = document.getElementById('two-player-btn');
+      const onlineGameBtn = document.getElementById('online-game-btn');
+      const buttonGroup = document.querySelector('.button-group');
+      
+      const isAuthenticated = isUserAuthenticated();
+      
+      // Update button states
+      [singlePlayerBtn, twoPlayerBtn, onlineGameBtn].forEach(btn => {
+        if (btn) {
+          btn.disabled = !isAuthenticated;
+          
+          if (!isAuthenticated) {
+            btn.classList.add('auth-required');
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+          } else {
+            btn.classList.remove('auth-required');
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+          }
+        }
+      });
+      
+      // Add/remove overlay for auth popup when buttons are disabled
+      if (!isAuthenticated) {
+        addAuthOverlay(buttonGroup);
+      } else {
+        removeAuthOverlay(buttonGroup);
+      }
+      
+      console.log('Game buttons updated - Authenticated:', isAuthenticated);
+    }
+    
+    // Function to add auth overlay for popup
+    function addAuthOverlay(buttonGroup) {
+      if (!buttonGroup) return;
+      
+      // Remove existing overlay if any
+      removeAuthOverlay(buttonGroup);
+      
+      // Create overlay
+      const overlay = document.createElement('div');
+      overlay.className = 'auth-overlay';
+      overlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        cursor: pointer;
+        background: transparent;
+      `;
+      
+      // Add click handler for popup
+      overlay.addEventListener('click', showAuthRequiredPopup);
+      
+      // Make button group relative for overlay positioning
+      buttonGroup.style.position = 'relative';
+      buttonGroup.appendChild(overlay);
+    }
+    
+    // Function to remove auth overlay
+    function removeAuthOverlay(buttonGroup) {
+      if (!buttonGroup) return;
+      
+      const existingOverlay = buttonGroup.querySelector('.auth-overlay');
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+    }
+    
     // Avatar mapping - Enhanced with 3D options (Global scope)
     window.avatarMap = {
       // Classic 2D Emoji Avatars
@@ -1194,6 +1290,11 @@
       const userInfo = document.getElementById('user-info');
       const userAvatar = document.getElementById('user-avatar');
       const userName = document.getElementById('user-name');
+      
+      // Initialize game button states based on current authentication
+      setTimeout(() => {
+        updateGameButtonStates();
+      }, 100);
       
       // Setup event listeners
       if (loginBtn) {
