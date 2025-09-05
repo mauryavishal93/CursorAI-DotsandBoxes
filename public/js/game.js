@@ -2514,6 +2514,9 @@ window.onload = function() {
               if (onlineSocket && onlineLobbyCode) {
                   onlineSocket.emit('leaveLobby', onlineLobbyCode);
               }
+              
+              // Clear lobby UI data when returning to home
+              clearLobbyUIData();
               showScreen(homeScreen);
           } else {
               showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
@@ -2521,6 +2524,9 @@ window.onload = function() {
                   if (onlineSocket && onlineLobbyCode) {
                       onlineSocket.emit('leaveLobby', onlineLobbyCode);
                   }
+                  
+                  // Clear lobby UI data when returning to home
+                  clearLobbyUIData();
                   showScreen(homeScreen);
               }, () => {});
           }
@@ -3365,6 +3371,43 @@ window.onload = function() {
     // Update UI to show game is over
     updateOnlineTurnInfo();
   };
+
+  // Function to clear lobby UI data when returning to home
+  function clearLobbyUIData() {
+    console.log('Clearing lobby UI data for fresh start');
+    
+    // Get lobby UI elements
+    const lobbyStatus = document.getElementById('lobby-status');
+    const joinLobbyCodeInput = document.getElementById('join-lobby-code');
+    const shareIconContainer = document.getElementById('share-icon-container');
+    
+    // Clear lobby status
+    if (lobbyStatus) {
+      lobbyStatus.textContent = '';
+      lobbyStatus.style.color = '';
+    }
+    
+    // Clear join lobby input
+    if (joinLobbyCodeInput) {
+      joinLobbyCodeInput.value = '';
+      joinLobbyCodeInput.placeholder = 'Enter Lobby Code';
+    }
+    
+    // Hide share icon container
+    if (shareIconContainer) {
+      shareIconContainer.style.display = 'none';
+    }
+    
+    // Reset online game state (includes setting currentLobbyCode = null)
+    if (typeof window.resetOnlineGameState === 'function') {
+      window.resetOnlineGameState();
+    }
+    
+    console.log('Lobby UI data cleared successfully');
+  }
+  
+  // Make clearLobbyUIData globally available
+  window.clearLobbyUIData = clearLobbyUIData;
 
   // Function to reset online game state completely
   window.resetOnlineGameState = function() {

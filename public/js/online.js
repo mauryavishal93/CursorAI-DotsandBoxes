@@ -25,6 +25,34 @@ const joinLobbyCodeInput = document.getElementById('join-lobby-code');
 const lobbyStatus = document.getElementById('lobby-status');
 const shareIconContainer = document.getElementById('share-icon-container');
 
+// Auto-convert lobby code input to uppercase as user types
+if (joinLobbyCodeInput) {
+  joinLobbyCodeInput.addEventListener('input', function(event) {
+    const currentValue = event.target.value;
+    const upperCaseValue = currentValue.toUpperCase();
+    
+    // Only update if the value actually changed to avoid cursor jumping
+    if (currentValue !== upperCaseValue) {
+      event.target.value = upperCaseValue;
+      console.log('Lobby code input converted to uppercase:', upperCaseValue);
+    }
+  });
+  
+  // Also handle paste events
+  joinLobbyCodeInput.addEventListener('paste', function(event) {
+    // Small delay to allow paste to complete, then convert to uppercase
+    setTimeout(() => {
+      const currentValue = event.target.value;
+      const upperCaseValue = currentValue.toUpperCase();
+      
+      if (currentValue !== upperCaseValue) {
+        event.target.value = upperCaseValue;
+        console.log('Pasted lobby code converted to uppercase:', upperCaseValue);
+      }
+    }, 10);
+  });
+}
+
 let currentLobbyCode = null;
 let isInLobby = false;
 let isGameStarted = false;
@@ -129,6 +157,9 @@ socket.on('playerDisconnected', (data) => {
       console.log('Game was already over, not showing disconnect message');
       // Just reset state and redirect to home without showing the disconnect popup
       resetOnlineGameState();
+      if (typeof window.clearLobbyUIData === 'function') {
+        window.clearLobbyUIData();
+      }
       showScreen(document.getElementById('home-screen'));
     } else {
       // Show proper win popup like game over messages
@@ -146,6 +177,9 @@ socket.on('playerDisconnected', (data) => {
         window.showMessage(winMessage, detailMessage, () => {
           // Reset state and go to home after popup is closed
           resetOnlineGameState();
+          if (typeof window.clearLobbyUIData === 'function') {
+            window.clearLobbyUIData();
+          }
           if (typeof window.showScreen === 'function' && document.getElementById('home-screen')) {
             window.showScreen(document.getElementById('home-screen'));
           }
@@ -154,6 +188,9 @@ socket.on('playerDisconnected', (data) => {
         // Fallback if showMessage is not available
         alert(`${winMessage}\n${detailMessage}`);
         resetOnlineGameState();
+        if (typeof window.clearLobbyUIData === 'function') {
+          window.clearLobbyUIData();
+        }
         if (document.getElementById('home-screen')) {
           document.getElementById('home-screen').style.display = 'block';
         }
@@ -290,66 +327,75 @@ if (createLobbyBtn) {
   });
 }
 
-if (joinLobbyBtn) {
-  joinLobbyBtn.addEventListener('click', () => {
-  console.log('Join lobby button clicked');
-  const code = joinLobbyCodeInput.value.trim().toUpperCase();
-  console.log('Attempting to join lobby code:', code);
-  console.log('Current state - isInLobby:', isInLobby, 'currentLobbyCode:', currentLobbyCode);
+// Function to join lobby with retry logic
+function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
+  console.log(`Join lobby attempt ${currentAttempt}/${maxAttempts} for code: ${lobbyCode}`);
+  console.log('Socket connected:', socket.connected, 'Socket ID:', socket.id);
   
-  if (!code) {
-    lobbyStatus.textContent = 'Please enter a lobby code.';
+  // Update status to show attempt progress
+  if (lobbyStatus) {
+    if (currentAttempt === 1) {
+      lobbyStatus.textContent = `Joining lobby ${lobbyCode}...`;
+    } else {
+      lobbyStatus.textContent = `Joining lobby ${lobbyCode}... (attempt ${currentAttempt}/${maxAttempts})`;
+    }
+    lobbyStatus.style.color = '#3b82f6'; // Blue color for progress
+  }
+  
+  // Ensure socket is connected before attempting to join
+  if (!socket.connected) {
+    console.log('Socket not connected, waiting for connection...');
+    socket.once('connect', () => {
+      console.log('Socket connected, proceeding with join lobby attempt');
+      joinLobbyWithRetry(lobbyCode, maxAttempts, currentAttempt);
+    });
     return;
   }
   
-  // Reset any leftover state before joining new lobby
-  if (isInLobby || currentLobbyCode) {
-    console.log('Resetting leftover lobby state before joining new lobby');
-    const savedLobbyCode = resetSocketAndLobbyState(true); // Preserve the lobby code
-    setTimeout(() => {
-      showLobbyUI();
-      if (savedLobbyCode) {
-        joinLobbyCodeInput.value = savedLobbyCode; // Restore the lobby code
+  // Set up a timeout for the join lobby request
+  const joinTimeout = setTimeout(() => {
+    console.log(`Join lobby attempt ${currentAttempt} timed out`);
+    
+    if (currentAttempt < maxAttempts) {
+      const retryDelay = currentAttempt * 500;
+      console.log(`Retrying join lobby in ${retryDelay}ms due to timeout...`);
+      
+      setTimeout(() => {
+        joinLobbyWithRetry(lobbyCode, maxAttempts, currentAttempt + 1);
+      }, retryDelay);
+    } else {
+      console.log(`All ${maxAttempts} join lobby attempts failed (timeout)`);
+      if (lobbyStatus) {
+        lobbyStatus.textContent = 'Failed to join lobby - connection timeout.';
+        lobbyStatus.style.color = '#ef4444';
       }
-      // Automatically proceed with lobby joining after reset
-      console.log('Auto-joining lobby after reset...');
-      socket.emit('joinLobby', savedLobbyCode || code, (response) => {
-        console.log('Join lobby response:', response);
-        if (response.success) {
-          currentLobbyCode = savedLobbyCode || code;
-          isInLobby = true;
-          isCreator = false;
-          playerRole = 2;
-          console.log('Player joined lobby - Role set to:', playerRole, 'Lobby:', currentLobbyCode);
-          lobbyStatus.textContent = `Joined lobby ${currentLobbyCode}. Waiting for another player...`;
-          window.lobbyCode = currentLobbyCode;
-          
-          // Hide share icon when joining a lobby (only creators can share)
-          if (shareIconContainer) {
-            shareIconContainer.style.display = 'none';
-            console.log('Share icon container hidden');
-          }
-          
-          console.log('Successfully joined lobby:', currentLobbyCode);
-        } else {
-          lobbyStatus.textContent = response.message || 'Failed to join lobby.';
-          console.log('Failed to join lobby:', response.message);
-        }
-      });
-    }, 200);
-    return; // Return early, action will be performed automatically
-  }
+    }
+  }, 5000); // 5 second timeout
   
-  socket.emit('joinLobby', code, (response) => {
-    console.log('Join lobby response:', response);
+  socket.emit('joinLobby', lobbyCode, (response) => {
+    // Clear the timeout since we got a response
+    clearTimeout(joinTimeout);
+    
+    console.log(`Join lobby attempt ${currentAttempt} response:`, response);
+    
     if (response.success) {
-      currentLobbyCode = code;
+      // Success! Update all states
+      currentLobbyCode = lobbyCode;
       isInLobby = true;
       isCreator = false;
       playerRole = 2;
       console.log('Player joined lobby - Role set to:', playerRole, 'Lobby:', currentLobbyCode);
-      lobbyStatus.textContent = `Joined lobby ${code}. Waiting for another player...`;
+      
+      // Update UI
+      if (lobbyStatus) {
+        lobbyStatus.textContent = `Joined lobby ${currentLobbyCode}. Waiting for another player...`;
+        lobbyStatus.style.color = '#10b981'; // Green color for success
+      }
+      
+      // Set global variables
       window.lobbyCode = currentLobbyCode;
+      window.onlineLobbyCode = currentLobbyCode;
+      window.onlinePlayerRole = playerRole;
       
       // Hide share icon when joining a lobby (only creators can share)
       if (shareIconContainer) {
@@ -357,12 +403,66 @@ if (joinLobbyBtn) {
         console.log('Share icon container hidden');
       }
       
-      console.log('Successfully joined lobby:', currentLobbyCode);
+      console.log(`Successfully joined lobby on attempt ${currentAttempt}:`, currentLobbyCode);
     } else {
-      lobbyStatus.textContent = response.message || 'Failed to join lobby.';
-      console.log('Failed to join lobby:', response.message);
+      // Failed attempt
+      console.log(`Join lobby attempt ${currentAttempt} failed:`, response.message);
+      
+      if (currentAttempt < maxAttempts) {
+        // Try again after a short delay
+        const retryDelay = currentAttempt * 500; // Increasing delay: 500ms, 1000ms, 1500ms
+        console.log(`Retrying join lobby in ${retryDelay}ms...`);
+        
+        setTimeout(() => {
+          joinLobbyWithRetry(lobbyCode, maxAttempts, currentAttempt + 1);
+        }, retryDelay);
+      } else {
+        // All attempts failed
+        console.log(`All ${maxAttempts} join lobby attempts failed`);
+        if (lobbyStatus) {
+          lobbyStatus.textContent = response.message || 'Failed to join lobby after multiple attempts.';
+          lobbyStatus.style.color = '#ef4444'; // Red color for error
+        }
+      }
     }
   });
+}
+
+if (joinLobbyBtn) {
+  joinLobbyBtn.addEventListener('click', () => {
+    console.log('Join lobby button clicked');
+    const code = joinLobbyCodeInput.value.trim().toUpperCase();
+    console.log('Attempting to join lobby code:', code);
+    console.log('Current state - isInLobby:', isInLobby, 'currentLobbyCode:', currentLobbyCode);
+    
+    if (!code) {
+      if (lobbyStatus) {
+        lobbyStatus.textContent = 'Please enter a lobby code.';
+        lobbyStatus.style.color = '#ef4444'; // Red color for error
+      }
+      return;
+    }
+    
+    // Reset any leftover state before joining new lobby
+    if (isInLobby || currentLobbyCode) {
+      console.log('Resetting leftover lobby state before joining new lobby');
+      const savedLobbyCode = resetSocketAndLobbyState(true); // Preserve the lobby code
+      
+      // Wait for reset to complete, then join with retry logic
+      setTimeout(() => {
+        showLobbyUI();
+        if (savedLobbyCode) {
+          joinLobbyCodeInput.value = savedLobbyCode; // Restore the lobby code
+        }
+        console.log('Starting join lobby with retry after state reset...');
+        joinLobbyWithRetry(savedLobbyCode || code);
+      }, 300); // Slightly longer delay to ensure reset is complete
+      return; // Return early, action will be performed automatically
+    }
+    
+    // Direct join with retry logic (no state to reset)
+    console.log('Starting join lobby with retry (no state reset needed)...');
+    joinLobbyWithRetry(code);
   });
 }
 

@@ -464,6 +464,9 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
   height: auto;
   line-height: 1.2;
   display: block;
