@@ -24,28 +24,29 @@ class LobbyService {
     return lobbyCode;
   }
 
-  createLobby(socketId) {
+  createLobby(socketId, username = 'Player') {
     const lobbyCode = this.generateLobbyCode();
     this.lobbies[lobbyCode] = { 
       players: [socketId], 
       gameState: null, 
       gameOver: false,
       playerRoles: { [socketId]: 1 }, // Player 1 (creator)
+      playerNames: { [socketId]: username, 1: username }, // Store username by socketId and role
       createdAt: Date.now(), // Track lobby creation time
       lastActivity: Date.now(), // Track last activity
       disconnectedPlayers: [] // Track temporarily disconnected players
     };
-    console.log(`Lobby ${lobbyCode} created at ${new Date().toISOString()}`);
+    console.log(`Lobby ${lobbyCode} created by ${username} at ${new Date().toISOString()}`);
     return lobbyCode;
   }
 
-  joinLobby(lobbyCode, socketId) {
+  joinLobby(lobbyCode, socketId, username = 'Player') {
     if (this.lobbies[lobbyCode]) {
       const lobby = this.lobbies[lobbyCode];
       
       // Check if player is already in the lobby
       if (lobby.players.includes(socketId)) {
-        console.log(`Player ${socketId} is already in lobby ${lobbyCode}`);
+        console.log(`Player ${socketId} (${username}) is already in lobby ${lobbyCode}`);
         lobby.lastActivity = Date.now();
         return { success: true, lobby: lobby };
       }
@@ -58,16 +59,20 @@ class LobbyService {
       // If player was previously disconnected, reconnect them
       if (lobby.disconnectedPlayers.includes(socketId)) {
         lobby.disconnectedPlayers = lobby.disconnectedPlayers.filter(id => id !== socketId);
-        console.log(`Player ${socketId} reconnected to lobby ${lobbyCode}`);
+        console.log(`Player ${socketId} (${username}) reconnected to lobby ${lobbyCode}`);
       } else {
         // New player joining
         lobby.players.push(socketId);
         lobby.playerRoles[socketId] = 2; // Player 2 (joiner)
-        console.log(`New player ${socketId} joined lobby ${lobbyCode} as Player 2`);
+        // Store username by socketId and role
+        if (!lobby.playerNames) lobby.playerNames = {};
+        lobby.playerNames[socketId] = username;
+        lobby.playerNames[2] = username;
+        console.log(`New player ${socketId} (${username}) joined lobby ${lobbyCode} as Player 2`);
       }
       
       lobby.lastActivity = Date.now();
-      console.log(`Player ${socketId} joined lobby ${lobbyCode} at ${new Date().toISOString()}`);
+      console.log(`Player ${socketId} (${username}) joined lobby ${lobbyCode} at ${new Date().toISOString()}`);
       console.log(`Lobby ${lobbyCode} now has ${lobby.players.length} players:`, lobby.players);
       return { success: true, lobby: lobby };
     }

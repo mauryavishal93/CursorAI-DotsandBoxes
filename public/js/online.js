@@ -309,7 +309,25 @@ if (createLobbyBtn) {
       showLobbyUI();
       // Automatically proceed with lobby creation after reset
       console.log('Auto-creating lobby after targeted reset...');
-      socket.emit('createLobby', (response) => {
+      
+      // Get current username
+      let currentUser = null;
+      if (window.authService) {
+        currentUser = window.authService.getCurrentUser();
+      }
+      if (!currentUser) {
+        try {
+          const userData = localStorage.getItem('dotsAndBoxesUser');
+          if (userData) {
+            currentUser = JSON.parse(userData);
+          }
+        } catch (error) {
+          console.error('Error reading user from localStorage:', error);
+        }
+      }
+      const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
+      
+      socket.emit('createLobby', { username: currentUsername }, (response) => {
         console.log('Create lobby response:', response);
         currentLobbyCode = response.lobbyCode;
         isInLobby = true;
@@ -360,7 +378,24 @@ if (createLobbyBtn) {
     return; // Return early, action will be performed automatically
   }
   
-  socket.emit('createLobby', (response) => {
+  // Get current username
+  let currentUser = null;
+  if (window.authService) {
+    currentUser = window.authService.getCurrentUser();
+  }
+  if (!currentUser) {
+    try {
+      const userData = localStorage.getItem('dotsAndBoxesUser');
+      if (userData) {
+        currentUser = JSON.parse(userData);
+      }
+    } catch (error) {
+      console.error('Error reading user from localStorage:', error);
+    }
+  }
+  const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
+  
+  socket.emit('createLobby', { username: currentUsername }, (response) => {
     console.log('Create lobby response:', response);
     currentLobbyCode = response.lobbyCode;
     isInLobby = true;
@@ -455,7 +490,24 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
     }
   }, 5000); // 5 second timeout
   
-  socket.emit('joinLobby', lobbyCode, (response) => {
+  // Get current username
+  let currentUser = null;
+  if (window.authService) {
+    currentUser = window.authService.getCurrentUser();
+  }
+  if (!currentUser) {
+    try {
+      const userData = localStorage.getItem('dotsAndBoxesUser');
+      if (userData) {
+        currentUser = JSON.parse(userData);
+      }
+    } catch (error) {
+      console.error('Error reading user from localStorage:', error);
+    }
+  }
+  const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
+  
+  socket.emit('joinLobby', { lobbyCode: lobbyCode, username: currentUsername }, (response) => {
     // Clear the timeout since we got a response
     clearTimeout(joinTimeout);
     
@@ -566,7 +618,7 @@ socket.on('lobbyUpdate', ({ players }) => {
   }
 });
 
-socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform }) => {
+socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform, playerNames }) => {
   console.log('🎮 startGame event received:', { 
     lobbyCode, 
     currentLobbyCode, 
@@ -576,7 +628,8 @@ socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform }) => {
     isCreator,
     socketId: socket.id,
     timestamp,
-    crossPlatform
+    crossPlatform,
+    playerNames
   });
   
   // Check if state was somehow corrupted and try to recover
@@ -656,7 +709,7 @@ socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform }) => {
     
     console.log(`⏳ Starting game in ${startDelay}ms for ${isCreator ? 'creator' : 'joiner'} on ${isMobile ? 'mobile' : 'desktop'} (role: ${playerRole})`);
     setTimeout(() => {
-      startOnlineGame(lobbyCode);
+      startOnlineGame(lobbyCode, playerNames);
     }, startDelay);
   } else {
     console.log('❌ startGame event ignored - conditions not met:', { 
@@ -686,10 +739,38 @@ socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform }) => {
   }
 });
 
-function startOnlineGame(lobbyCode) {
-    // Set player names based on role (already user-friendly, no truncation needed)
-    let player1Name = playerRole === 1 ? 'You' : 'Opponent';
-    let player2Name = playerRole === 2 ? 'You' : 'Opponent';
+function startOnlineGame(lobbyCode, serverPlayerNames = {}) {
+    // Use server-provided player names if available, otherwise get from localStorage
+    let player1Name, player2Name;
+    
+    if (serverPlayerNames && (serverPlayerNames[1] || serverPlayerNames[2])) {
+      // Use server-provided names
+      player1Name = serverPlayerNames[1] || 'Player 1';
+      player2Name = serverPlayerNames[2] || 'Player 2';
+      console.log('🎮 Using server-provided player names:', { player1Name, player2Name });
+    } else {
+      // Fallback to local username detection (for backward compatibility)
+      let currentUser = null;
+      if (window.authService) {
+        currentUser = window.authService.getCurrentUser();
+      }
+      
+      if (!currentUser) {
+        try {
+          const userData = localStorage.getItem('dotsAndBoxesUser');
+          if (userData) {
+            currentUser = JSON.parse(userData);
+          }
+        } catch (error) {
+          console.error('Error reading user from localStorage:', error);
+        }
+      }
+      
+      const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
+      player1Name = playerRole === 1 ? currentUsername : 'Opponent';
+      player2Name = playerRole === 2 ? currentUsername : 'Opponent';
+      console.log('🎮 Using fallback player names:', { player1Name, player2Name });
+    }
     
     console.log('🎮 Starting online game with:', { 
       player1Name, 

@@ -235,11 +235,13 @@ window.onload = function() {
 
   function updateOnlineTurnInfo() {
     if (gameMode === 'onlineMultiplayer') {
-      // Update the current player name display to show "Your turn" or "Opponent's turn"
-      if (playerTurn === onlinePlayerRole) {
-        onlineCurrentPlayerNameDisplay.textContent = "Your turn";
-      } else {
-        onlineCurrentPlayerNameDisplay.textContent = "Opponent's turn";
+      // Update the current player name display to show actual usernames (truncated)
+      const currentPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
+      const truncatedName = truncateUsername(currentPlayerName);
+      
+      // Show just the truncated username without "'s turn"
+      if (onlineCurrentPlayerNameDisplay) {
+        onlineCurrentPlayerNameDisplay.textContent = truncatedName;
       }
     }
   }
@@ -583,7 +585,7 @@ window.onload = function() {
       } else if (gameMode === 'onlineMultiplayer') {
           if (onlinePlayer1CountEl) onlinePlayer1CountEl.textContent = playerScores[1];
           if (onlinePlayer2CountEl) onlinePlayer2CountEl.textContent = playerScores[2];
-          if (onlineCurrentPlayerNameDisplay) onlineCurrentPlayerNameDisplay.textContent = truncateUsername(playerNames[playerTurn]);
+          // Remove the direct assignment - let updateOnlineTurnInfo() handle the display
           if (onlineLinesToDrawCountEl) onlineLinesToDrawCountEl.textContent = linesToDraw;
           if (onlineSpecialLineIndicatorEl) onlineSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
           
@@ -2392,12 +2394,21 @@ window.onload = function() {
           const playerUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
           console.log('Online game - Player username:', playerUsername);
           
-          if (onlinePlayerRole === 1) {
-              playerNames[1] = playerUsername;
-              playerNames[2] = 'Opponent';
+          // Use server-provided player names if available
+          if (onlineOptions && onlineOptions.player1Name && onlineOptions.player2Name) {
+              playerNames[1] = onlineOptions.player1Name;
+              playerNames[2] = onlineOptions.player2Name;
+              console.log('🎮 Using server-provided player names:', playerNames);
           } else {
-              playerNames[1] = 'Opponent';
-              playerNames[2] = playerUsername;
+              // Fallback to local logic
+              if (onlinePlayerRole === 1) {
+                  playerNames[1] = playerUsername;
+                  playerNames[2] = 'Opponent';
+              } else {
+                  playerNames[1] = 'Opponent';
+                  playerNames[2] = playerUsername;
+              }
+              console.log('🎮 Using fallback player names:', playerNames);
           }
           
           onlinePlayer1NameDisplay.textContent = truncateUsername(playerNames[1]) + ' (X)';
@@ -3138,12 +3149,12 @@ window.onload = function() {
   // Note: The main rollDice function already handles online multiplayer properly
   // No need for additional patching
 
-  // --- UI: YOU LEFT, OPPONENT RIGHT, CURRENT TURN ---
+  // --- UI: SHOW ACTUAL USERNAMES ---
   function updateOnlinePlayerLabels() {
     if (gameMode === 'onlineMultiplayer') {
-      // Always show 'You' on left, 'Opponent' on right
-      onlinePlayer1NameDisplay.textContent = (onlinePlayerRole === 1 ? 'You' : 'Opponent') + ' (X)';
-      onlinePlayer2NameDisplay.textContent = (onlinePlayerRole === 2 ? 'You' : 'Opponent') + ' (O)';
+      // Use actual player names with truncation
+      onlinePlayer1NameDisplay.textContent = truncateUsername(playerNames[1]) + ' (X)';
+      onlinePlayer2NameDisplay.textContent = truncateUsername(playerNames[2]) + ' (O)';
     }
   }
 
@@ -3161,7 +3172,8 @@ window.onload = function() {
     originalUpdateScoreDisplayForTurn();
     updateDiceInteractivity();
     if (gameMode === 'onlineMultiplayer') {
-              onlineCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+      // Use updateOnlineTurnInfo() to ensure proper truncation
+      updateOnlineTurnInfo();
     }
   };
 
@@ -3315,13 +3327,14 @@ window.onload = function() {
       const winnerScore = action.winnerScore || 0;
       
       if (gameMode === 'onlineMultiplayer' && action.winnerRole) {
-        // In online multiplayer, determine winner based on roles
+        // In online multiplayer, determine winner based on roles using actual names
         if (action.winnerRole === onlinePlayerRole) {
-          // The winner is the local player (you)
-          winnerName = 'You';
+          // The winner is the local player
+          winnerName = truncateUsername(playerNames[onlinePlayerRole]);
         } else {
-          // The winner is the remote player (opponent)
-          winnerName = 'Opponent';
+          // The winner is the remote player
+          const opponentRole = onlinePlayerRole === 1 ? 2 : 1;
+          winnerName = truncateUsername(playerNames[opponentRole]);
         }
       } else {
         // Fallback to original logic

@@ -12,37 +12,57 @@ class SocketController {
       console.log('A user connected:', socket.id);
 
       // Create a new lobby
-      socket.on('createLobby', (callback) => {
-        const lobbyCode = lobbyService.createLobby(socket.id);
+      socket.on('createLobby', (data, callback) => {
+        // Handle both old format (no data) and new format (with username)
+        const username = (typeof data === 'object' && data.username) ? data.username : 'Player';
+        const actualCallback = typeof data === 'function' ? data : callback;
+        
+        const lobbyCode = lobbyService.createLobby(socket.id, username);
         socket.join(lobbyCode);
         
         // Send back lobby creation information
-        callback({ 
+        actualCallback({ 
           lobbyCode: lobbyCode,
           playerRole: 1,
           isCreator: true
         });
         
-        console.log(`Player ${socket.id} created lobby ${lobbyCode} as Player 1 (Creator)`);
+        console.log(`Player ${socket.id} (${username}) created lobby ${lobbyCode} as Player 1 (Creator)`);
         this.io.to(socket.id).emit('lobbyUpdate', { players: lobbyService.getLobby(lobbyCode).players });
       });
 
       // Join an existing lobby
-      socket.on('joinLobby', (lobbyCode, callback) => {
-        const result = lobbyService.joinLobby(lobbyCode, socket.id);
+      socket.on('joinLobby', (data, callback) => {
+        // Handle both old format (lobbyCode, callback) and new format ({ lobbyCode, username }, callback)
+        let lobbyCode, username;
+        let actualCallback;
+        
+        if (typeof data === 'string') {
+          // Old format: joinLobby(lobbyCode, callback)
+          lobbyCode = data;
+          username = 'Player';
+          actualCallback = callback;
+        } else {
+          // New format: joinLobby({ lobbyCode, username }, callback)
+          lobbyCode = data.lobbyCode;
+          username = data.username || 'Player';
+          actualCallback = callback;
+        }
+        
+        const result = lobbyService.joinLobby(lobbyCode, socket.id, username);
         if (result.success) {
           socket.join(lobbyCode);
           
           // Send back player role information
           const playerRole = result.lobby.playerRoles[socket.id];
-          callback({ 
+          actualCallback({ 
             success: true, 
             playerRole: playerRole,
             lobbyCode: lobbyCode,
             isCreator: playerRole === 1
           });
           
-          console.log(`Player ${socket.id} joined lobby ${lobbyCode} as Player ${playerRole}`);
+          console.log(`Player ${socket.id} (${username}) joined lobby ${lobbyCode} as Player ${playerRole}`);
           this.io.to(lobbyCode).emit('lobbyUpdate', { players: result.lobby.players });
           // Start game if 2 players - add delay to ensure socket is properly joined (increased for iOS compatibility)
           console.log(`Lobby ${lobbyCode} has ${result.lobby.players.length} players:`, result.lobby.players);
@@ -66,11 +86,13 @@ class SocketController {
                 if (socketCount >= 2) {
                   console.log(`✅ Emitting startGame to lobby ${lobbyCode} - Cross-platform game start confirmed`);
                   
-                  // Enhanced game start with cross-platform tracking
+                  // Enhanced game start with cross-platform tracking and usernames
+                  const lobby = lobbyService.getLobby(lobbyCode);
                   this.io.to(lobbyCode).emit('startGame', { 
                     lobbyCode,
                     timestamp: Date.now(),
-                    crossPlatform: true
+                    crossPlatform: true,
+                    playerNames: lobby.playerNames || {}
                   });
                   
                   console.log(`🚀 Cross-platform startGame event emitted to lobby ${lobbyCode}`);
