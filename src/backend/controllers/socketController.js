@@ -15,7 +15,15 @@ class SocketController {
       socket.on('createLobby', (callback) => {
         const lobbyCode = lobbyService.createLobby(socket.id);
         socket.join(lobbyCode);
-        callback({ lobbyCode });
+        
+        // Send back lobby creation information
+        callback({ 
+          lobbyCode: lobbyCode,
+          playerRole: 1,
+          isCreator: true
+        });
+        
+        console.log(`Player ${socket.id} created lobby ${lobbyCode} as Player 1 (Creator)`);
         this.io.to(socket.id).emit('lobbyUpdate', { players: lobbyService.getLobby(lobbyCode).players });
       });
 
@@ -24,7 +32,17 @@ class SocketController {
         const result = lobbyService.joinLobby(lobbyCode, socket.id);
         if (result.success) {
           socket.join(lobbyCode);
-          callback({ success: true });
+          
+          // Send back player role information
+          const playerRole = result.lobby.playerRoles[socket.id];
+          callback({ 
+            success: true, 
+            playerRole: playerRole,
+            lobbyCode: lobbyCode,
+            isCreator: playerRole === 1
+          });
+          
+          console.log(`Player ${socket.id} joined lobby ${lobbyCode} as Player ${playerRole}`);
           this.io.to(lobbyCode).emit('lobbyUpdate', { players: result.lobby.players });
           // Start game if 2 players - add delay to ensure socket is properly joined (increased for iOS compatibility)
           console.log(`Lobby ${lobbyCode} has ${result.lobby.players.length} players:`, result.lobby.players);
@@ -42,25 +60,44 @@ class SocketController {
               setTimeout(() => {
                 const room = this.io.sockets.adapter.rooms.get(lobbyCode);
                 const socketCount = room ? room.size : 0;
-                console.log(`🔍 Checking room ${lobbyCode} - Room has ${socketCount} sockets`);
+                console.log(`🔍 Cross-platform check - Room ${lobbyCode} has ${socketCount} sockets`);
                 
                 // Double-check that both players are in the room before starting
                 if (socketCount >= 2) {
-                  console.log(`✅ Emitting startGame to lobby ${lobbyCode} - Both players confirmed in room`);
-                  this.io.to(lobbyCode).emit('startGame', { lobbyCode });
-                  console.log(`🚀 startGame event emitted to lobby ${lobbyCode}`);
+                  console.log(`✅ Emitting startGame to lobby ${lobbyCode} - Cross-platform game start confirmed`);
+                  
+                  // Enhanced game start with cross-platform tracking
+                  this.io.to(lobbyCode).emit('startGame', { 
+                    lobbyCode,
+                    timestamp: Date.now(),
+                    crossPlatform: true
+                  });
+                  
+                  console.log(`🚀 Cross-platform startGame event emitted to lobby ${lobbyCode}`);
+                  
+                  // Set up game ready tracking for cross-platform sync
+                  result.lobby.playersReady = new Set();
+                  result.lobby.gameStartConfirmed = false;
+                  
                 } else {
-                  console.log(`⚠️ Not enough players in room (${socketCount}/2), retrying in 200ms...`);
-                  // Retry after another delay if not enough players
+                  console.log(`⚠️ Not enough players in room (${socketCount}/2), retrying with extended delay...`);
+                  // Extended retry logic for cross-platform scenarios
                   setTimeout(() => {
                     const retryRoom = this.io.sockets.adapter.rooms.get(lobbyCode);
                     const retrySocketCount = retryRoom ? retryRoom.size : 0;
-                    console.log(`🔄 Retry: Emitting startGame to lobby ${lobbyCode} - Room has ${retrySocketCount} sockets`);
-                    this.io.to(lobbyCode).emit('startGame', { lobbyCode });
-                    console.log(`🚀 startGame event emitted to lobby ${lobbyCode} (retry)`);
-                  }, 200);
+                    console.log(`🔄 Cross-platform retry: Emitting startGame to lobby ${lobbyCode} - Room has ${retrySocketCount} sockets`);
+                    
+                    this.io.to(lobbyCode).emit('startGame', { 
+                      lobbyCode,
+                      timestamp: Date.now(),
+                      crossPlatform: true,
+                      retry: true
+                    });
+                    
+                    console.log(`🚀 Cross-platform startGame event emitted to lobby ${lobbyCode} (retry)`);
+                  }, 500); // Extended retry delay for cross-platform compatibility
                 }
-              }, 300); // Increased from 100ms to 300ms for better iOS compatibility
+              }, 800); // Increased delay for cross-platform compatibility
             } else {
               console.log(`⚠️ Game start already in progress for lobby ${lobbyCode}, skipping duplicate start`);
             }
@@ -69,6 +106,42 @@ class SocketController {
           }
         } else {
           callback({ success: false, message: result.message });
+        }
+      });
+
+      // Handle game ready signal for cross-platform synchronization
+      socket.on('gameReady', ({ lobbyCode, playerRole, platform, timestamp }) => {
+        console.log(`🎮 Game ready signal from player ${playerRole} on ${platform} for lobby ${lobbyCode}`);
+        
+        const lobby = lobbyService.getLobby(lobbyCode);
+        if (lobby) {
+          // Track which players are ready
+          if (!lobby.playersReady) {
+            lobby.playersReady = new Set();
+          }
+          
+          lobby.playersReady.add(socket.id);
+          console.log(`📊 Lobby ${lobbyCode} - ${lobby.playersReady.size}/${lobby.players.length} players ready`);
+          
+          // Broadcast ready status to all players in lobby
+          this.io.to(lobbyCode).emit('playerReady', {
+            playerRole,
+            platform,
+            readyCount: lobby.playersReady.size,
+            totalPlayers: lobby.players.length
+          });
+          
+          // When both players are ready, confirm game start
+          if (lobby.playersReady.size >= 2 && !lobby.gameStartConfirmed) {
+            lobby.gameStartConfirmed = true;
+            console.log(`✅ All players ready for lobby ${lobbyCode} - Game start confirmed`);
+            
+            this.io.to(lobbyCode).emit('gameStartConfirmed', {
+              lobbyCode,
+              timestamp: Date.now(),
+              message: 'All players ready - Game starting!'
+            });
+          }
         }
       });
 

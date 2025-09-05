@@ -1,20 +1,44 @@
 // Online lobby and multiplayer logic for Dots and Boxes
 
-// Platform detection for iOS-specific handling
+// Enhanced platform detection for cross-platform compatibility
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-console.log('Platform detected:', { isIOS, userAgent: navigator.userAgent });
+const isAndroid = /Android/.test(navigator.userAgent);
 
-// Configure socket for better iOS compatibility
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+const isDesktop = !isMobile;
+
+// Cross-platform compatibility flags
+const needsExtendedTimeout = isIOS || isAndroid; // Mobile devices need longer timeouts
+const needsExtendedDelay = isMobile; // All mobile devices need extended delays
+const isSlowDevice = isIOS || isAndroid || /Chrome/.test(navigator.userAgent) && isMobile;
+
+console.log('Platform detected:', { 
+  isIOS, 
+  isAndroid, 
+  isMobile, 
+  isDesktop,
+  needsExtendedTimeout,
+  needsExtendedDelay,
+  isSlowDevice,
+  userAgent: navigator.userAgent 
+});
+
+// Configure socket for better cross-platform compatibility
 const socket = io({
-  transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
-  timeout: isIOS ? 30000 : 20000, // Longer timeout for iOS
+  timeout: needsExtendedTimeout ? 30000 : 20000, // Longer timeout for mobile devices
   forceNew: false, // Reuse existing connection if available
   reconnection: true,
-  reconnectionDelay: isIOS ? 2000 : 1000, // Longer delay for iOS
-  reconnectionAttempts: 5,
-  maxReconnectionAttempts: 5
+  reconnectionDelay: needsExtendedDelay ? 2000 : 1000, // Longer delay for mobile devices
+  reconnectionAttempts: isSlowDevice ? 8 : 5, // More attempts for slower devices
+  maxReconnectionAttempts: isSlowDevice ? 8 : 5,
+  // Cross-platform transport optimization
+  transports: isMobile ? ['polling', 'websocket'] : ['websocket', 'polling'], // Prioritize polling on mobile
+  upgrade: !isMobile, // Disable transport upgrade on mobile for stability
+  rememberUpgrade: !isMobile // Don't remember upgrades on mobile
 });
 
 const onlineGameBtn = document.getElementById('online-game-btn');
@@ -265,17 +289,55 @@ if (createLobbyBtn) {
   // Reset any leftover state before creating new lobby
   if (isInLobby || currentLobbyCode) {
     console.log('Resetting leftover lobby state before creating new lobby');
-    resetSocketAndLobbyState();
+    console.log('Previous state:', { isInLobby, currentLobbyCode, isCreator, playerRole });
+    
+    // Targeted reset instead of full reset
+    currentLobbyCode = null;
+    isInLobby = false;
+    isGameStarted = false;
+    isCreator = false;
+    playerRole = null;
+    
+    // Clear global variables
+    window.onlineLobbyCode = null;
+    window.onlinePlayerRole = null;
+    window.lobbyCode = null;
+    
+    console.log('State reset complete, proceeding with lobby creation...');
+    
     setTimeout(() => {
       showLobbyUI();
       // Automatically proceed with lobby creation after reset
-      console.log('Auto-creating lobby after reset...');
+      console.log('Auto-creating lobby after targeted reset...');
       socket.emit('createLobby', (response) => {
         console.log('Create lobby response:', response);
         currentLobbyCode = response.lobbyCode;
         isInLobby = true;
-        isCreator = true;
-        playerRole = 1;
+        isCreator = response.isCreator || true;
+        playerRole = response.playerRole || 1;
+        
+        console.log('🎯 Creator state after reset and creation:', {
+          currentLobbyCode,
+          isInLobby,
+          isCreator,
+          playerRole,
+          socketId: socket.id
+        });
+        
+        // Set global variables immediately after creation
+        window.lobbyCode = currentLobbyCode;
+        window.onlineLobbyCode = currentLobbyCode;
+        window.onlinePlayerRole = playerRole;
+        
+        // Additional safety check - ensure creator state is maintained
+        if (playerRole === 1 && !isCreator) {
+          console.log('⚠️ Fixing creator state mismatch');
+          isCreator = true;
+        }
+        
+        // Store creator state for recovery if needed
+        window.creatorLobbyCode = currentLobbyCode;
+        window.creatorSocketId = socket.id;
         
         // Update lobby status with text
         const statusText = `Lobby created! Code: ${currentLobbyCode}. Waiting for another player...`;
@@ -292,7 +354,6 @@ if (createLobbyBtn) {
           console.error('Share icon container not found!');
         }
         
-        window.lobbyCode = currentLobbyCode;
         console.log('New lobby created successfully:', currentLobbyCode);
       });
     }, 200);
@@ -303,8 +364,31 @@ if (createLobbyBtn) {
     console.log('Create lobby response:', response);
     currentLobbyCode = response.lobbyCode;
     isInLobby = true;
-    isCreator = true;
-    playerRole = 1;
+    isCreator = response.isCreator || true;
+    playerRole = response.playerRole || 1;
+    
+            console.log('🎯 Creator state (direct creation):', {
+          currentLobbyCode,
+          isInLobby,
+          isCreator,
+          playerRole,
+          socketId: socket.id
+        });
+        
+        // Set global variables immediately after creation
+        window.lobbyCode = currentLobbyCode;
+        window.onlineLobbyCode = currentLobbyCode;
+        window.onlinePlayerRole = playerRole;
+        
+        // Additional safety check - ensure creator state is maintained
+        if (playerRole === 1 && !isCreator) {
+          console.log('⚠️ Fixing creator state mismatch');
+          isCreator = true;
+        }
+        
+        // Store creator state for recovery if needed
+        window.creatorLobbyCode = currentLobbyCode;
+        window.creatorSocketId = socket.id;
     
     // Update lobby status with text
     const statusText = `Lobby created! Code: ${currentLobbyCode}. Waiting for another player...`;
@@ -321,7 +405,6 @@ if (createLobbyBtn) {
       console.error('Share icon container not found!');
     }
     
-    window.lobbyCode = currentLobbyCode;
     console.log('New lobby created successfully:', currentLobbyCode);
   });
   });
@@ -379,16 +462,20 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
     console.log(`Join lobby attempt ${currentAttempt} response:`, response);
     
     if (response.success) {
-      // Success! Update all states
-      currentLobbyCode = lobbyCode;
+      // Success! Update all states with server-provided information
+      currentLobbyCode = response.lobbyCode || lobbyCode;
       isInLobby = true;
-      isCreator = false;
-      playerRole = 2;
-      console.log('Player joined lobby - Role set to:', playerRole, 'Lobby:', currentLobbyCode);
+      isCreator = response.isCreator || false;
+      playerRole = response.playerRole || 2; // Use server-provided role
+      
+      console.log('Player joined lobby - Server assigned role:', playerRole, 'isCreator:', isCreator, 'Lobby:', currentLobbyCode);
       
       // Update UI
       if (lobbyStatus) {
-        lobbyStatus.textContent = `Joined lobby ${currentLobbyCode}. Waiting for another player...`;
+        const statusText = isCreator ? 
+          `Lobby ${currentLobbyCode} created! Waiting for another player...` :
+          `Joined lobby ${currentLobbyCode}. Waiting for game to start...`;
+        lobbyStatus.textContent = statusText;
         lobbyStatus.style.color = '#10b981'; // Green color for success
       }
       
@@ -479,7 +566,7 @@ socket.on('lobbyUpdate', ({ players }) => {
   }
 });
 
-socket.on('startGame', ({ lobbyCode }) => {
+socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform }) => {
   console.log('🎮 startGame event received:', { 
     lobbyCode, 
     currentLobbyCode, 
@@ -487,11 +574,54 @@ socket.on('startGame', ({ lobbyCode }) => {
     playerRole, 
     isInLobby,
     isCreator,
-    socketId: socket.id 
+    socketId: socket.id,
+    timestamp,
+    crossPlatform
   });
   
-  if (currentLobbyCode === lobbyCode && !isGameStarted) {
-    console.log('✅ Starting game for this player - conditions met');
+  // Check if state was somehow corrupted and try to recover
+  if (currentLobbyCode === lobbyCode && playerRole === null) {
+    console.log('⚠️ Player role is null but lobby code matches - attempting state recovery');
+    
+    // Try to recover creator state if this is the creator's socket
+    if (window.onlineLobbyCode === lobbyCode && window.onlinePlayerRole) {
+      console.log('🔄 Recovering player role from global variables');
+      playerRole = window.onlinePlayerRole;
+      isCreator = (playerRole === 1);
+      isInLobby = true;
+      console.log('✅ State recovered from globals:', { playerRole, isCreator, isInLobby });
+    }
+    
+    // Additional recovery check for creator using stored creator state
+    if (window.creatorLobbyCode === lobbyCode && window.creatorSocketId === socket.id) {
+      console.log('🔄 Recovering creator state from stored data');
+      playerRole = 1;
+      isCreator = true;
+      isInLobby = true;
+      window.onlinePlayerRole = 1;
+      console.log('✅ Creator state recovered:', { playerRole, isCreator, isInLobby });
+    }
+  }
+  
+  // Additional check for creator state consistency
+  if (currentLobbyCode === lobbyCode && playerRole === 1 && !isCreator) {
+    console.log('⚠️ Creator role mismatch detected - fixing');
+    isCreator = true;
+    console.log('✅ Creator flag fixed');
+  }
+  
+  // Enhanced validation logging
+  console.log('🔍 startGame validation:', {
+    'lobbyCode matches': currentLobbyCode === lobbyCode,
+    'game not started': !isGameStarted,
+    'player in lobby': isInLobby,
+    'player role set': playerRole !== null,
+    'is creator': isCreator
+  });
+  
+  if (currentLobbyCode === lobbyCode && !isGameStarted && isInLobby && playerRole !== null) {
+    console.log('✅ Starting game for this player - all conditions met');
+    console.log(`🎯 Player details: Role ${playerRole}, ${isCreator ? 'Creator' : 'Joiner'}, Lobby ${lobbyCode}`);
     isGameStarted = true;
     lobbyStatus.textContent = `Game started in lobby ${lobbyCode}!`;
     
@@ -508,19 +638,51 @@ socket.on('startGame', ({ lobbyCode }) => {
       return;
     }
     
-    // Add delay for iOS compatibility before starting game
-    const startDelay = isIOS ? 300 : 100;
-    console.log(`⏳ Starting game in ${startDelay}ms for player role ${playerRole}`);
+    // Add cross-platform compatible delay before starting game
+    // Different delays based on device type and role for better synchronization
+    let startDelay;
+    if (isCreator) {
+      // Lobby creator needs shorter delay to initialize first
+      startDelay = isMobile ? 200 : 100;
+    } else {
+      // Joiner needs longer delay to ensure creator is ready
+      startDelay = isMobile ? 500 : 300;
+    }
+    
+    // Additional delay for slow devices or cross-platform scenarios
+    if (isSlowDevice) {
+      startDelay += 200;
+    }
+    
+    console.log(`⏳ Starting game in ${startDelay}ms for ${isCreator ? 'creator' : 'joiner'} on ${isMobile ? 'mobile' : 'desktop'} (role: ${playerRole})`);
     setTimeout(() => {
       startOnlineGame(lobbyCode);
     }, startDelay);
   } else {
-    console.log('❌ startGame event ignored:', { 
-      lobbyCodeMatch: currentLobbyCode === lobbyCode, 
-      gameAlreadyStarted: isGameStarted,
-      currentLobbyCode,
-      receivedLobbyCode: lobbyCode
+    console.log('❌ startGame event ignored - conditions not met:', { 
+      'lobbyCode matches': currentLobbyCode === lobbyCode, 
+      'game not started': !isGameStarted,
+      'player in lobby': isInLobby,
+      'player role set': playerRole !== null,
+      'current lobby': currentLobbyCode,
+      'received lobby': lobbyCode,
+      'current role': playerRole,
+      'is creator': isCreator
     });
+    
+    // Additional debugging for failed conditions
+    if (currentLobbyCode !== lobbyCode) {
+      console.log('🔍 Lobby code mismatch - player may not be in correct lobby');
+    }
+    if (isGameStarted) {
+      console.log('🔍 Game already started for this player');
+    }
+    if (!isInLobby) {
+      console.log('🔍 Player not marked as in lobby - lobby join may have failed');
+    }
+    if (playerRole === null) {
+      console.log('🔍 Player role not set - server response may be missing role information');
+    }
   }
 });
 
@@ -539,38 +701,118 @@ function startOnlineGame(lobbyCode) {
       currentLobbyCode
     });
     
-    // Start the online game with retry logic for iOS compatibility
-    const maxAttempts = isIOS ? 5 : 3; // More attempts for iOS
-    const retryDelay = isIOS ? 300 : 200; // Longer delay for iOS
+    // Start the online game with retry logic for cross-platform compatibility
+    const maxAttempts = isMobile ? 8 : 5; // More attempts for mobile devices
+    const retryDelay = needsExtendedDelay ? 400 : 250; // Longer delay for mobile devices
     
     const attemptStartGame = (attempt = 1) => {
+      // Enhanced logging for cross-platform debugging
+      console.log(`🔍 Attempt ${attempt}/${maxAttempts} - Platform: ${isMobile ? 'Mobile' : 'Desktop'}, Device: ${isIOS ? 'iOS' : isAndroid ? 'Android' : 'Other'}`);
+      console.log(`🔍 Socket status: connected=${socket.connected}, id=${socket.id}`);
+      console.log(`🔍 Game functions available: startGame=${typeof window.startGame}, showScreen=${typeof window.showScreen}, showMessage=${typeof window.showMessage}`);
+      
+      // Additional debugging for game.js loading
+      const gameScripts = document.querySelectorAll('script[src*="game"]');
+      console.log('🔍 Game-related scripts found:', gameScripts.length);
+      gameScripts.forEach((script, index) => {
+        console.log(`  Script ${index + 1}: ${script.src}, loaded: ${script.readyState || 'unknown'}`);
+      });
+      
+      // Check socket connection first
+      if (!socket.connected) {
+        console.log(`⚠️ Socket not connected on attempt ${attempt}, waiting for connection...`);
+        socket.once('connect', () => {
+          console.log('✅ Socket reconnected, retrying game start...');
+          attemptStartGame(attempt);
+        });
+        return;
+      }
+      
       if (typeof window.startGame === 'function') {
-        console.log(`Attempt ${attempt}: Calling window.startGame...`);
+        console.log(`Attempt ${attempt}: Calling window.startGame for ${isCreator ? 'creator' : 'joiner'}...`);
         try {
-          window.startGame('onlineMultiplayer', { 
+          // Add platform-specific game start parameters
+          const gameOptions = { 
             player1Name, 
             player2Name, 
             playerRole, 
             lobbyCode,
-            socket 
+            socket,
+            // Cross-platform compatibility flags
+            isMobile,
+            isCreator,
+            platform: isIOS ? 'iOS' : isAndroid ? 'Android' : isDesktop ? 'Desktop' : 'Unknown'
+          };
+          
+          window.startGame('onlineMultiplayer', gameOptions);
+          console.log(`✅ Attempt ${attempt}: window.startGame called successfully for ${isCreator ? 'creator' : 'joiner'}`);
+          
+          // Emit ready signal to server for synchronization
+          socket.emit('gameReady', { 
+            lobbyCode, 
+            playerRole, 
+            platform: gameOptions.platform,
+            timestamp: Date.now()
           });
-          console.log(`Attempt ${attempt}: window.startGame called successfully`);
+          
         } catch (error) {
-          console.error(`Attempt ${attempt}: Error calling window.startGame:`, error);
+          console.error(`❌ Attempt ${attempt}: Error calling window.startGame:`, error);
           if (attempt < maxAttempts) {
-            console.log(`Retrying in ${attempt * retryDelay}ms...`);
-            setTimeout(() => attemptStartGame(attempt + 1), attempt * retryDelay);
+            const nextRetryDelay = attempt * retryDelay;
+            console.log(`🔄 Retrying in ${nextRetryDelay}ms...`);
+            setTimeout(() => attemptStartGame(attempt + 1), nextRetryDelay);
           } else {
-            console.error('All attempts failed to start game');
+            console.error(`💥 All ${maxAttempts} attempts failed to start game`);
+            // Show user-friendly error message
+            if (typeof window.showMessage === 'function') {
+              window.showMessage('Game Start Error', 'Unable to start the game. Please try refreshing the page and rejoining the lobby.');
+            }
           }
         }
       } else {
-        console.log(`Attempt ${attempt}: window.startGame not available`);
+        console.log(`⚠️ Attempt ${attempt}: window.startGame not available, checking game.js loading...`);
+        
+        // Check if game.js is already loaded but startGame function isn't available yet
+        if (attempt === 1) {
+          console.log('🔄 Checking for existing game.js script...');
+          const existingGameScript = document.querySelector('script[src="/js/game.js"]');
+          
+          if (existingGameScript) {
+            console.log('✅ game.js script found, waiting for function to be available...');
+            // Game script exists, just wait a bit longer for it to initialize
+            setTimeout(() => attemptStartGame(attempt), 1000);
+            return;
+          } else {
+            console.log('🔄 No game.js script found, force loading...');
+            const gameScript = document.createElement('script');
+            gameScript.src = '/js/game.js';
+            gameScript.onload = () => {
+              console.log('✅ game.js dynamically loaded, retrying game start...');
+              setTimeout(() => attemptStartGame(attempt), 500);
+            };
+            gameScript.onerror = () => {
+              console.error('❌ Failed to dynamically load game.js');
+              if (attempt < maxAttempts) {
+                setTimeout(() => attemptStartGame(attempt + 1), retryDelay);
+              }
+            };
+            document.head.appendChild(gameScript);
+            return;
+          }
+        }
+        
         if (attempt < maxAttempts) {
-          console.log(`Retrying in ${attempt * retryDelay}ms...`);
-          setTimeout(() => attemptStartGame(attempt + 1), attempt * retryDelay);
+          const nextRetryDelay = attempt * retryDelay;
+          console.log(`🔄 Retrying in ${nextRetryDelay}ms...`);
+          setTimeout(() => attemptStartGame(attempt + 1), nextRetryDelay);
         } else {
-          console.error('window.startGame not available after all attempts');
+          console.error(`💥 window.startGame not available after all ${maxAttempts} attempts`);
+          // Show user-friendly error message
+          if (typeof window.showMessage === 'function') {
+            window.showMessage('Game Loading Error', 'Game failed to load properly. Please refresh the page and try again.');
+          } else {
+            alert('Game failed to load. Please refresh the page and try again.');
+          }
         }
       }
     };
@@ -578,6 +820,30 @@ function startOnlineGame(lobbyCode) {
     // Start with first attempt
     attemptStartGame();
   }
+
+// Handle player ready status for cross-platform synchronization
+socket.on('playerReady', (data) => {
+  console.log(`🎮 Player ready status: ${data.readyCount}/${data.totalPlayers} players ready`);
+  console.log(`📱 Player ${data.playerRole} on ${data.platform} is ready`);
+  
+  if (lobbyStatus) {
+    lobbyStatus.textContent = `Players ready: ${data.readyCount}/${data.totalPlayers}`;
+    lobbyStatus.style.color = '#3b82f6'; // Blue color for progress
+  }
+});
+
+// Handle game start confirmation for cross-platform sync
+socket.on('gameStartConfirmed', (data) => {
+  console.log(`✅ Game start confirmed for lobby ${data.lobbyCode}:`, data.message);
+  
+  if (lobbyStatus) {
+    lobbyStatus.textContent = data.message;
+    lobbyStatus.style.color = '#10b981'; // Green color for success
+  }
+  
+  // Additional confirmation that game is starting properly
+  console.log(`🚀 Cross-platform game start confirmed at ${new Date(data.timestamp).toISOString()}`);
+});
 
 // Listen for game actions from the other player
 socket.on('gameAction', (action) => {

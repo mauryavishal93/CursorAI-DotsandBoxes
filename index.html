@@ -2480,26 +2480,28 @@
     });
   </script>
   
-  <!-- Try to load modular system first, fallback to original -->
-  <script type="module">
-    try {
-      // Try to load the new modular system
-      import('/js/game-compat.js').then(() => {
-        console.log('Modular game system loaded successfully');
-      }).catch((error) => {
-        console.warn('Modular system failed to load, falling back to original:', error);
-        // Fallback to original system
-        const script = document.createElement('script');
-        script.src = '/js/game.js';
-        document.head.appendChild(script);
-      });
-    } catch (error) {
-      console.warn('ES6 modules not supported, loading original system:', error);
-      // Fallback to original system
-      const script = document.createElement('script');
-      script.src = '/js/game.js';
-      document.head.appendChild(script);
-    }
+  <!-- Load game.js directly for reliable functionality -->
+  <script src="/js/game.js"></script>
+  
+  <!-- Verify game.js loaded properly -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        console.log('🔍 Post-load game function check:', {
+          startGame: typeof window.startGame,
+          showScreen: typeof window.showScreen,
+          showMessage: typeof window.showMessage,
+          homeScreen: typeof window.homeScreen
+        });
+        
+        if (typeof window.startGame === 'undefined') {
+          console.error('❌ CRITICAL: window.startGame is undefined after game.js load!');
+          console.log('🔍 Available window functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
+        } else {
+          console.log('✅ game.js loaded successfully - startGame function is available');
+        }
+      }, 100);
+    });
   </script>
   
   <!-- Fallback to ensure home screen is always shown -->
