@@ -46,11 +46,52 @@ const onlineLobbyUI = document.getElementById('online-lobby-ui');
 const createLobbyBtn = document.getElementById('create-lobby-btn');
 const joinLobbyBtn = document.getElementById('join-lobby-btn');
 const joinLobbyCodeInput = document.getElementById('join-lobby-code');
+const joinLobbySpinner = document.getElementById('join-lobby-spinner');
 const lobbyStatus = document.getElementById('lobby-status');
 const shareIconContainer = document.getElementById('share-icon-container');
 
-// Auto-convert lobby code input to uppercase as user types
+// Function to update join button state based on input value (global scope for reuse)
+function updateJoinButtonState() {
+  if (joinLobbyCodeInput && joinLobbyBtn) {
+    const inputValue = joinLobbyCodeInput.value.trim();
+    const hasValue = inputValue.length > 0;
+    
+    joinLobbyBtn.disabled = !hasValue;
+    
+    if (hasValue) {
+      // Enable button with primary styling
+      joinLobbyBtn.className = 'btn btn-primary';
+      console.log('Join lobby button enabled (primary styling)');
+    } else {
+      // Disable button with secondary styling
+      joinLobbyBtn.className = 'btn btn-secondary';
+      console.log('Join lobby button disabled (secondary styling)');
+    }
+  }
+}
+
+// Function to show joining lobby spinner
+function showJoinLobbySpinner() {
+  if (joinLobbySpinner) {
+    joinLobbySpinner.style.display = 'flex';
+    console.log('Join lobby spinner shown');
+  }
+}
+
+// Function to hide joining lobby spinner
+function hideJoinLobbySpinner() {
+  if (joinLobbySpinner) {
+    joinLobbySpinner.style.display = 'none';
+    console.log('Join lobby spinner hidden');
+  }
+}
+
+// Auto-convert lobby code input to uppercase as user types and handle button state
 if (joinLobbyCodeInput) {
+  
+  // Set initial state
+  updateJoinButtonState();
+  
   joinLobbyCodeInput.addEventListener('input', function(event) {
     const currentValue = event.target.value;
     const upperCaseValue = currentValue.toUpperCase();
@@ -60,11 +101,14 @@ if (joinLobbyCodeInput) {
       event.target.value = upperCaseValue;
       console.log('Lobby code input converted to uppercase:', upperCaseValue);
     }
+    
+    // Update button state based on input value
+    updateJoinButtonState();
   });
   
   // Also handle paste events
   joinLobbyCodeInput.addEventListener('paste', function(event) {
-    // Small delay to allow paste to complete, then convert to uppercase
+    // Small delay to allow paste to complete, then convert to uppercase and update button state
     setTimeout(() => {
       const currentValue = event.target.value;
       const upperCaseValue = currentValue.toUpperCase();
@@ -73,6 +117,9 @@ if (joinLobbyCodeInput) {
         event.target.value = upperCaseValue;
         console.log('Pasted lobby code converted to uppercase:', upperCaseValue);
       }
+      
+      // Update button state after paste
+      updateJoinButtonState();
     }, 10);
   });
 }
@@ -450,14 +497,13 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
   console.log(`Join lobby attempt ${currentAttempt}/${maxAttempts} for code: ${lobbyCode}`);
   console.log('Socket connected:', socket.connected, 'Socket ID:', socket.id);
   
-  // Update status to show attempt progress
-  if (lobbyStatus) {
-    if (currentAttempt === 1) {
-      lobbyStatus.textContent = `Joining lobby ${lobbyCode}...`;
-    } else {
-      lobbyStatus.textContent = `Joining lobby ${lobbyCode}... (attempt ${currentAttempt}/${maxAttempts})`;
+  // Show spinner on first attempt, keep it spinning for subsequent attempts
+  if (currentAttempt === 1) {
+    showJoinLobbySpinner();
+    // Clear any existing status messages
+    if (lobbyStatus) {
+      lobbyStatus.textContent = '';
     }
-    lobbyStatus.style.color = '#3b82f6'; // Blue color for progress
   }
   
   // Ensure socket is connected before attempting to join
@@ -483,6 +529,7 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
       }, retryDelay);
     } else {
       console.log(`All ${maxAttempts} join lobby attempts failed (timeout)`);
+      hideJoinLobbySpinner();
       if (lobbyStatus) {
         lobbyStatus.textContent = 'Failed to join lobby - connection timeout.';
         lobbyStatus.style.color = '#ef4444';
@@ -514,7 +561,9 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
     console.log(`Join lobby attempt ${currentAttempt} response:`, response);
     
     if (response.success) {
-      // Success! Update all states with server-provided information
+      // Success! Hide spinner and update all states with server-provided information
+      hideJoinLobbySpinner();
+      
       currentLobbyCode = response.lobbyCode || lobbyCode;
       isInLobby = true;
       isCreator = response.isCreator || false;
@@ -558,6 +607,7 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
       } else {
         // All attempts failed
         console.log(`All ${maxAttempts} join lobby attempts failed`);
+        hideJoinLobbySpinner();
         if (lobbyStatus) {
           lobbyStatus.textContent = response.message || 'Failed to join lobby after multiple attempts.';
           lobbyStatus.style.color = '#ef4444'; // Red color for error
@@ -592,6 +642,7 @@ if (joinLobbyBtn) {
         showLobbyUI();
         if (savedLobbyCode) {
           joinLobbyCodeInput.value = savedLobbyCode; // Restore the lobby code
+          updateJoinButtonState(); // Update button state after restoring value
         }
         console.log('Starting join lobby with retry after state reset...');
         joinLobbyWithRetry(savedLobbyCode || code);
@@ -980,11 +1031,13 @@ function resetOnlineGameState() {
   }
   
   // Clear UI elements
+  hideJoinLobbySpinner();
   if (lobbyStatus) {
     lobbyStatus.textContent = '';
   }
   if (joinLobbyCodeInput) {
     joinLobbyCodeInput.value = '';
+    updateJoinButtonState(); // Update button state after clearing input
   }
   
   // Hide share icon container
@@ -1198,11 +1251,13 @@ function resetSocketAndLobbyState(preserveLobbyCode = false) {
   }
   
   // Clear UI elements
+  hideJoinLobbySpinner();
   if (lobbyStatus) {
     lobbyStatus.textContent = '';
   }
   if (joinLobbyCodeInput && !preserveLobbyCode) {
     joinLobbyCodeInput.value = '';
+    updateJoinButtonState(); // Update button state after clearing input
   }
   
   // Hide share icon container

@@ -50,11 +50,73 @@
                 </button>
             </div>
 
+            <!-- Game Logo -->
+            <div class="game-logo-container">
+                <svg class="game-logo" width="280" height="120" viewBox="0 0 300 120" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background -->
+                    <rect width="280" height="120" rx="15" fill="#f7fafc" stroke="#4299e1" stroke-width="2"/>
+                    
+                    <!-- Game Grid -->
+                    <g transform="translate(30,0)">
+                        <!-- Dots -->
+                        <circle cx="20" cy="20" r="5" fill="#2d3748"/>
+                        <circle cx="70" cy="20" r="5" fill="#2d3748"/>
+                        <circle cx="120" cy="20" r="5" fill="#2d3748"/>
+                        <circle cx="170" cy="20" r="5" fill="#2d3748"/>
+                        <circle cx="220" cy="20" r="5" fill="#2d3748"/>
+                        
+                        <circle cx="20" cy="50" r="5" fill="#2d3748"/>
+                        <circle cx="70" cy="50" r="5" fill="#2d3748"/>
+                        <circle cx="120" cy="50" r="5" fill="#2d3748"/>
+                        <circle cx="170" cy="50" r="5" fill="#2d3748"/>
+                        <circle cx="220" cy="50" r="5" fill="#2d3748"/>
+                        
+                        <circle cx="20" cy="80" r="5" fill="#2d3748"/>
+                        <circle cx="70" cy="80" r="5" fill="#2d3748"/>
+                        <circle cx="120" cy="80" r="5" fill="#2d3748"/>
+                        <circle cx="170" cy="80" r="5" fill="#2d3748"/>
+                        <circle cx="220" cy="80" r="5" fill="#2d3748"/>
+                        
+                        <!-- Lines -->
+                        <line x1="25" y1="20" x2="65" y2="20" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="75" y1="20" x2="115" y2="20" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="125" y1="20" x2="165" y2="20" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="175" y1="20" x2="215" y2="20" stroke="#4299e1" stroke-width="3"/>
+                        
+                        <line x1="25" y1="50" x2="65" y2="50" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="75" y1="50" x2="115" y2="50" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="125" y1="50" x2="165" y2="50" stroke="#4299e1" stroke-width="3"/>
+                        
+                        <line x1="25" y1="80" x2="65" y2="80" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="175" y1="80" x2="215" y2="80" stroke="#4299e1" stroke-width="3"/>
+                        
+                        <line x1="20" y1="25" x2="20" y2="45" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="70" y1="25" x2="70" y2="45" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="120" y1="25" x2="120" y2="45" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="170" y1="25" x2="170" y2="45" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="220" y1="25" x2="220" y2="45" stroke="#4299e1" stroke-width="3"/>
+                        
+                        <line x1="20" y1="55" x2="20" y2="75" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="70" y1="55" x2="70" y2="75" stroke="#4299e1" stroke-width="3"/>
+                        <line x1="220" y1="55" x2="220" y2="75" stroke="#4299e1" stroke-width="3"/>
+                        
+                        <!-- Completed Boxes -->
+                        <rect x="25" y="25" width="40" height="20" fill="#48bb78" opacity="0.8"/>
+                        <text x="45" y="38" text-anchor="middle" fill="white" font-size="14" font-weight="bold">X</text>
+                        
+                        <rect x="175" y="55" width="40" height="20" fill="#ed8936" opacity="0.8"/>
+                        <text x="195" y="68" text-anchor="middle" fill="white" font-size="14" font-weight="bold">O</text>
+                    </g>
+                    
+                    <!-- Game Title -->
+                    <text x="150" y="110" text-anchor="middle" fill="#2d3748" font-size="26" font-weight="bold">DOTS & BOXES</text>
+                </svg>
+            </div>
 
             <div class="button-group">
                 <button id="single-player-btn" class="btn btn-primary">Single Player</button>
-                <button id="two-player-btn" class="btn btn-secondary">2 Players</button>
-                <button id="online-game-btn" class="btn btn-secondary">Online Game</button>
+                <button id="two-player-btn" class="btn btn-primary">2 Players</button>
+                <button id="online-game-btn" class="btn btn-primary">Online Game</button>
                 <!-- The "Run Unit Tests" button is now hidden by default -->
                 <button id="run-unit-tests-btn" class="btn btn-secondary" style="display: none;">Run Unit Tests</button>
             </div>
@@ -66,8 +128,15 @@
               </div>
               <div class="button-group" style="margin-top: 8px;">
                 <input id="join-lobby-code" type="text" placeholder="Enter Lobby Code" maxlength="6" style="text-transform:uppercase;" />
-                <button id="join-lobby-btn" class="btn btn-secondary">Join Lobby</button>
+                <button id="join-lobby-btn" class="btn btn-secondary" disabled>Join Lobby</button>
               </div>
+              
+              <!-- Joining Lobby Spinner -->
+              <div id="join-lobby-spinner" class="lobby-spinner" style="display: none; margin-top: 8px; text-align: center;">
+                <div class="spinner-icon"></div>
+                <span class="spinner-text">Joining lobby...</span>
+              </div>
+              
               <div id="lobby-status" style="margin-top: 8px;"></div>
               <div id="share-icon-container" style="display: none; margin-top: 8px; text-align: center;">
                 <button id="share-lobby-icon" class="share-icon-btn" title="Share Lobby">

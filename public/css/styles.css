@@ -1531,3 +1531,132 @@ canvas {
   }
 }
 
+/* Game Logo Styles */
+.game-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px auto 25px auto;
+  padding: 0 10px;
+  animation: logoFadeIn 1s ease-in-out;
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  min-height: 120px;
+}
+
+.game-logo {
+  max-width: min(280px, 90vw);
+  height: auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+  transition: transform 0.3s ease, filter 0.3s ease;
+  display: block;
+  opacity: 1;
+}
+
+.game-logo:hover {
+  transform: scale(1.02);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes logoFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments for logo */
+@media (max-width: 480px) {
+  .game-logo-container {
+    margin: 15px auto 20px auto;
+  }
+  
+  .game-logo {
+    max-width: min(240px, 85vw);
+  }
+}
+
+@media (max-width: 320px) {
+  .game-logo-container {
+    margin: 12px auto 18px auto;
+  }
+  
+  .game-logo {
+    max-width: min(200px, 80vw);
+  }
+}
+
+/* Ensure logo doesn't interfere with mobile scaling */
+@media (max-height: 600px) {
+  .game-logo-container {
+    margin: 10px auto 15px auto;
+  }
+  
+  .game-logo {
+    max-width: min(200px, 75vw);
+  }
+}
+
+/* Join Lobby Button Disabled State */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: #e2e8f0 !important;
+  color: #a0aec0 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.btn:disabled:hover {
+  background-color: #e2e8f0 !important;
+  color: #a0aec0 !important;
+  border-color: #e2e8f0 !important;
+  transform: none !important;
+}
+
+/* Lobby Joining Spinner */
+.lobby-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner-icon {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #4299e1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-text {
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive spinner adjustments */
+@media (max-width: 480px) {
+  .spinner-icon {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+  }
+  
+  .spinner-text {
+    font-size: 12px;
+  }
+}
+
