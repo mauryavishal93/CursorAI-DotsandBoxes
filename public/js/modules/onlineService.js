@@ -1,9 +1,17 @@
-import { io } from 'socket.io-client';
+// Socket.IO is loaded globally via script tag in index.html
+// import { io } from 'socket.io-client'; // Commented out to prevent module resolution error
 
 export class OnlineService {
   constructor() {
     // Use the global socket instance if available to avoid multiple connections
-    this.socket = window.socket || io();
+    if (window.socket) {
+      this.socket = window.socket;
+      console.log('OnlineService: Using existing global socket instance');
+    } else {
+      this.socket = io();
+      window.socket = this.socket; // Set global reference
+      console.log('OnlineService: Created new socket instance');
+    }
     this.currentLobbyCode = null;
     this.isInLobby = false;
     this.isGameStarted = false;

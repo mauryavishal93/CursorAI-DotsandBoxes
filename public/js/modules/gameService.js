@@ -71,7 +71,20 @@ export class GameService {
     };
 
     this.onlineService.onPlayerDisconnected = (data) => {
-      this.showMessage('Player Disconnected', data.message);
+      if (data.isTemporary) {
+        // Show temporary disconnect in status, not popup
+        console.log('Temporary disconnect:', data.message);
+      } else {
+        // Show proper win/lose popup for permanent disconnect
+        const winMessage = data.winner === 'you' ? 
+          'Opponent Left - You Win!' : 
+          'You Left - Opponent Wins!';
+        const detailMessage = data.message || 
+          (data.winner === 'you' ? 
+            'Your opponent has left the game. Victory is yours!' : 
+            'You have left the game.');
+        this.showMessage(winMessage, detailMessage);
+      }
     };
 
     this.onlineService.onLobbyDestroyed = (data) => {

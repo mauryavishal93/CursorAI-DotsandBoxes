@@ -298,10 +298,14 @@ router.get('/profile', authenticate, async (req, res) => {
       success: true,
       profile: {
         username: stats.username,
+        // Legacy stats for backward compatibility
         gamesPlayed: stats.gamesPlayed,
         gamesWon: stats.gamesWon,
         totalScore: stats.totalScore,
         winRate: stats.winRate,
+        // New separate stats
+        online: stats.online,
+        ai: stats.ai,
         createdAt: stats.createdAt,
         lastLogin: stats.lastLogin,
         isGuest: req.user.isGuest,
@@ -537,6 +541,61 @@ router.put('/avatar', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update avatar'
+    });
+  }
+});
+
+// Update AI game statistics
+router.post('/update-ai-stats', authenticate, async (req, res) => {
+  try {
+    console.log('🎯 /update-ai-stats endpoint called');
+    console.log('Request body:', req.body);
+    console.log('User from auth:', req.user);
+    
+    const { won, scoreChange } = req.body;
+
+    if (typeof won !== 'boolean' || typeof scoreChange !== 'number') {
+      console.log('❌ Invalid data types:', { won, scoreChange, wonType: typeof won, scoreChangeType: typeof scoreChange });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data: won must be boolean and scoreChange must be number'
+      });
+    }
+
+    const User = getUserModel();
+    console.log('Using User model:', User.name);
+    
+    const user = await User.findById(req.user._id);
+    console.log('Found user:', !!user);
+    
+    if (!user) {
+      console.log('❌ User not found with ID:', req.user._id);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('User stats before update:', user.getStats());
+    
+    // Update AI statistics with new scoring system
+    await user.updateAIStatsNew(won, scoreChange);
+    console.log('✅ updateAIStatsNew completed');
+    
+    // Get updated stats
+    const updatedStats = user.getStats();
+    console.log('User stats after update:', updatedStats);
+    
+    res.json({
+      success: true,
+      message: 'AI game statistics updated successfully',
+      stats: updatedStats
+    });
+  } catch (error) {
+    console.error('❌ Error updating AI game statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating AI game statistics'
     });
   }
 });

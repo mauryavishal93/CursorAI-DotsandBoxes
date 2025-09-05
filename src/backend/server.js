@@ -103,6 +103,15 @@ class GameServer {
   start() {
     this.server.listen(config.PORT, '0.0.0.0', () => {
       console.log(`Dots and Boxes app running at http://localhost:${config.PORT}`);
+      
+      // Start automatic cleanup of inactive lobbies every 5 minutes
+      setInterval(() => {
+        const lobbyService = require('./services/lobbyService');
+        const cleanedCount = lobbyService.cleanupAllInactiveLobbies();
+        if (cleanedCount > 0) {
+          console.log(`🧹 Cleaned up ${cleanedCount} inactive lobbies`);
+        }
+      }, 5 * 60 * 1000); // Every 5 minutes
     });
   }
 }

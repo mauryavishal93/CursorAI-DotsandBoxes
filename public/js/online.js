@@ -75,6 +75,25 @@ socket.on('reconnect', (attemptNumber) => {
   if (lobbyStatus) {
     lobbyStatus.textContent = 'Reconnected! Game should continue normally.';
   }
+  
+  // Attempt to reconnect to lobby if we were in one
+  if (currentLobbyCode && isInLobby) {
+    console.log('Attempting to reconnect to lobby:', currentLobbyCode);
+    socket.emit('reconnectToLobby', currentLobbyCode, (response) => {
+      if (response.success) {
+        console.log('Successfully reconnected to lobby:', currentLobbyCode);
+        lobbyStatus.textContent = `Reconnected to lobby ${currentLobbyCode}!`;
+      } else {
+        console.log('Failed to reconnect to lobby:', response.message);
+        lobbyStatus.textContent = 'Failed to reconnect to lobby. Please try joining again.';
+        // Reset lobby state
+        currentLobbyCode = null;
+        isInLobby = false;
+        isCreator = false;
+        playerRole = null;
+      }
+    });
+  }
 });
 
 socket.on('disconnect', (reason) => {
@@ -89,6 +108,113 @@ socket.on('reconnect_error', (error) => {
   if (lobbyStatus) {
     lobbyStatus.textContent = 'Reconnection failed. Please refresh the page.';
   }
+});
+
+// Handle temporary disconnection messages (UNIFIED HANDLER)
+socket.on('playerDisconnected', (data) => {
+  console.log('Player disconnected:', data);
+  
+  if (data.isTemporary) {
+    // Show temporary disconnect message in status
+    if (lobbyStatus) {
+      lobbyStatus.textContent = 'Your opponent has temporarily disconnected. They have 5 minutes to reconnect.';
+      lobbyStatus.style.color = '#f59e0b'; // Orange color for temporary disconnect
+    }
+  } else {
+    // Permanent disconnect - show proper popup like game over
+    console.log('Game ended due to opponent disconnect. Winner:', data.winner);
+    
+    // Check if game was already over before showing disconnect message
+    if (typeof window.gameOver === 'function' && window.gameOver()) {
+      console.log('Game was already over, not showing disconnect message');
+      // Just reset state and redirect to home without showing the disconnect popup
+      resetOnlineGameState();
+      showScreen(document.getElementById('home-screen'));
+    } else {
+      // Show proper win popup like game over messages
+      const winMessage = data.winner === 'you' ? 
+        'Opponent Left - You Win!' : 
+        'You Left - Opponent Wins!';
+      
+      const detailMessage = data.message || 
+        (data.winner === 'you' ? 
+          'Your opponent has left the game. Victory is yours!' : 
+          'You have left the game.');
+      
+      // Use the same showMessage function as game over
+      if (typeof window.showMessage === 'function') {
+        window.showMessage(winMessage, detailMessage, () => {
+          // Reset state and go to home after popup is closed
+          resetOnlineGameState();
+          if (typeof window.showScreen === 'function' && document.getElementById('home-screen')) {
+            window.showScreen(document.getElementById('home-screen'));
+          }
+        });
+      } else {
+        // Fallback if showMessage is not available
+        alert(`${winMessage}\n${detailMessage}`);
+        resetOnlineGameState();
+        if (document.getElementById('home-screen')) {
+          document.getElementById('home-screen').style.display = 'block';
+        }
+      }
+      
+      // Disable game interactions
+      if (typeof window.disableGameInteractions === 'function') {
+        window.disableGameInteractions();
+      }
+    }
+  }
+});
+
+// Handle player reconnection messages
+socket.on('playerReconnected', (data) => {
+  console.log('Player reconnected:', data);
+  if (lobbyStatus) {
+    lobbyStatus.textContent = data.message || 'Your opponent has reconnected!';
+    lobbyStatus.style.color = '#22c55e'; // Green color for reconnection
+  }
+});
+
+// Handle rejoin success
+socket.on('rejoinSuccess', (data) => {
+  console.log('🔄 Successfully rejoined lobby:', data);
+  
+  // Restore lobby state
+  currentLobbyCode = data.lobbyCode;
+  playerRole = data.playerRole;
+  isInLobby = true;
+  
+  // Update global variables
+  window.onlineLobbyCode = data.lobbyCode;
+  window.onlinePlayerRole = data.playerRole;
+  
+  if (lobbyStatus) {
+    lobbyStatus.textContent = `Reconnected to lobby ${data.lobbyCode}!`;
+    lobbyStatus.style.color = '#10b981';
+  }
+  
+  // If game was in progress, restore game state
+  if (data.gameState && data.gameState.gameStarted) {
+    console.log('🔄 Restoring game state after reconnection');
+    if (typeof window.restoreGameState === 'function') {
+      window.restoreGameState(data.gameState);
+    }
+  }
+});
+
+// Handle rejoin failure
+socket.on('rejoinFailed', (data) => {
+  console.log('🔄 Failed to rejoin lobby:', data.message);
+  
+  if (lobbyStatus) {
+    lobbyStatus.textContent = data.message || 'Failed to rejoin lobby.';
+    lobbyStatus.style.color = '#ef4444';
+  }
+  
+  // Reset state and show lobby UI for new lobby
+  resetOnlineGameState();
+  showLobbyUI();
 });
 
 // Expose socket globally for game.js
@@ -254,9 +380,18 @@ socket.on('lobbyUpdate', ({ players }) => {
 });
 
 socket.on('startGame', ({ lobbyCode }) => {
-  console.log('startGame event received:', { lobbyCode, currentLobbyCode, isGameStarted, playerRole, socketId: socket.id });
+  console.log('🎮 startGame event received:', { 
+    lobbyCode, 
+    currentLobbyCode, 
+    isGameStarted, 
+    playerRole, 
+    isInLobby,
+    isCreator,
+    socketId: socket.id 
+  });
   
   if (currentLobbyCode === lobbyCode && !isGameStarted) {
+    console.log('✅ Starting game for this player - conditions met');
     isGameStarted = true;
     lobbyStatus.textContent = `Game started in lobby ${lobbyCode}!`;
     
@@ -265,9 +400,9 @@ socket.on('startGame', ({ lobbyCode }) => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
     if (token && user.id && !socket.connected) {
-      console.log('Socket not connected, waiting for connection...');
+      console.log('⚠️ Socket not connected, waiting for connection...');
       socket.once('connect', () => {
-        console.log('Socket reconnected, starting game...');
+        console.log('✅ Socket reconnected, starting game...');
         startOnlineGame(lobbyCode);
       });
       return;
@@ -275,23 +410,34 @@ socket.on('startGame', ({ lobbyCode }) => {
     
     // Add delay for iOS compatibility before starting game
     const startDelay = isIOS ? 300 : 100;
+    console.log(`⏳ Starting game in ${startDelay}ms for player role ${playerRole}`);
     setTimeout(() => {
       startOnlineGame(lobbyCode);
     }, startDelay);
   } else {
-    console.log('startGame event ignored:', { 
+    console.log('❌ startGame event ignored:', { 
       lobbyCodeMatch: currentLobbyCode === lobbyCode, 
-      gameAlreadyStarted: isGameStarted 
+      gameAlreadyStarted: isGameStarted,
+      currentLobbyCode,
+      receivedLobbyCode: lobbyCode
     });
   }
 });
 
 function startOnlineGame(lobbyCode) {
-    // Set player names based on role
+    // Set player names based on role (already user-friendly, no truncation needed)
     let player1Name = playerRole === 1 ? 'You' : 'Opponent';
     let player2Name = playerRole === 2 ? 'You' : 'Opponent';
     
-    console.log('Starting online game with:', { player1Name, player2Name, playerRole, lobbyCode });
+    console.log('🎮 Starting online game with:', { 
+      player1Name, 
+      player2Name, 
+      playerRole, 
+      lobbyCode,
+      isCreator,
+      isInLobby,
+      currentLobbyCode
+    });
     
     // Start the online game with retry logic for iOS compatibility
     const maxAttempts = isIOS ? 5 : 3; // More attempts for iOS
@@ -342,134 +488,25 @@ socket.on('gameAction', (action) => {
   }
 });
 
-// Handle opponent disconnect
-socket.on('playerDisconnected', ({ message, winner }) => {
-  console.log('Player disconnected:', message, 'Winner:', winner);
-  
-  // Check if game was already over before showing disconnect message
-  if (typeof window.gameOver === 'function' && window.gameOver()) {
-    console.log('Game was already over, not showing disconnect message');
-    // Just reset state and redirect to home without showing the disconnect popup
-    resetOnlineGameState();
-    
-    // Redirect to home screen
-    console.log('Redirecting to home screen...');
-    if (typeof window.showScreen === 'function' && window.homeScreen) {
-      console.log('Using showScreen function...');
-      window.showScreen(window.homeScreen);
-    } else {
-      // Fallback: direct DOM manipulation
-      console.log('Using fallback DOM manipulation...');
-      const homeScreen = document.getElementById('home-screen');
-      const onlineLobbyUI = document.getElementById('online-lobby-ui');
-      const onlineGameScreen = document.getElementById('online-game-screen');
-      
-      if (homeScreen) {
-        // Hide all game screens first
-        if (onlineGameScreen) {
-          onlineGameScreen.style.display = 'none';
-        }
-        // Use the proper showScreen function if available, otherwise set flex display
-        if (typeof window.showScreen === 'function') {
-          window.showScreen(homeScreen);
-        } else {
-          homeScreen.style.display = 'flex';
-        }
-        // Show lobby UI
-        if (onlineLobbyUI) {
-          onlineLobbyUI.style.display = 'block';
-        }
-        console.log('Home screen shown via fallback');
-      }
-    }
-    
-    // Ensure lobby UI is visible and ready for new lobbies
-    setTimeout(() => {
-      showLobbyUI();
-      console.log('Lobby UI shown - ready for new lobby');
-    }, 200);
-    return;
-  }
-  
-  // Disable game interactions for the remaining player
-  if (typeof window.disableGameInteractions === 'function') {
-    window.disableGameInteractions();
-  }
-  
-  // Show winning popup first, then redirect to home after OK is clicked
-  if (typeof window.showMessage === 'function') {
-    console.log('Showing winning popup with message:', message);
-    window.showMessage('Game Over - You Win!', message, () => {
-      console.log('OK button clicked on winning popup');
-      
-      // Only after user clicks OK, reset state and redirect to home
-      resetOnlineGameState();
-      
-      // Redirect to home screen
-      console.log('Redirecting to home screen...');
-      if (typeof window.showScreen === 'function' && window.homeScreen) {
-        console.log('Using showScreen function...');
-        window.showScreen(window.homeScreen);
-      } else {
-        // Fallback: direct DOM manipulation
-        console.log('Using fallback DOM manipulation...');
-        const homeScreen = document.getElementById('home-screen');
-        const onlineLobbyUI = document.getElementById('online-lobby-ui');
-        const onlineGameScreen = document.getElementById('online-game-screen');
-        
-        if (homeScreen) {
-          // Hide all game screens first
-          if (onlineGameScreen) {
-            onlineGameScreen.style.display = 'none';
-          }
-          // Use the proper showScreen function if available, otherwise set flex display
-          if (typeof window.showScreen === 'function') {
-            window.showScreen(homeScreen);
-          } else {
-            homeScreen.style.display = 'flex';
-          }
-          // Show lobby UI
-          if (onlineLobbyUI) {
-            onlineLobbyUI.style.display = 'block';
-          }
-          console.log('Home screen shown via fallback');
-        }
-      }
-      
-      // Ensure lobby UI is visible and ready for new lobbies
-      setTimeout(() => {
-        showLobbyUI();
-        console.log('Lobby UI shown - ready for new lobby');
-      }, 200);
-    });
-  } else {
-    // Fallback: alert and redirect
-    console.log('showMessage function not available, using alert fallback');
-    alert(message);
-    resetOnlineGameState();
-    
-    // Use the proper showScreen function
-    if (typeof window.showScreen === 'function' && window.homeScreen) {
-      window.showScreen(window.homeScreen);
-    } else {
-      // Fallback: direct DOM manipulation
-      const homeScreen = document.getElementById('home-screen');
-      if (homeScreen) {
-        homeScreen.style.display = 'flex';
-      }
-    }
-    
-    // Ensure lobby UI is visible and ready for new lobbies
-    setTimeout(() => {
-      showLobbyUI();
-      console.log('Lobby UI shown - ready for new lobby');
-    }, 200);
-  }
-});
+// Note: playerDisconnected handler is now unified above to prevent conflicts
 
 // Function to reset all online game state
 function resetOnlineGameState() {
   console.log('Resetting online game state...');
+  
+  // Clear any pending timers to prevent memory leaks
+  if (window.onlineGameTimers) {
+    window.onlineGameTimers.forEach(timer => clearTimeout(timer));
+    window.onlineGameTimers.clear();
+  } else {
+    window.onlineGameTimers = new Set();
+  }
+  
+  // Clear socket reconnection timer
+  if (window.socketReconnectTimer) {
+    clearTimeout(window.socketReconnectTimer);
+    window.socketReconnectTimer = null;
+  }
   
   // Reset all lobby variables
   isInLobby = false;
@@ -540,6 +577,141 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+// Handle app switching and background/foreground detection
+let isAppInBackground = false;
+let backgroundStartTime = null;
+let reconnectionAttempts = 0;
+const maxReconnectionAttempts = 5;
+
+// Page Visibility API to detect app switching
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // App went to background (user switched to WhatsApp, etc.)
+    isAppInBackground = true;
+    backgroundStartTime = Date.now();
+    console.log('🔄 App went to background, connection will be preserved');
+    
+    // Don't disconnect immediately - keep connection alive for sharing
+    if (socket && socket.connected && currentLobbyCode) {
+      // Send heartbeat to server to indicate we're still active but backgrounded
+      socket.emit('backgroundHeartbeat', { 
+        lobbyCode: currentLobbyCode,
+        timestamp: backgroundStartTime 
+      });
+    }
+  } else {
+    // App came back to foreground
+    if (isAppInBackground) {
+      const backgroundDuration = Date.now() - backgroundStartTime;
+      console.log(`🔄 App returned to foreground after ${Math.round(backgroundDuration / 1000)}s`);
+      isAppInBackground = false;
+      backgroundStartTime = null;
+      
+      // Ensure connection is still active
+      if (socket && currentLobbyCode) {
+        if (!socket.connected) {
+          console.log('🔄 Connection lost while in background, attempting reconnection...');
+          attemptReconnection();
+        } else {
+          // Connection is still active, send heartbeat to confirm we're back
+          socket.emit('foregroundHeartbeat', { 
+            lobbyCode: currentLobbyCode,
+            backgroundDuration: backgroundDuration 
+          });
+          
+          // Reset reconnection attempts since we're back and connected
+          reconnectionAttempts = 0;
+        }
+      }
+    }
+  }
+});
+
+// Handle app pause/resume events (mobile specific)
+window.addEventListener('pagehide', () => {
+  if (isInLobby && currentLobbyCode && socket) {
+    console.log('🔄 Page hidden (mobile app switching), preserving connection');
+    isAppInBackground = true;
+    backgroundStartTime = Date.now();
+    
+    // Send background heartbeat
+    if (socket.connected) {
+      socket.emit('backgroundHeartbeat', { 
+        lobbyCode: currentLobbyCode,
+        timestamp: backgroundStartTime 
+      });
+    }
+  }
+});
+
+window.addEventListener('pageshow', (event) => {
+  if (isAppInBackground && currentLobbyCode) {
+    const backgroundDuration = Date.now() - backgroundStartTime;
+    console.log(`🔄 Page shown (returned from mobile app switching) after ${Math.round(backgroundDuration / 1000)}s`);
+    isAppInBackground = false;
+    
+    // Check connection and reconnect if needed
+    if (socket && !socket.connected) {
+      attemptReconnection();
+    } else if (socket && socket.connected) {
+      socket.emit('foregroundHeartbeat', { 
+        lobbyCode: currentLobbyCode,
+        backgroundDuration: backgroundDuration 
+      });
+      reconnectionAttempts = 0;
+    }
+  }
+});
+
+// Improved reconnection logic
+function attemptReconnection() {
+  if (reconnectionAttempts >= maxReconnectionAttempts) {
+    console.log('🔄 Max reconnection attempts reached, giving up');
+    if (lobbyStatus) {
+      lobbyStatus.textContent = 'Connection lost. Please refresh the page to rejoin.';
+      lobbyStatus.style.color = '#ef4444';
+    }
+    return;
+  }
+  
+  reconnectionAttempts++;
+  console.log(`🔄 Reconnection attempt ${reconnectionAttempts}/${maxReconnectionAttempts}`);
+  
+  if (lobbyStatus) {
+    lobbyStatus.textContent = `Reconnecting... (${reconnectionAttempts}/${maxReconnectionAttempts})`;
+    lobbyStatus.style.color = '#f59e0b';
+  }
+  
+  // Attempt to reconnect
+  if (socket) {
+    socket.connect();
+    
+    // Wait for connection or timeout
+    const reconnectTimeout = setTimeout(() => {
+      if (!socket.connected) {
+        console.log('🔄 Reconnection attempt timed out, trying again...');
+        setTimeout(() => attemptReconnection(), 2000); // Try again in 2 seconds
+      }
+    }, 5000); // 5 second timeout
+    
+    // Clear timeout if connection succeeds
+    socket.once('connect', () => {
+      clearTimeout(reconnectTimeout);
+      console.log('🔄 Reconnection successful!');
+      reconnectionAttempts = 0;
+      
+      // Rejoin lobby if we were in one
+      if (currentLobbyCode) {
+        socket.emit('rejoinLobby', currentLobbyCode);
+        if (lobbyStatus) {
+          lobbyStatus.textContent = `Reconnected to lobby ${currentLobbyCode}. Waiting for game to resume...`;
+          lobbyStatus.style.color = '#10b981';
+        }
+      }
+    });
+  }
+}
+
 // Function to reset and show lobby UI for new lobby creation/joining
 function resetAndShowLobbyUI() {
   console.log('Resetting and showing lobby UI for new lobby');
@@ -604,9 +776,18 @@ function resetSocketAndLobbyState(preserveLobbyCode = false) {
   if (socket && socket.connected) {
     console.log('Disconnecting socket for fresh connection...');
     socket.disconnect();
-    setTimeout(() => {
+    
+    // Clear any existing reconnection timer
+    if (window.socketReconnectTimer) {
+      clearTimeout(window.socketReconnectTimer);
+    }
+    
+    window.socketReconnectTimer = setTimeout(() => {
       console.log('Reconnecting socket...');
-      socket.connect();
+      if (socket && !socket.connected) {
+        socket.connect();
+      }
+      window.socketReconnectTimer = null;
     }, 100);
   }
   

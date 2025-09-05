@@ -59,6 +59,24 @@ window.onload = function() {
   let gameMode; // 'singlePlayer' or 'twoPlayers'
   let playerNames = { 1: 'Player 1', 2: 'Player 2' }; // Stores names for display
   let hasRolledDice = false; // New flag to prevent multiple dice rolls per turn
+  
+  /**
+   * Truncates a username to 8 characters with ellipsis for better UI display
+   * @param {string} username - The username to truncate
+   * @returns {string} - Truncated username with ellipsis if needed
+   */
+  function truncateUsername(username) {
+    if (!username || typeof username !== 'string') {
+      return username;
+    }
+    
+    // If username is 9 characters or longer, show first 8 characters + ellipsis
+    if (username.length > 8) {
+      return username.substring(0, 8) + '...';
+    }
+    
+    return username;
+  }
   // Lucky Draw (Two Players mode only)
   let isLuckyWheelActive = false;
   // Legacy flag (no longer used for add behavior). Keep defined for safety but unused.
@@ -167,6 +185,7 @@ window.onload = function() {
   let onlinePlayerRole = null; // 1 or 2
   let onlineLobbyCode = null;
   let onlineSocket = null;
+  let gameStateLock = false; // Prevent concurrent game state modifications
 
   // New UI elements for Rules and Info modals
   const rulesBtnHome = document.getElementById('rules-btn-home');
@@ -239,6 +258,12 @@ window.onload = function() {
       messageTitle.textContent = title;
       messageText.textContent = text;
       messageBox.style.display = 'block';
+      
+      // Trigger database write for Game Over in single player mode
+      if (title === "Game Over!" && gameMode === 'singlePlayer') {
+          console.log('🎯 Game Over detected in single player mode - triggering database write');
+          triggerDatabaseWrite();
+      }
       
       // Auto-close message box for AI players in single player mode after 2.4s
       if (gameMode === 'singlePlayer' && playerTurn === 2) {
@@ -483,9 +508,36 @@ window.onload = function() {
   }
 
   /**
+   * Safely modifies game state with lock protection
+   */
+  function safeGameStateModification(modificationFunction) {
+    if (gameStateLock) {
+      console.warn('Game state modification blocked - state is locked');
+      return false;
+    }
+    
+    gameStateLock = true;
+    try {
+      modificationFunction();
+      return true;
+    } catch (error) {
+      console.error('Error in game state modification:', error);
+      return false;
+    } finally {
+      gameStateLock = false;
+    }
+  }
+
+  /**
    * Resets the game state variables.
    */
   function resetGameState() {
+      // Clear any running dice animations to prevent memory leaks
+      if (diceAnimationIntervalId !== null && diceAnimationIntervalId !== undefined) {
+          clearInterval(diceAnimationIntervalId);
+          diceAnimationIntervalId = null;
+      }
+      
       // Reset all game state variables
       playerTurn = 1;
       linesToDraw = 0;
@@ -502,7 +554,6 @@ window.onload = function() {
       hasSpunLuckyWheelThisTurn = false; // Reset Lucky Wheel flag for new game
       twoPlayerExtraRollAfterFinish = false; // Reset extra roll flag for new game
       isLuckyWheelActive = false; // Reset Lucky Wheel active state for new game
-      clearInterval(diceAnimationIntervalId);
   }
 
   /**
@@ -512,7 +563,7 @@ window.onload = function() {
       if (gameMode === 'singlePlayer') {
           if (spPlayer1CountEl) spPlayer1CountEl.textContent = playerScores[1];
           if (spPlayer2CountEl) spPlayer2CountEl.textContent = playerScores[2];
-          if (spCurrentPlayerNameDisplay) spCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (spCurrentPlayerNameDisplay) spCurrentPlayerNameDisplay.textContent = truncateUsername(playerNames[playerTurn]);
           if (spLinesToDrawCountEl) spLinesToDrawCountEl.textContent = linesToDraw;
           if (spSpecialLineIndicatorEl) spSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
           
@@ -522,7 +573,7 @@ window.onload = function() {
       } else if (gameMode === 'twoPlayers') {
           if (tpPlayer1CountEl) tpPlayer1CountEl.textContent = playerScores[1];
           if (tpPlayer2CountEl) tpPlayer2CountEl.textContent = playerScores[2];
-          if (tpCurrentPlayerNameDisplay) tpCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (tpCurrentPlayerNameDisplay) tpCurrentPlayerNameDisplay.textContent = truncateUsername(playerNames[playerTurn]);
           if (tpLinesToDrawCountEl) tpLinesToDrawCountEl.textContent = linesToDraw;
           if (tpSpecialLineIndicatorEl) tpSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
           
@@ -532,7 +583,7 @@ window.onload = function() {
       } else if (gameMode === 'onlineMultiplayer') {
           if (onlinePlayer1CountEl) onlinePlayer1CountEl.textContent = playerScores[1];
           if (onlinePlayer2CountEl) onlinePlayer2CountEl.textContent = playerScores[2];
-          if (onlineCurrentPlayerNameDisplay) onlineCurrentPlayerNameDisplay.textContent = playerNames[playerTurn];
+          if (onlineCurrentPlayerNameDisplay) onlineCurrentPlayerNameDisplay.textContent = truncateUsername(playerNames[playerTurn]);
           if (onlineLinesToDrawCountEl) onlineLinesToDrawCountEl.textContent = linesToDraw;
           if (onlineSpecialLineIndicatorEl) onlineSpecialLineIndicatorEl.style.display = hasSpecialLine ? 'block' : 'none';
           
@@ -604,33 +655,31 @@ window.onload = function() {
       
       // Generate a random dice value 1-6 and emit to other player
       const randomValue = Math.floor(Math.random() * 6) + 1;
-      const startTimestamp = Date.now() + 100; // Small delay to ensure sync
       
       console.log('[DEBUG] Generating random dice value:', randomValue);
       
-      // Emit the dice roll to the server
+      // Emit the dice roll to the server (no sync timing needed for smooth animation)
       if (onlineSocket && onlineLobbyCode) {
         onlineSocket.emit('gameAction', {
           lobbyCode: onlineLobbyCode,
           action: {
             type: 'syncRollDice',
             value: randomValue,
-            startTimestamp: startTimestamp,
             playerId: onlinePlayerRole // Add player ID to identify who rolled
           }
         });
       }
       
-      // Apply the roll locally with animation (for the player who rolled)
-      console.log('[DICE ROLL][LOCAL] Starting animation for dice value:', randomValue);
+      // Apply the roll locally with smooth animation (like single/two player)
+      console.log('[DICE ROLL][LOCAL] Starting smooth animation for dice value:', randomValue);
       
-      // Show animation for the local player - don't set values until animation completes
-      animateDiceRollSync(randomValue, startTimestamp, () => {
+      // Use the same smooth animation as single player mode for better UX
+      animateDiceRoll(randomValue, () => {
         // Set the values after the animation completes for local player
         diceValue = randomValue;
         linesToDraw = randomValue;
         hasRolledDice = true; // Mark that dice has been rolled for this turn
-        console.log('[DICE ROLL][LOCAL] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+        console.log('[DICE ROLL][LOCAL] Smooth animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
         displayDiceValue(diceValue);
         updateScoreDisplay();
         
@@ -802,7 +851,7 @@ window.onload = function() {
 
         // If Lucky Wheel marked this player's next turn to be skipped, consume and skip
         if (skipNextTurnForPlayer === playerTurn) {
-          const skippedPlayerName = playerNames[playerTurn] || `Player ${playerTurn}`;
+          const skippedPlayerName = truncateUsername(playerNames[playerTurn]) || `Player ${playerTurn}`;
           skipNextTurnForPlayer = null;
           showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
           // Immediately advance again to the other player
@@ -834,7 +883,7 @@ window.onload = function() {
     }
     
     // Check if user is logged in and has authService available
-    if (typeof window.authService !== 'undefined' && window.authService.isLoggedIn()) {
+    if (typeof window.authService !== 'undefined' && window.authService.isUserAuthenticated()) {
       // Determine if current user won
       const currentUserRole = window.onlinePlayerRole;
       const isWinner = (winner === currentUserRole);
@@ -898,7 +947,7 @@ window.onload = function() {
       // Check for majority win
       if (playerScores[1] > maxSquares / 2) {
           gameOver = true;
-          showMessage("Game Over!", `${playerNames[1]} wins with ${playerScores[1]} squares!`);
+          showMessage("Game Over!", `${truncateUsername(playerNames[1])} wins with ${playerScores[1]} squares!`);
           
           // Emit game over event to server for online multiplayer
           if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
@@ -915,12 +964,22 @@ window.onload = function() {
               });
               
               // Statistics will be updated by the backend socket controller for both players
+          } else if (gameMode === 'singlePlayer') {
+              // Update AI game statistics for single player mode
+              console.log('🎯 Game over - Player 1 won, calling updateAIGameStats');
+              updateAIGameStats(true, playerScores[1]); // Player 1 (human) won
+              
+              // Additional direct trigger for database write
+              console.log('🎯 Additional trigger for Player 1 win');
+              setTimeout(() => {
+                  triggerDatabaseWrite();
+              }, 500);
           }
           return;
       }
       if (playerScores[2] > maxSquares / 2) {
           gameOver = true;
-          showMessage("Game Over!", `${playerNames[2]} wins with ${playerScores[2]} squares!`);
+          showMessage("Game Over!", `${truncateUsername(playerNames[2])} wins with ${playerScores[2]} squares!`);
           
           // Emit game over event to server for online multiplayer
           if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
@@ -937,6 +996,16 @@ window.onload = function() {
               });
               
               // Statistics will be updated by the backend socket controller for both players
+          } else if (gameMode === 'singlePlayer') {
+              // Update AI game statistics for single player mode
+              console.log('🎯 Game over - Player 2 won, calling updateAIGameStats');
+              updateAIGameStats(false, playerScores[1]); // Player 1 (human) lost
+              
+              // Additional direct trigger for database write
+              console.log('🎯 Additional trigger for Player 2 win');
+              setTimeout(() => {
+                  triggerDatabaseWrite();
+              }, 500);
           }
           return;
       }
@@ -949,10 +1018,10 @@ window.onload = function() {
           let winnerMessage = '';
           let winner = null;
           if (playerScores[1] > playerScores[2]) {
-              winnerMessage = `${playerNames[1]} wins with ${playerScores[1]} squares!`;
+              winnerMessage = `${truncateUsername(playerNames[1])} wins with ${playerScores[1]} squares!`;
               winner = 1;
           } else if (playerScores[2] > playerScores[1]) {
-              winnerMessage = `${playerNames[2]} wins with ${playerScores[2]} squares!`;
+              winnerMessage = `${truncateUsername(playerNames[2])} wins with ${playerScores[2]} squares!`;
               winner = 2;
           } else {
               winnerMessage = "It's a tie!";
@@ -975,7 +1044,292 @@ window.onload = function() {
               });
               
               // Statistics will be updated by the backend socket controller for both players
+          } else if (gameMode === 'singlePlayer') {
+              // Update AI game statistics for single player mode
+              const humanWon = winner === 1;
+              console.log('🎯 Game over - All squares completed, calling updateAIGameStats');
+              console.log('🎯 Winner:', winner, 'Human won:', humanWon);
+              updateAIGameStats(humanWon, playerScores[1]);
+              
+              // Additional direct trigger for database write
+              console.log('🎯 Additional trigger for all squares completed');
+              setTimeout(() => {
+                  triggerDatabaseWrite();
+              }, 500);
           }
+      }
+  }
+
+  /**
+   * Triggers database write when Game Over popup appears
+   */
+  async function triggerDatabaseWrite() {
+    try {
+      console.log('🎯 triggerDatabaseWrite called');
+      console.log('🎯 Game mode:', gameMode);
+      console.log('🎯 Player scores:', playerScores);
+      console.log('🎯 Game over:', gameOver);
+      
+      // Determine if human player won
+      let humanWon = false;
+      if (playerScores[1] > playerScores[2]) {
+        humanWon = true;
+        console.log('🎯 Human player (Player 1) won');
+      } else if (playerScores[2] > playerScores[1]) {
+        humanWon = false;
+        console.log('🎯 AI player (Player 2) won');
+      } else {
+        // Tie - consider it as human loss for scoring purposes
+        humanWon = false;
+        console.log('🎯 Game ended in tie - counting as human loss');
+      }
+      
+      // Try direct database write first
+      console.log('🔄 Attempting direct database write...');
+      await directDatabaseWrite(humanWon, playerScores[1]);
+      
+      // Also call the existing updateAIGameStats function as backup
+      console.log('🔄 Attempting updateAIGameStats as backup...');
+      await updateAIGameStats(humanWon, playerScores[1]);
+      
+    } catch (error) {
+      console.error('❌ Error in triggerDatabaseWrite:', error);
+    }
+  }
+
+  /**
+   * Debug authentication status
+   */
+  window.debugAuth = function() {
+    console.log('🔍 DEBUG AUTH STATUS:');
+    console.log('AuthService exists:', typeof window.authService !== 'undefined');
+    if (window.authService) {
+      console.log('Current user:', window.authService.getCurrentUser());
+      console.log('Token:', window.authService.getToken());
+      console.log('Is authenticated:', window.authService.isUserAuthenticated());
+      console.log('Is guest:', window.authService.isGuest());
+    }
+  };
+
+  /**
+   * Test API endpoint directly (no auth required for testing)
+   */
+  window.testAPI = async function() {
+    try {
+      console.log('🧪 Testing API endpoint directly...');
+      
+      const response = await fetch('/api/auth/update-ai-stats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          won: true,
+          scoreChange: 5
+        })
+      });
+
+      console.log('API response status:', response.status);
+      const data = await response.json();
+      console.log('API response data:', data);
+      
+    } catch (error) {
+      console.error('API test error:', error);
+    }
+  };
+
+  /**
+   * Force database write function for testing
+   */
+  window.forceDatabaseWrite = async function(humanWon = true, humanScore = 5) {
+    try {
+      console.log('🔥 FORCE DATABASE WRITE called with:', { humanWon, humanScore });
+      
+      // Check if user is logged in
+      const user = window.authService ? window.authService.getCurrentUser() : null;
+      console.log('🔥 Current user:', user);
+      
+      if (!user || user.isGuest) {
+        console.log('❌ FORCE DB write: User not logged in or is guest');
+        return;
+      }
+
+      const token = window.authService.getToken();
+      if (!token) {
+        console.log('❌ FORCE DB write: No authentication token');
+        return;
+      }
+
+      const scoreChange = humanWon ? 5 : -2;
+      console.log(`🔥 FORCE DB write: humanWon=${humanWon}, scoreChange=${scoreChange}`);
+      
+      const response = await fetch('/api/auth/update-ai-stats', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          won: humanWon,
+          scoreChange: scoreChange
+        })
+      });
+
+      console.log('🔥 FORCE DB write response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ FORCE database write successful!');
+          console.log('📊 FORCE DB write stats:', data.stats);
+          return data.stats;
+        } else {
+          console.error('❌ FORCE DB write failed:', data.message);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ FORCE DB write error:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ FORCE DB write error:', error);
+    }
+  };
+
+  /**
+   * Direct database write function as fallback
+   */
+  async function directDatabaseWrite(humanWon, humanScore) {
+    try {
+      console.log('🔄 directDatabaseWrite called with:', { humanWon, humanScore });
+      
+      // Check if user is logged in
+      const user = window.authService ? window.authService.getCurrentUser() : null;
+      if (!user || user.isGuest) {
+        console.log('❌ Direct DB write: User not logged in or is guest');
+        return;
+      }
+
+      const token = window.authService.getToken();
+      if (!token) {
+        console.log('❌ Direct DB write: No authentication token');
+        return;
+      }
+
+      const scoreChange = humanWon ? 5 : -2;
+      console.log(`🔄 Direct DB write: humanWon=${humanWon}, scoreChange=${scoreChange}`);
+      
+      const response = await fetch('/api/auth/update-ai-stats', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          won: humanWon,
+          scoreChange: scoreChange
+        })
+      });
+
+      console.log('🔄 Direct DB write response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Direct database write successful!');
+          console.log('📊 Direct DB write stats:', data.stats);
+        } else {
+          console.error('❌ Direct DB write failed:', data.message);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Direct DB write error:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ Direct DB write error:', error);
+    }
+  }
+
+  /**
+   * Updates AI game statistics for single player mode
+   */
+  async function updateAIGameStats(humanWon, humanScore) {
+    try {
+      console.log('🎯 updateAIGameStats called with:', { humanWon, humanScore });
+      console.log('🎯 Game mode:', gameMode);
+      console.log('🎯 Current player turn:', playerTurn);
+      
+      // Only update stats if user is logged in
+      const user = window.authService ? window.authService.getCurrentUser() : null;
+      console.log('Current user:', user);
+      
+      if (!user || user.isGuest) {
+        console.log('User not logged in or is guest, skipping AI stats update');
+        return;
+      }
+
+      // New scoring system:
+      // Winner: +1 gamesWon, +5 totalScore
+      // Loser: -2 totalScore (but not below 0)
+      const scoreChange = humanWon ? 5 : -2;
+      
+      console.log(`Updating AI game stats: humanWon=${humanWon}, scoreChange=${scoreChange}`);
+      
+      const token = window.authService.getToken();
+      console.log('Auth token available:', !!token);
+      console.log('Auth token value:', token);
+      
+      if (!token) {
+        console.error('❌ No authentication token available');
+        return;
+      }
+      
+      const response = await fetch('/api/auth/update-ai-stats', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          won: humanWon,
+          scoreChange: scoreChange  // Send +5 for win, -2 for loss
+        })
+      });
+
+      console.log('API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API response data:', data);
+        
+        if (data.success) {
+          console.log('✅ AI game statistics updated successfully');
+          console.log('📊 Updated stats:', data.stats);
+          
+          // Update local user stats
+          if (window.authService.currentUser) {
+            window.authService.currentUser.stats = data.stats;
+            console.log('Updated local user stats:', data.stats);
+          }
+          
+          // Show success message to user
+          console.log('🎉 Database write completed successfully!');
+        } else {
+          console.error('❌ Failed to update AI game statistics:', data.message);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Error updating AI game statistics:', response.status, errorText);
+        
+        // Try to parse error response
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('❌ Error details:', errorData);
+        } catch (parseError) {
+          console.error('❌ Raw error response:', errorText);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating AI game statistics:', error);
       }
   }
 
@@ -1172,6 +1526,15 @@ window.onload = function() {
               console.error("Unable to get coordinates from event");
               return;
           }
+          
+          // Validate coordinates are numbers and within reasonable bounds
+          if (typeof clientX !== 'number' || typeof clientY !== 'number' || 
+              isNaN(clientX) || isNaN(clientY) || 
+              clientX < -10000 || clientX > 10000 || 
+              clientY < -10000 || clientY > 10000) {
+              console.error("Invalid coordinates:", { clientX, clientY });
+              return;
+          }
       } catch (error) {
           console.error("Error getting coordinates:", error);
           return;
@@ -1247,6 +1610,15 @@ window.onload = function() {
               clientY = event.clientY;
           } else {
               console.error("Unable to get coordinates from event");
+              return;
+          }
+          
+          // Validate coordinates are numbers and within reasonable bounds
+          if (typeof clientX !== 'number' || typeof clientY !== 'number' || 
+              isNaN(clientX) || isNaN(clientY) || 
+              clientX < -10000 || clientX > 10000 || 
+              clientY < -10000 || clientY > 10000) {
+              console.error("Invalid coordinates:", { clientX, clientY });
               return;
           }
       } catch (error) {
@@ -1473,6 +1845,15 @@ window.onload = function() {
               clientY = event.clientY;
           } else {
               console.error("Unable to get coordinates from event");
+              return;
+          }
+          
+          // Validate coordinates are numbers and within reasonable bounds
+          if (typeof clientX !== 'number' || typeof clientY !== 'number' || 
+              isNaN(clientX) || isNaN(clientY) || 
+              clientX < -10000 || clientX > 10000 || 
+              clientY < -10000 || clientY > 10000) {
+              console.error("Invalid coordinates:", { clientX, clientY });
               return;
           }
       } catch (error) {
@@ -1936,8 +2317,8 @@ window.onload = function() {
             playerNames[1] = (currentUser && currentUser.username) ? currentUser.username : 'Username';
           }
           playerNames[2] = 'AI Agent';
-          spPlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
-          spPlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
+          spPlayer1NameDisplay.textContent = truncateUsername(playerNames[1]) + ' (X)';
+          spPlayer2NameDisplay.textContent = truncateUsername(playerNames[2]) + ' (O)';
           showScreen(spGameScreen);
       } else if (gameMode === 'twoPlayers') {
           currentCanvas = tpGameCanvas;
@@ -1967,11 +2348,12 @@ window.onload = function() {
             playerNames[1] = (currentUser && currentUser.username) ? currentUser.username : 'Username';
           }
           playerNames[2] = tpPlayer2NameInput.value.trim() || 'Player 2';
-          tpPlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
-          tpPlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
+          tpPlayer1NameDisplay.textContent = truncateUsername(playerNames[1]) + ' (X)';
+          tpPlayer2NameDisplay.textContent = truncateUsername(playerNames[2]) + ' (O)';
           showScreen(tpGameScreen);
       } else if (gameMode === 'onlineMultiplayer') {
-          console.log('Starting online multiplayer game...');
+          console.log('🎮 Starting online multiplayer game...');
+          console.log('🎮 Online options received:', onlineOptions);
           currentCanvas = onlineGameCanvas;
           currentCtx = onlineCtx;
           
@@ -1980,10 +2362,11 @@ window.onload = function() {
           onlineLobbyCode = onlineOptions && onlineOptions.lobbyCode ? onlineOptions.lobbyCode : null;
           onlineSocket = onlineOptions && onlineOptions.socket ? onlineOptions.socket : window.socket;
           
-          console.log('Online multiplayer context set:', { 
+          console.log('🎮 Online multiplayer context set:', { 
             onlinePlayerRole, 
             onlineLobbyCode, 
-            hasSocket: !!onlineSocket 
+            hasSocket: !!onlineSocket,
+            onlineOptions: onlineOptions
           });
           
           // Set player names based on role
@@ -2017,11 +2400,11 @@ window.onload = function() {
               playerNames[2] = playerUsername;
           }
           
-          onlinePlayer1NameDisplay.textContent = playerNames[1] + ' (X)';
-          onlinePlayer2NameDisplay.textContent = playerNames[2] + ' (O)';
+          onlinePlayer1NameDisplay.textContent = truncateUsername(playerNames[1]) + ' (X)';
+          onlinePlayer2NameDisplay.textContent = truncateUsername(playerNames[2]) + ' (O)';
           
-          console.log('Player names set:', { player1: playerNames[1], player2: playerNames[2] });
-          console.log('About to show online game screen...');
+          console.log('🎮 Player names set:', { player1: playerNames[1], player2: playerNames[2] });
+          console.log('🎮 About to show online game screen...');
           
           showScreen(onlineGameScreen);
           
@@ -2029,10 +2412,10 @@ window.onload = function() {
           const onlineLobbyUI = document.getElementById('online-lobby-ui');
           if (onlineLobbyUI) {
             onlineLobbyUI.style.display = 'none';
-            console.log('Lobby UI hidden');
+            console.log('🎮 Lobby UI hidden');
           }
           
-          console.log('Online multiplayer game started successfully');
+          console.log('🎮 Online multiplayer game started successfully for player role:', onlinePlayerRole);
       }
 
       // Check if canvas and context are valid
@@ -2076,7 +2459,7 @@ window.onload = function() {
       }
 
       // Show game start message after everything is set up
-      showMessage("Game Start!", `It's ${playerNames[playerTurn]}'s turn. Roll the dice to begin!`);
+      showMessage("Game Start!", `It's ${truncateUsername(playerNames[playerTurn])}'s turn. Roll the dice to begin!`);
 
       // Single player games should always start with human player (Player 1)
       if (gameMode === 'singlePlayer') {
@@ -2090,124 +2473,124 @@ window.onload = function() {
    * Event Listeners for screen navigation and game actions.
    */
   if (singlePlayerBtn) {
-    singlePlayerBtn.addEventListener('click', () => {
-        showScreen(singlePlayerSetupScreen);
-    });
+  singlePlayerBtn.addEventListener('click', () => {
+      showScreen(singlePlayerSetupScreen);
+  });
   }
 
   if (twoPlayerBtn) {
-    twoPlayerBtn.addEventListener('click', () => {
-        showScreen(twoPlayerSetupScreen);
-    });
+  twoPlayerBtn.addEventListener('click', () => {
+      showScreen(twoPlayerSetupScreen);
+  });
   }
 
   if (onlineGameBtn) {
-    onlineGameBtn.addEventListener('click', () => {
-        const onlineLobbyUI = document.getElementById('online-lobby-ui');
-        if (onlineLobbyUI) onlineLobbyUI.style.display = 'block';
-    });
+  onlineGameBtn.addEventListener('click', () => {
+      const onlineLobbyUI = document.getElementById('online-lobby-ui');
+      if (onlineLobbyUI) onlineLobbyUI.style.display = 'block';
+  });
   }
 
   // Online game screen event listeners
   if (onlineRestartBtn) {
-    onlineRestartBtn.addEventListener('click', () => {
-        if (gameMode === 'onlineMultiplayer') {
-            showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
-                // Emit leave lobby event to notify opponent
-                if (onlineSocket && onlineLobbyCode) {
-                    onlineSocket.emit('leaveLobby', onlineLobbyCode);
-                }
-                showScreen(homeScreen);
-            }, () => {});
-        }
-    });
+  onlineRestartBtn.addEventListener('click', () => {
+      if (gameMode === 'onlineMultiplayer') {
+          showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
+              // Emit leave lobby event to notify opponent
+              if (onlineSocket && onlineLobbyCode) {
+                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
+              }
+              showScreen(homeScreen);
+          }, () => {});
+      }
+  });
   }
 
   if (onlineBackToHomeBtn) {
-    onlineBackToHomeBtn.addEventListener('click', () => {
-        if (gameMode === 'onlineMultiplayer') {
-            if (gameOver) {
-                // If game is over, just leave lobby and go home without confirmation
-                if (onlineSocket && onlineLobbyCode) {
-                    onlineSocket.emit('leaveLobby', onlineLobbyCode);
-                }
-                showScreen(homeScreen);
-            } else {
-                showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
-                    // Emit leave lobby event to notify opponent
-                    if (onlineSocket && onlineLobbyCode) {
-                        onlineSocket.emit('leaveLobby', onlineLobbyCode);
-                    }
-                    showScreen(homeScreen);
-                }, () => {});
-            }
-        }
-    });
+  onlineBackToHomeBtn.addEventListener('click', () => {
+      if (gameMode === 'onlineMultiplayer') {
+          if (gameOver) {
+              // If game is over, just leave lobby and go home without confirmation
+              if (onlineSocket && onlineLobbyCode) {
+                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
+              }
+              showScreen(homeScreen);
+          } else {
+              showConfirmation("Leave Game", "Are you sure you want to leave the game? This will end the current session.", () => {
+                  // Emit leave lobby event to notify opponent
+                  if (onlineSocket && onlineLobbyCode) {
+                      onlineSocket.emit('leaveLobby', onlineLobbyCode);
+                  }
+                  showScreen(homeScreen);
+              }, () => {});
+          }
+      }
+  });
   }
 
   if (startSinglePlayerGameBtn) {
-    startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
+  startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
   }
   if (startTwoPlayerGameBtn) {
-    startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
+  startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
   }
 
   // Setup screen back button handlers
   if (spSetupBackToHomeBtn) {
-    spSetupBackToHomeBtn.addEventListener('click', () => {
-        showScreen(homeScreen);
-    });
+  spSetupBackToHomeBtn.addEventListener('click', () => {
+      showScreen(homeScreen);
+  });
   }
   if (tpSetupBackToHomeBtn) {
-    tpSetupBackToHomeBtn.addEventListener('click', () => {
-        showScreen(homeScreen);
-    });
+  tpSetupBackToHomeBtn.addEventListener('click', () => {
+      showScreen(homeScreen);
+  });
   }
 
   if (messageBoxCloseBtn) {
-    messageBoxCloseBtn.addEventListener('click', hideMessageBox);
+  messageBoxCloseBtn.addEventListener('click', hideMessageBox);
   }
 
   if (spRestartBtn) {
-    spRestartBtn.addEventListener('click', () => {
-        if (gameOver) {
-            startGame('singlePlayer'); // No confirmation if game is over
-        } else {
-            showConfirmation("Restart Game?", "Are you sure you want to restart the single player game?",
-                () => startGame('singlePlayer'));
-        }
-    });
+  spRestartBtn.addEventListener('click', () => {
+      if (gameOver) {
+          startGame('singlePlayer'); // No confirmation if game is over
+      } else {
+          showConfirmation("Restart Game?", "Are you sure you want to restart the single player game?",
+              () => startGame('singlePlayer'));
+      }
+  });
   }
   if (spBackToHomeBtn) {
-    spBackToHomeBtn.addEventListener('click', () => {
-        if (gameOver) {
-            showScreen(homeScreen); // No confirmation if game is over
-        } else {
-            showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
-                () => showScreen(homeScreen));
-        }
-    });
+  spBackToHomeBtn.addEventListener('click', () => {
+      if (gameOver) {
+          showScreen(homeScreen); // No confirmation if game is over
+      } else {
+          showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
+              () => showScreen(homeScreen));
+      }
+  });
   }
 
   if (tpRestartBtn) {
-    tpRestartBtn.addEventListener('click', () => {
-        if (gameOver) {
-            startGame('twoPlayers'); // No confirmation if game is over
-        } else {
-            showConfirmation("Restart Game?", "Are you sure you want to restart the two player game?",
-                () => startGame('twoPlayers'));
-        }
-    });
+  tpRestartBtn.addEventListener('click', () => {
+      if (gameOver) {
+          startGame('twoPlayers'); // No confirmation if game is over
+      } else {
+          showConfirmation("Restart Game?", "Are you sure you want to restart the two player game?",
+              () => startGame('twoPlayers'));
+      }
+  });
   }
   if (tpBackToHomeBtn) {
-    tpBackToHomeBtn.addEventListener('click', () => {
-        if (gameOver) {
-            showScreen(homeScreen); // No confirmation if game is over
-        } else {
-            showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
-                () => showScreen(homeScreen));
-        }
-    });
+  tpBackToHomeBtn.addEventListener('click', () => {
+      if (gameOver) {
+          showScreen(homeScreen); // No confirmation if game is over
+      } else {
+          showConfirmation("Quit Game?", "Are you sure you want to quit the current game and go back to home?",
+              () => showScreen(homeScreen));
+      }
+  });
   }
 
   // Enhanced rules and info button event handlers with debugging
@@ -2655,11 +3038,22 @@ window.onload = function() {
       assertEqual(hasSpecialLine, false, 'hasSpecialLine should be false');
   });
 
+  // Expose essential functions globally
   window.startGame = startGame;
   window.homeScreen = homeScreen;
   window.showScreen = showScreen;
-
+  
+  // Ensure home screen is shown on game.js load with logging
+  console.log('game.js loaded, showing home screen...');
   showScreen(homeScreen);
+  
+  // Additional check to ensure home screen visibility
+  setTimeout(() => {
+    if (homeScreen && homeScreen.style.display === 'none') {
+      console.log('game.js fallback: Re-showing home screen');
+      showScreen(homeScreen);
+    }
+  }, 100);
 
   runUnitTestsBtn.addEventListener('click', runAllTests);
 
@@ -2783,6 +3177,13 @@ window.onload = function() {
 
   // Handle remote game actions from other player
   window.handleRemoteGameAction = function(action) {
+    try {
+      // Validate action
+      if (!action || !action.type) {
+        console.error('Invalid remote game action received:', action);
+        return;
+      }
+      
     console.log('Handling remote game action:', action);
     
     if (action.type === 'drawLine') {
@@ -2846,14 +3247,15 @@ window.onload = function() {
       
       // Only animate for the remote player (not the player who rolled)
       if (action.playerId !== onlinePlayerRole) {
-        console.log('[DICE ROLL][REMOTE] Starting animation for dice value:', action.value);
+        console.log('[DICE ROLL][REMOTE] Starting smooth animation for dice value:', action.value);
         
-        animateDiceRollSync(action.value, action.startTimestamp, () => {
+        // Use smooth animation like single/two player modes for better UX
+        animateDiceRoll(action.value, () => {
           // Set the values after the animation completes for remote player
           diceValue = action.value;
           linesToDraw = action.value;
           hasRolledDice = true; // Mark that dice has been rolled for this turn
-          console.log('[DICE ROLL][REMOTE] Animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
+          console.log('[DICE ROLL][REMOTE] Smooth animation complete. Dice rolled:', diceValue, '| linesToDraw:', linesToDraw, '| player:', playerTurn);
           displayDiceValue(diceValue);
           updateScoreDisplay();
           
@@ -2920,20 +3322,27 @@ window.onload = function() {
         winnerName = action.winnerName || `Player ${action.winner}`;
       }
       
-      showMessage("Game Over!", `${winnerName} wins with ${winnerScore} squares!`);
+      showMessage("Game Over!", `${truncateUsername(winnerName)} wins with ${winnerScore} squares!`);
       
       // Disable game interactions
       if (typeof window.disableGameInteractions === 'function') {
         window.disableGameInteractions();
       }
     }
+    } catch (error) {
+      console.error('Error handling remote game action:', error);
+    }
   };
 
   // Listen for remote dice roll events
   if (window.socket) {
     window.socket.on('gameAction', (action) => {
+      try {
       // Use the centralized handler
       window.handleRemoteGameAction(action);
+      } catch (error) {
+        console.error('Error in gameAction socket handler:', error);
+      }
     });
   }
 

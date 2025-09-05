@@ -150,6 +150,11 @@ export class AuthService {
     return this.currentUser;
   }
 
+  // Get token
+  getToken() {
+    return this.token;
+  }
+
   // Check if user is authenticated
   isUserAuthenticated() {
     return this.isAuthenticated && this.currentUser !== null;

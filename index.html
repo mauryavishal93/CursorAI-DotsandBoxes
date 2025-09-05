@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <meta name="format-detection" content="telephone=no">
     <title>Dots and Boxes</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/auth.css">
@@ -67,7 +72,7 @@
               <div id="share-icon-container" style="display: none; margin-top: 8px; text-align: center;">
                 <button id="share-lobby-icon" class="share-icon-btn" title="Share Lobby">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
                   </svg>
                 </button>
               </div>
@@ -448,22 +453,24 @@
                 </div>
 
                 <div class="profile-stats">
-                    <h4>📊 Game Statistics</h4>
+                    <h4>🤖 Single Player VS AI Game Statistics</h4>
+                    
+                    <!-- AI Statistics -->
                     <div class="stats-grid">
                         <div class="stat-item">
-                            <div class="stat-value" id="stat-games-played">0</div>
+                            <div class="stat-value" id="ai-stat-games-played">0</div>
                             <div class="stat-label">🎮 Games</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-value" id="stat-games-won">0</div>
+                            <div class="stat-value" id="ai-stat-games-won">0</div>
                             <div class="stat-label">🏆 Wins</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-value" id="stat-win-rate">0%</div>
+                            <div class="stat-value" id="ai-stat-win-rate">0%</div>
                             <div class="stat-label">📈 Rate</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-value" id="stat-total-score">0</div>
+                            <div class="stat-value" id="ai-stat-total-score">0</div>
                             <div class="stat-label">⭐ Score</div>
                         </div>
                     </div>
@@ -925,6 +932,10 @@
 
       getCurrentUser() {
         return this.currentUser;
+      }
+
+      getToken() {
+        return this.token;
       }
 
       isUserAuthenticated() {
@@ -1483,13 +1494,28 @@
         onlineGameBtn.addEventListener('click', () => {
           const onlineLobbyUI = document.getElementById('online-lobby-ui');
           if (onlineLobbyUI) {
-            onlineLobbyUI.style.display = 'block';
+            // Use proper screen switching to ensure clean UI state
+            showScreen(onlineLobbyUI);
+            
+            // Reset any previous error states or incorrect labels
+            const lobbyStatus = document.getElementById('lobby-status');
+            if (lobbyStatus) {
+              lobbyStatus.textContent = '';
+              lobbyStatus.style.color = ''; // Reset color
+            }
           }
         });
       }
     }
 
     function showScreen(screenElement) {
+      console.log('showScreen called with:', screenElement ? screenElement.id : 'null');
+      
+      if (!screenElement) {
+        console.error('Screen element not found');
+        return;
+      }
+      
       // Hide all screens
       const screens = document.querySelectorAll('[id$="-screen"], [id$="-ui"]');
       screens.forEach(screen => {
@@ -1498,9 +1524,35 @@
         }
       });
       
-      // Show the target screen
-      if (screenElement) {
-        screenElement.style.display = 'block';
+      // Show the target screen with flex display for consistent layout
+      screenElement.style.display = 'flex';
+      console.log('Screen shown:', screenElement.id);
+    }
+    
+    // Function to guarantee home screen visibility and button functionality
+    function ensureHomeScreenVisible() {
+      const homeScreen = document.getElementById('home-screen');
+      if (homeScreen) {
+        console.log('Ensuring home screen is visible on page load');
+        showScreen(homeScreen);
+        
+        // Ensure buttons are clickable by removing any potential overlays or disabled states
+        setTimeout(() => {
+          const buttons = homeScreen.querySelectorAll('button');
+          buttons.forEach(btn => {
+            btn.style.pointerEvents = 'auto';
+            btn.disabled = false;
+            btn.style.zIndex = 'auto';
+          });
+          
+          // Also ensure the home screen itself is properly positioned
+          homeScreen.style.zIndex = '1';
+          homeScreen.style.position = 'relative';
+          
+          console.log('Home screen buttons enabled and ready for interaction');
+        }, 100);
+      } else {
+        console.error('Home screen element not found!');
       }
     }
     
@@ -1768,10 +1820,10 @@
       
       // Update stats with current data
       const stats = user.stats || {};
-      document.getElementById('stat-games-played').textContent = stats.gamesPlayed || 0;
-      document.getElementById('stat-games-won').textContent = stats.gamesWon || 0;
-      document.getElementById('stat-win-rate').textContent = stats.winRate ? `${stats.winRate}%` : '0%';
-      document.getElementById('stat-total-score').textContent = stats.totalScore || 0;
+      console.log('Initial user stats:', stats);
+      
+      // Show only AI statistics
+      updateAIStatisticsDisplay();
       
       // Fetch fresh profile data from server
       try {
@@ -1789,20 +1841,15 @@
             const profile = data.profile;
             
             // Update with fresh data
-            document.getElementById('stat-games-played').textContent = profile.gamesPlayed;
-            document.getElementById('stat-games-won').textContent = profile.gamesWon;
-            document.getElementById('stat-win-rate').textContent = `${profile.winRate}%`;
-            document.getElementById('stat-total-score').textContent = profile.totalScore;
+            console.log('Fresh profile data from server:', profile);
             
             // Update user object with fresh stats
             if (window.authService.currentUser) {
-              window.authService.currentUser.stats = {
-                gamesPlayed: profile.gamesPlayed,
-                gamesWon: profile.gamesWon,
-                totalScore: profile.totalScore,
-                winRate: profile.winRate
-              };
+              window.authService.currentUser.stats = profile;
             }
+            
+            // Update AI statistics with fresh data
+            updateAIStatisticsDisplay();
           }
         }
       } catch (error) {
@@ -2341,6 +2388,44 @@
       }
     }
     
+    function updateAIStatisticsDisplay() {
+      const user = window.authService ? window.authService.getCurrentUser() : null;
+      if (!user) {
+        console.log('No user found for statistics update');
+        return;
+      }
+      
+      if (!user.stats) {
+        console.log('No user stats found, initializing with default values');
+        user.stats = { online: {}, ai: {} };
+      }
+      
+      const stats = user.stats;
+      console.log('Updating AI statistics display. Stats:', stats);
+      
+      const aiStats = stats.ai || {};
+      console.log('AI stats to display:', aiStats);
+      
+      // Use AI stats if available, otherwise show 0 (since AI stats are separate)
+      const gamesPlayed = aiStats.gamesPlayed || 0;
+      const gamesWon = aiStats.gamesWon || 0;
+      const totalScore = aiStats.totalScore || 0;
+      const winRate = aiStats.winRate || (gamesPlayed > 0 ? (gamesWon / gamesPlayed * 100).toFixed(1) : 0);
+      
+      // Update the AI statistics elements
+      document.getElementById('ai-stat-games-played').textContent = gamesPlayed;
+      document.getElementById('ai-stat-games-won').textContent = gamesWon;
+      document.getElementById('ai-stat-win-rate').textContent = `${winRate}%`;
+      document.getElementById('ai-stat-total-score').textContent = totalScore;
+      
+      console.log('Updated AI stats display:', {
+        gamesPlayed: gamesPlayed,
+        gamesWon: gamesWon,
+        winRate: `${winRate}%`,
+        totalScore: totalScore
+      });
+    }
+    
     async function logout() {
       try {
         await window.authService.logout();
@@ -2417,9 +2502,188 @@
     }
   </script>
   
+  <!-- Fallback to ensure home screen is always shown -->
+  <script>
+    // Additional fallback to ensure home screen is visible
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const homeScreen = document.getElementById('home-screen');
+        if (homeScreen && homeScreen.style.display === 'none') {
+          console.log('Fallback: Ensuring home screen is visible after page load');
+          if (typeof showScreen === 'function') {
+            showScreen(homeScreen);
+          } else {
+            homeScreen.style.display = 'flex';
+          }
+        }
+      }, 200);
+    });
+  </script>
+  
   <!-- Always load these dependencies -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/online.js"></script>
   <audio id="dice-audio" src="/assets/dice-roll.wav" preload="auto"></audio>
+  
+  <!-- Mobile-First Optimization Script -->
+  <script>
+      // Force mobile view and optimize for cross-platform compatibility
+      (function() {
+          'use strict';
+          
+          // Force mobile viewport on desktop
+          function forceMobileView() {
+              // Set mobile-optimized viewport
+              let viewport = document.querySelector('meta[name="viewport"]');
+              if (viewport) {
+                  viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+              }
+              
+              // Add mobile-first class to body
+              document.body.classList.add('mobile-first-view');
+              
+              // Prevent zoom on form inputs (iOS)
+              const inputs = document.querySelectorAll('input, select, textarea');
+              inputs.forEach(input => {
+                  input.addEventListener('focus', () => {
+                      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+                  });
+                  input.addEventListener('blur', () => {
+                      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+                  });
+              });
+          }
+          
+          // Optimize touch interactions
+          function optimizeTouchInteractions() {
+              // Add touch-friendly class for better button interactions
+              document.body.classList.add('touch-optimized');
+              
+              // Prevent double-tap zoom
+              let lastTouchEnd = 0;
+              document.addEventListener('touchend', function(event) {
+                  const now = (new Date()).getTime();
+                  if (now - lastTouchEnd <= 300) {
+                      event.preventDefault();
+                  }
+                  lastTouchEnd = now;
+              }, false);
+              
+              // Optimize button clicks for mobile
+              const buttons = document.querySelectorAll('button, .btn');
+              buttons.forEach(button => {
+                  button.addEventListener('touchstart', function() {
+                      this.classList.add('touch-active');
+                  });
+                  button.addEventListener('touchend', function() {
+                      setTimeout(() => {
+                          this.classList.remove('touch-active');
+                      }, 150);
+                  });
+              });
+          }
+          
+          // Cross-platform compatibility fixes
+          function crossPlatformOptimization() {
+              // iOS specific optimizations
+              if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                  document.body.classList.add('ios-device');
+                  // Prevent bounce scrolling
+                  document.body.style.overscrollBehavior = 'none';
+              }
+              
+              // Android specific optimizations
+              if (/Android/.test(navigator.userAgent)) {
+                  document.body.classList.add('android-device');
+                  // Optimize for Android browsers
+                  document.body.style.webkitTouchCallout = 'none';
+              }
+              
+              // Desktop browsers - force mobile view
+              if (!/Mobi|Android/i.test(navigator.userAgent)) {
+                  document.body.classList.add('desktop-mobile-view');
+                  console.log('Desktop detected: Forcing mobile view for optimal experience');
+              }
+          }
+          
+          // Perfect 567x875 scaling system with mobile visibility enhancements
+          function initializePerfectScaling() {
+              const updateScaling = () => {
+                  const vw = window.innerWidth;
+                  const vh = window.innerHeight;
+                  const aspectRatio = 567 / 875; // 0.648
+                  
+                  // Calculate optimal dimensions
+                  let containerWidth, containerHeight;
+                  
+                  if (vw / vh > aspectRatio) {
+                      // Screen is wider than our aspect ratio
+                      containerHeight = Math.min(vh, 875);
+                      containerWidth = containerHeight * aspectRatio;
+                  } else {
+                      // Screen is taller than our aspect ratio
+                      containerWidth = Math.min(vw, 567);
+                      containerHeight = containerWidth / aspectRatio;
+                  }
+                  
+                  // Calculate scale factor
+                  const scaleFactor = Math.min(containerWidth / 567, containerHeight / 875);
+                  
+                  // Update CSS custom properties
+                  document.documentElement.style.setProperty('--scale-factor', scaleFactor);
+                  document.documentElement.style.setProperty('--container-width', `${containerWidth}px`);
+                  document.documentElement.style.setProperty('--container-height', `${containerHeight}px`);
+                  
+                  // Mobile visibility enhancements
+                  if (vw <= 480 && vh <= 700) {
+                      // Very small mobile - add extra visibility class
+                      document.body.classList.add('ultra-compact-mobile');
+                      console.log('Ultra-compact mobile mode activated');
+                  } else {
+                      document.body.classList.remove('ultra-compact-mobile');
+                  }
+                  
+                  // Ensure dice area is always visible
+                  setTimeout(() => {
+                      const diceAreas = document.querySelectorAll('.dice-area');
+                      diceAreas.forEach(area => {
+                          if (area && area.style) {
+                              area.style.display = 'flex';
+                              area.style.visibility = 'visible';
+                          }
+                      });
+                  }, 50);
+                  
+                  console.log(`Perfect scaling: ${containerWidth}x${containerHeight} (scale: ${scaleFactor.toFixed(3)})`);
+              };
+              
+              // Update on load and resize
+              updateScaling();
+              window.addEventListener('resize', updateScaling);
+              window.addEventListener('orientationchange', () => {
+                  setTimeout(updateScaling, 100);
+              });
+          }
+          
+          // Initialize mobile-first optimizations
+          document.addEventListener('DOMContentLoaded', function() {
+              forceMobileView();
+              optimizeTouchInteractions();
+              crossPlatformOptimization();
+              initializePerfectScaling();
+              
+              // Ensure home screen is always visible and buttons are clickable
+              ensureHomeScreenVisible();
+              
+              console.log('Perfect 567x875 proportional scaling initialized for all devices');
+          });
+          
+          // Handle orientation changes
+          window.addEventListener('orientationchange', function() {
+              setTimeout(forceMobileView, 100);
+          });
+          
+      })();
+  </script>
 </body>
 </html> 
