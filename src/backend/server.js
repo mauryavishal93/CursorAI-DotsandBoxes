@@ -17,7 +17,10 @@ class GameServer {
     this.app = express();
     this.server = http.createServer(this.app);
     this.io = new Server(this.server);
-    this.connectDatabase();
+  }
+
+  async initialize() {
+    await this.connectDatabase();
     this.setupMiddleware();
     this.setupRoutes();
     this.setupSocket();
@@ -28,16 +31,24 @@ class GameServer {
       // Try local MongoDB first, then Atlas
       const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dots-and-boxes';
       
+      console.log('🔄 Attempting to connect to MongoDB...');
+      console.log(`📍 Connection URI: ${mongoUri.replace(/\/\/.*@/, '//***:***@')}`);
+      
       await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       });
-      console.log('✅ Connected to MongoDB');
+      
+      console.log('✅ Successfully connected to MongoDB');
       global.useInMemoryStorage = false;
       console.log('📊 Using MongoDB storage system');
       
+      // Test database connection by creating a test document
+      await this.testDatabaseConnection();
+      
     } catch (error) {
-      console.log('⚠️  MongoDB not available, using in-memory storage');
+      console.log('❌ MongoDB connection failed:', error.message);
+      console.log('⚠️  Falling back to in-memory storage');
       console.log('💡 To use MongoDB:');
       console.log('   1. Install MongoDB locally: https://www.mongodb.com/try/download/community');
       console.log('   2. Start MongoDB service: net start MongoDB');
@@ -47,6 +58,34 @@ class GameServer {
       global.useInMemoryStorage = true;
       console.log('📊 Using in-memory storage system');
       console.log('📝 Note: Data will be lost on server restart');
+    }
+  }
+
+  async testDatabaseConnection() {
+    if (global.useInMemoryStorage) return;
+    
+    try {
+      console.log('🧪 Testing database write operations...');
+      const User = require('./models/User');
+      const testUser = new User({
+        username: 'connection_test_' + Date.now(),
+        email: 'test@test.com',
+        password: 'testpassword',
+        isGuest: true
+      });
+      
+      await testUser.save();
+      console.log('✅ Database write test successful - User created with ID:', testUser._id);
+      
+      // Clean up test user
+      await User.deleteOne({ _id: testUser._id });
+      console.log('🧹 Test user cleaned up successfully');
+      console.log('💾 Database is ready for production writes');
+      
+    } catch (error) {
+      console.error('❌ Database write test failed:', error.message);
+      console.log('⚠️  Switching to in-memory storage due to write test failure');
+      global.useInMemoryStorage = true;
     }
   }
 
@@ -117,7 +156,19 @@ class GameServer {
 }
 
 // Start the server
-const gameServer = new GameServer();
-gameServer.start();
+async function startServer() {
+  try {
+    console.log('🚀 Starting Dots and Boxes server...');
+    const gameServer = new GameServer();
+    await gameServer.initialize();
+    gameServer.start();
+    console.log('🎮 Server initialization complete!');
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = GameServer;

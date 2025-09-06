@@ -90,8 +90,10 @@ router.post('/register', registerValidation, async (req, res) => {
         password,
         isGuest: false
       });
+      console.log('💾 Saving new user to MongoDB database...');
       await user.save();
-      console.log('User created with ID:', user._id);
+      console.log('✅ User successfully saved to MongoDB with ID:', user._id);
+      console.log('📊 User stats initialized:', user.getStats());
     }
 
     // Generate token
