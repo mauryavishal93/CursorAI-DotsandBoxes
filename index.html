@@ -2659,21 +2659,43 @@
   
   <!-- Verify game.js loaded properly -->
   <script>
+    function verifyGameFunctions() {
+      console.log('🔍 Game function verification:', {
+        startGame: typeof window.startGame,
+        showScreen: typeof window.showScreen,
+        showMessage: typeof window.showMessage,
+        homeScreen: typeof window.homeScreen,
+        __gameInitDone: window.__gameInitDone
+      });
+      
+      if (typeof window.startGame === 'undefined') {
+        console.error('❌ CRITICAL: window.startGame is undefined after game.js load!');
+        console.log('🔍 Available window functions:', Object.keys(window).filter(key => typeof window[key] === 'function').slice(0, 20));
+        return false;
+      } else {
+        console.log('✅ game.js loaded successfully - all functions are available');
+        return true;
+      }
+    }
+
+    // Try verification multiple times with increasing delays
     document.addEventListener('DOMContentLoaded', () => {
+      // Immediate check
+      if (verifyGameFunctions()) return;
+      
+      // Check after 100ms
       setTimeout(() => {
-        console.log('🔍 Post-load game function check:', {
-          startGame: typeof window.startGame,
-          showScreen: typeof window.showScreen,
-          showMessage: typeof window.showMessage,
-          homeScreen: typeof window.homeScreen
-        });
+        if (verifyGameFunctions()) return;
         
-        if (typeof window.startGame === 'undefined') {
-          console.error('❌ CRITICAL: window.startGame is undefined after game.js load!');
-          console.log('🔍 Available window functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
-        } else {
-          console.log('✅ game.js loaded successfully - startGame function is available');
-        }
+        // Check after 500ms
+        setTimeout(() => {
+          if (verifyGameFunctions()) return;
+          
+          // Final check after 1000ms
+          setTimeout(() => {
+            verifyGameFunctions();
+          }, 1000);
+        }, 500);
       }, 100);
     });
   </script>
@@ -2842,7 +2864,66 @@
           }
           
           // Initialize mobile-first optimizations
-          // Full Screen Enforcement
+
+    // Dynamic Responsive Container Management
+    function initializeResponsiveContainer() {
+      const container = document.querySelector('.screen-container');
+      if (!container) return;
+      
+      function updateContainerSize() {
+        // Get actual viewport dimensions
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+        
+        // Set container size to exact viewport dimensions
+        container.style.width = vw + 'px';
+        container.style.height = vh + 'px';
+        
+        // Handle iOS Safari viewport issues
+        if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+          // Use window.innerHeight for iOS to account for Safari's dynamic viewport
+          container.style.height = window.innerHeight + 'px';
+          container.style.minHeight = window.innerHeight + 'px';
+        }
+        
+        // Handle Android Chrome viewport issues
+        if (navigator.userAgent.match(/Android/i)) {
+          // Account for Android's status bar and navigation
+          const androidVH = window.innerHeight;
+          container.style.height = androidVH + 'px';
+          container.style.minHeight = androidVH + 'px';
+        }
+        
+        // Add custom CSS properties for responsive components
+        document.documentElement.style.setProperty('--actual-vw', vw + 'px');
+        document.documentElement.style.setProperty('--actual-vh', vh + 'px');
+        
+        console.log(`📐 Container updated: ${vw}x${vh}px`);
+      }
+      
+      // Update on initial load
+      updateContainerSize();
+      
+      // Update on resize with debouncing
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updateContainerSize, 100);
+      });
+      
+      // Update on orientation change
+      window.addEventListener('orientationchange', () => {
+        // Delay to allow orientation change to complete
+        setTimeout(updateContainerSize, 300);
+      });
+      
+      // Update on visual viewport changes (mobile browsers)
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateContainerSize);
+      }
+    }
+
+    // Full Screen Enforcement
     function enforceFullScreen() {
       // Ensure full screen on page load
       document.documentElement.style.width = '100vw';
@@ -2921,6 +3002,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+              initializeResponsiveContainer();
               enforceFullScreen();
               enforcePortraitMode();
               forceMobileView();

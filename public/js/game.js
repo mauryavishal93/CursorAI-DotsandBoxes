@@ -1,5 +1,5 @@
-// Wrap the entire script in a window.onload to ensure all elements and functions are loaded
-window.onload = function() {
+// Wrap the entire script in a DOMContentLoaded to ensure DOM is ready but expose functions earlier
+(function() {
   // Guard against double-initialization
   if (window.__gameInitDone) return;
   window.__gameInitDone = true;
@@ -4033,4 +4033,23 @@ window.onload = function() {
     return GRID_SIZE * GRID_SIZE - totalCompleted;
   }
 
-}; // End of window.onload
+  // Initialize DOM-dependent functionality when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeDOMElements);
+  } else {
+    // DOM is already ready
+    initializeDOMElements();
+  }
+  
+  function initializeDOMElements() {
+    // Initialize any DOM-dependent functionality here
+    console.log('🎮 Game.js DOM initialization complete');
+    
+    // Ensure home screen is visible if it exists
+    const homeScreen = document.getElementById('home-screen');
+    if (homeScreen && typeof showScreen === 'function') {
+      showScreen(homeScreen);
+    }
+  }
+
+})(); // End of IIFE (Immediately Invoked Function Expression)
