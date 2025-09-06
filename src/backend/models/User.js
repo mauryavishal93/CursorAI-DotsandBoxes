@@ -205,6 +205,36 @@ userSchema.methods.getPublicProfile = function() {
   };
 };
 
+// Method to get full stats (including score history)
+userSchema.methods.getStats = function() {
+  return {
+    _id: this._id,
+    username: this.username,
+    email: this.email,
+    points: this.points,
+    wins: this.wins,
+    losses: this.losses,
+    gamesPlayed: this.gamesPlayed,
+    currentStreak: this.currentStreak,
+    highestStreak: this.highestStreak,
+    winRate: this.winRate,
+    lossRate: this.lossRate,
+    scoreHistory: this.scoreHistory,
+    avatar: this.avatar,
+    isGuest: this.isGuest,
+    isAdmin: this.isAdmin,
+    createdAt: this.createdAt,
+    lastLogin: this.lastLogin,
+    lastGamePlayed: this.lastGamePlayed
+  };
+};
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  const bcrypt = require('bcryptjs');
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
 // Static methods for leaderboards
 userSchema.statics.getLeaderboard = async function(limit = 10, sortBy = 'points') {
   const validSortFields = ['points', 'wins', 'highestStreak', 'winRate'];
@@ -251,6 +281,22 @@ userSchema.statics.getLeaderboard = async function(limit = 10, sortBy = 'points'
       .lean();
   }
 };
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password')) return next();
+  
+  try {
+    const bcrypt = require('bcryptjs');
+    // Hash password with cost of 10
+    const hashedPassword = await bcrypt.hash(this.password, 10);
+    this.password = hashedPassword;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Initialize score history on first save
 userSchema.pre('save', function(next) {
