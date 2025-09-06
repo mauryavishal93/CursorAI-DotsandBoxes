@@ -2865,62 +2865,96 @@
           
           // Initialize mobile-first optimizations
 
-    // Dynamic Responsive Container Management
+    // Dynamic Responsive Container Management - AGGRESSIVE FULL SCREEN
     function initializeResponsiveContainer() {
       const container = document.querySelector('.screen-container');
       if (!container) return;
       
       function updateContainerSize() {
-        // Get actual viewport dimensions
-        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+        // CRITICAL: Force container to match body exactly
+        const bodyRect = document.body.getBoundingClientRect();
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0, bodyRect.width);
+        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0, bodyRect.height);
         
-        // Set container size to exact viewport dimensions
-        container.style.width = vw + 'px';
-        container.style.height = vh + 'px';
+        // AGGRESSIVE: Set container size with maximum priority
+        container.style.setProperty('width', vw + 'px', 'important');
+        container.style.setProperty('height', vh + 'px', 'important');
+        container.style.setProperty('min-width', vw + 'px', 'important');
+        container.style.setProperty('min-height', vh + 'px', 'important');
+        container.style.setProperty('max-width', vw + 'px', 'important');
+        container.style.setProperty('max-height', vh + 'px', 'important');
+        
+        // CRITICAL: Positioning to match body exactly
+        container.style.setProperty('position', 'fixed', 'important');
+        container.style.setProperty('top', '0', 'important');
+        container.style.setProperty('left', '0', 'important');
+        container.style.setProperty('margin', '0', 'important');
+        container.style.setProperty('border', 'none', 'important');
+        container.style.setProperty('box-sizing', 'border-box', 'important');
         
         // Handle iOS Safari viewport issues
         if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
-          // Use window.innerHeight for iOS to account for Safari's dynamic viewport
-          container.style.height = window.innerHeight + 'px';
-          container.style.minHeight = window.innerHeight + 'px';
+          const iosVH = window.innerHeight;
+          container.style.setProperty('height', iosVH + 'px', 'important');
+          container.style.setProperty('min-height', iosVH + 'px', 'important');
+          container.style.setProperty('max-height', iosVH + 'px', 'important');
         }
         
         // Handle Android Chrome viewport issues
         if (navigator.userAgent.match(/Android/i)) {
-          // Account for Android's status bar and navigation
           const androidVH = window.innerHeight;
-          container.style.height = androidVH + 'px';
-          container.style.minHeight = androidVH + 'px';
+          container.style.setProperty('height', androidVH + 'px', 'important');
+          container.style.setProperty('min-height', androidVH + 'px', 'important');
+          container.style.setProperty('max-height', androidVH + 'px', 'important');
         }
+        
+        // Set dynamic padding for content visibility (responsive to screen size)
+        const paddingV = Math.min(vh * 0.02, 16); // 2vh or max 16px
+        const paddingH = Math.min(vw * 0.02, 16); // 2vw or max 16px
+        container.style.setProperty('padding', `${paddingV}px ${paddingH}px`, 'important');
         
         // Add custom CSS properties for responsive components
         document.documentElement.style.setProperty('--actual-vw', vw + 'px');
         document.documentElement.style.setProperty('--actual-vh', vh + 'px');
+        document.documentElement.style.setProperty('--container-width', vw + 'px');
+        document.documentElement.style.setProperty('--container-height', vh + 'px');
         
-        console.log(`📐 Container updated: ${vw}x${vh}px`);
+        console.log(`📐 AGGRESSIVE Container sizing: ${vw}x${vh}px (body: ${bodyRect.width}x${bodyRect.height}px)`);
       }
       
       // Update on initial load
       updateContainerSize();
       
+      // Multiple update triggers for maximum compatibility
+      setTimeout(updateContainerSize, 100);  // Delayed initial
+      setTimeout(updateContainerSize, 500);  // Secondary delay
+      
       // Update on resize with debouncing
       let resizeTimeout;
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(updateContainerSize, 100);
+        resizeTimeout = setTimeout(updateContainerSize, 50);
       });
       
       // Update on orientation change
       window.addEventListener('orientationchange', () => {
-        // Delay to allow orientation change to complete
-        setTimeout(updateContainerSize, 300);
+        setTimeout(updateContainerSize, 100);
+        setTimeout(updateContainerSize, 500); // Double check after orientation settles
       });
       
       // Update on visual viewport changes (mobile browsers)
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', updateContainerSize);
       }
+      
+      // Update on scroll (mobile address bar changes)
+      window.addEventListener('scroll', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updateContainerSize, 100);
+      });
+      
+      // Continuous monitoring for mobile browsers (every 2 seconds)
+      setInterval(updateContainerSize, 2000);
     }
 
     // Full Screen Enforcement

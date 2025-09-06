@@ -214,35 +214,38 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
   align-items: center;
   background: #E0C097;
   
-  /* Full Viewport Sizing - Universal */
-  width: 100vw;
-  height: 100vh;
-  min-width: 100vw;
-  min-height: 100vh;
-  max-width: 100vw;
-  max-height: 100vh;
+  /* CRITICAL: Full Body Size Matching - Override Everything */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-width: 100vw !important;
+  min-height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
   
   /* Reset all potential constraints */
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0;
-  padding: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
   
   /* Positioning and Overflow */
-  position: relative;
-  box-sizing: border-box;
-  overflow: hidden;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  z-index: 1;
   
   /* Cross-platform compatibility */
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box !important;
+  -moz-box-sizing: border-box !important;
   
   /* Prevent any browser defaults */
-  outline: none;
+  outline: none !important;
   
-  /* Dynamic padding based on viewport */
-  padding: min(2vh, 16px) min(2vw, 16px);
+  /* Dynamic padding based on viewport - Applied via JavaScript */
+  /* padding will be set dynamically to maintain content visibility */
 }
 
 /* ===== BROWSER-SPECIFIC OPTIMIZATIONS ===== */
@@ -250,9 +253,9 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
 /* Safari specific optimizations */
 @supports (-webkit-appearance: none) {
   .screen-container {
-    /* Handle Safari's viewport units issues */
-    height: -webkit-fill-available;
-    min-height: -webkit-fill-available;
+    /* Handle Safari's viewport units issues while maintaining fixed positioning */
+    height: 100vh !important;
+    min-height: 100vh !important;
   }
 }
 
@@ -458,16 +461,12 @@ body.landscape-blocked::after {
 
 /* Ultra-wide screens (4K, Ultra-wide monitors) */
 @media (min-width: 1920px) {
-  .screen-container {
-    padding: min(3vh, 24px) min(3vw, 24px);
-  }
+  /* screen-container sizing and padding handled by JavaScript for consistency */
 }
 
 /* Large Desktop screens (1200px - 1919px) */
 @media (min-width: 1200px) and (max-width: 1919px) {
-  .screen-container {
-    padding: min(2.5vh, 20px) min(2.5vw, 20px);
-  }
+  /* screen-container sizing and padding handled by JavaScript for consistency */
 }
 
 /* Standard Desktop screens (769px - 1199px) */
@@ -481,17 +480,12 @@ body.landscape-blocked::after {
     margin: 0;
   }
   
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(2vh, 16px) min(2vw, 16px);
-    overflow: auto;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
 }
   
   .game-screen-base canvas, canvas {
-    max-width: calc(var(--container-width) * 0.85) !important;
-    max-height: calc(var(--container-height) * 0.6) !important;
+    max-width: calc(var(--container-width) * 0.92) !important;
+    max-height: calc(var(--container-height) * 0.68) !important;
   }
   
   .game-screen-base .button-group .btn {
@@ -504,20 +498,12 @@ body.landscape-blocked::after {
 
 /* Large Tablets (769px - 1024px landscape, 768px portrait) */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .screen-container {
-    padding: min(1.8vh, 14px) min(1.8vw, 14px);
-    overflow: auto;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
 }
 
 /* Standard Tablets (481px - 768px) */
 @media (min-width: 481px) and (max-width: 768px) {
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(1.5vh, 12px) min(1.5vw, 12px);
-    overflow: auto;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
   
   /* Tablet-specific optimizations */
   body {
@@ -527,18 +513,13 @@ body.landscape-blocked::after {
 }
   
   .game-screen-base canvas, canvas {
-    max-width: calc(var(--container-width) * 0.88) !important;
-    max-height: calc(var(--container-height) * 0.58) !important;
+    max-width: calc(var(--container-width) * 0.94) !important;
+    max-height: calc(var(--container-height) * 0.65) !important;
   }
 
 /* Large Mobile devices (414px - 480px) */
 @media (min-width: 414px) and (max-width: 480px) {
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(1.2vh, 10px) min(1.2vw, 10px);
-    overflow: hidden;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
   
   /* iOS Safari specific fixes */
   body {
@@ -549,12 +530,7 @@ body.landscape-blocked::after {
 
 /* Standard Mobile devices (361px - 413px) */
 @media (min-width: 361px) and (max-width: 413px) {
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(1vh, 8px) min(1vw, 8px);
-    overflow: hidden;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
 }
   
   .auth-header {
@@ -580,10 +556,10 @@ body.landscape-blocked::after {
     flex-shrink: 0;
   }
   
-  /* Optimize canvas size for mobile */
+  /* Optimize canvas size for mobile - Increased for better UX */
   .game-screen-base canvas, canvas {
-    max-width: calc(var(--container-width) * 0.92) !important;
-    max-height: calc(var(--container-height) * 0.5) !important;
+    max-width: calc(var(--container-width) * 0.96) !important;
+    max-height: calc(var(--container-height) * 0.58) !important;
     margin: 0 auto calc(var(--scale-factor) * 0.1rem) auto;
     flex-shrink: 1;
   }
@@ -600,11 +576,11 @@ body.landscape-blocked::after {
     justify-content: center;
   }
   
-  /* Compact button group at bottom */
+  /* Compact button group - Moved up for better visibility */
   .game-screen-base .button-group {
-    order: 1; /* Move to bottom */
-    margin: calc(var(--scale-factor) * 0.1rem) 0 0 0;
-    gap: calc(var(--scale-factor) * 0.7rem);
+    order: 10; /* Ensure proper stacking order */
+    margin: 0 0 calc(var(--scale-factor) * 0.2rem) 0; /* No top margin, bottom margin for spacing */
+    gap: calc(var(--scale-factor) * 0.6rem); /* Slightly reduced gap */
     min-height: calc(var(--scale-factor) * 40px);
     flex-shrink: 0;
   }
@@ -864,10 +840,12 @@ canvas:hover {
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center; /* Changed from flex-start to center for better button positioning */
   height: 100%;
   text-align: center;
-  padding-top: 2rem;
+  padding-top: 1.5rem; /* Reduced padding for better space utilization */
+  padding-bottom: 2rem; /* Added bottom padding to push buttons up */
+  gap: 1rem; /* Added gap for better component spacing */
 }
 .setup-screen-base h2 {
   font-size: 1.8rem;
@@ -895,43 +873,62 @@ canvas:hover {
   max-width: 250px;
   padding: 0.7rem 1.2rem;
   font-size: 1rem;
+  margin-top: 0.5rem; /* Added margin to push button up slightly */
 }
 
 /* Setup Screen Responsive Adjustments */
 @media (max-width: 480px) {
   .setup-screen-base {
-    padding-top: 1.5rem;
+    padding-top: 1rem; /* Reduced for mobile to move content up */
+    padding-bottom: 1.5rem; /* Ensure buttons are well-positioned */
+    gap: 0.8rem; /* Reduced gap for mobile */
   }
   
   .setup-screen-base h2 {
     font-size: 1.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem; /* Reduced margin for better spacing */
+  }
+  
+  .setup-screen-base .btn {
+    margin-top: 0.3rem; /* Reduced margin for mobile */
   }
 }
 
 @media (max-width: 320px) {
   .setup-screen-base {
-    padding-top: 1rem;
+    padding-top: 0.8rem; /* Further reduced for very small screens */
+    padding-bottom: 1.2rem; /* Ensure buttons are visible */
+    gap: 0.6rem; /* Smaller gap for tiny screens */
   }
   
   .setup-screen-base h2 {
     font-size: 1.3rem;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.6rem; /* Reduced margin for small screens */
+  }
+  
+  .setup-screen-base .btn {
+    margin-top: 0.2rem; /* Minimal margin for small screens */
   }
 }
 
-/* For very short screens */
+/* For very short screens - Optimize for button visibility */
 @media (max-height: 600px) {
   .setup-screen-base {
-    padding-top: 1rem;
+    padding-top: 0.5rem; /* Minimal top padding for short screens */
+    padding-bottom: 1rem; /* Ensure buttons are visible */
+    gap: 0.5rem; /* Compact spacing for short screens */
   }
   
   .setup-screen-base h2 {
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.4rem; /* Reduced margin */
   }
   
   .setup-screen-base input[type="text"] {
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.4rem; /* Reduced margin */
+  }
+  
+  .setup-screen-base .btn {
+    margin-top: 0.2rem; /* Minimal margin for short screens */
   }
 }
 
@@ -978,33 +975,32 @@ canvas:hover {
   align-items: center;
   width: 100%;
   flex: 1;
-  padding: calc(var(--scale-factor) * 0.2rem) calc(var(--scale-factor) * 0.3rem);
+  padding: calc(var(--scale-factor) * 0.1rem) calc(var(--scale-factor) * 0.2rem) calc(var(--scale-factor) * 0.3rem); /* Adjusted padding: less top, more bottom for button visibility */
   justify-content: space-between;
   overflow: hidden;
-  gap: calc(var(--scale-factor) * 0.2rem);
+  gap: calc(var(--scale-factor) * 0.12rem); /* Further reduced gap for better button positioning */
   min-height: 0;
+  box-sizing: border-box;
 }
 .game-screen-base canvas {
   background-color: #B8860B;
   border-radius: 0.75rem;
   box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.15);
   touch-action: none;
-  margin: 0.2rem;
-  width: 100%;
-  max-width: min(500px, 80vw);
+  margin: 0.15rem; /* Slightly reduced margin for more canvas space */
+  flex-shrink: 0; /* Prevent canvas from shrinking */
+  width: auto;
   height: auto;
-  max-height: 60vh;
-  flex-shrink: 1;
 }
-/* Proportionally scaled game info layout */
+/* Proportionally scaled game info layout - Optimized for larger canvas */
 .game-screen-base .game-info {
   display: flex;
   justify-content: space-around;
   width: 100%;
-  margin-bottom: calc(var(--scale-factor) * 0.2rem);
-  gap: calc(var(--scale-factor) * 0.3rem);
+  margin-bottom: calc(var(--scale-factor) * 0.15rem); /* Reduced margin for more canvas space */
+  gap: calc(var(--scale-factor) * 0.25rem); /* Slightly reduced gap */
   flex-shrink: 0;
-  padding: 0 calc(var(--scale-factor) * 0.2rem);
+  padding: 0 calc(var(--scale-factor) * 0.15rem); /* Reduced padding */
   align-items: center;
 }
 /* Proportionally scaled player score display */
@@ -1025,9 +1021,9 @@ canvas:hover {
   border: 2px solid #CD853F;
   color: #8B4513;
 }
-/* Proportionally scaled dice area - always visible */
+/* Proportionally scaled dice area - always visible - Optimized for larger canvas */
 .dice-area {
-  margin-top: calc(var(--scale-factor) * 1rem);
+  margin-top: calc(var(--scale-factor) * 0.8rem); /* Reduced margin for more canvas space */
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -1103,22 +1099,12 @@ canvas {
 }
 /* Small Mobile devices (321px - 360px) */
 @media (min-width: 321px) and (max-width: 360px) {
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(0.8vh, 6px) min(0.8vw, 6px);
-    overflow: hidden;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
 }
 
 /* Extra Small Mobile devices (≤ 320px) */
 @media (max-width: 320px) {
-  .screen-container {
-    width: 100vw;
-    height: 100vh;
-    padding: min(0.5vh, 4px) min(0.5vw, 4px);
-    overflow: hidden;
-  }
+  /* screen-container sizing handled by base CSS and JavaScript */
   
   /* Ultra-compact mode for very small screens */
   body {
@@ -1154,10 +1140,10 @@ canvas {
     margin-bottom: calc(var(--scale-factor) * 0.05rem);
   }
   
-  /* Smaller canvas for more room */
+  /* Optimized canvas for small screens - Increased for better UX */
   .game-screen-base canvas, canvas {
-    max-width: calc(var(--container-width) * 0.85) !important;
-    max-height: calc(var(--container-height) * 0.45) !important;
+    max-width: calc(var(--container-width) * 0.90) !important;
+    max-height: calc(var(--container-height) * 0.52) !important;
     margin: calc(var(--scale-factor) * 0.05rem) auto;
   }
   
@@ -1173,11 +1159,11 @@ canvas {
     justify-content: center;
   }
   
-  /* Ultra-compact button group */
+  /* Ultra-compact button group - Moved up for visibility */
   .game-screen-base .button-group {
-    margin: calc(var(--scale-factor) * 0.1rem) 0;
-    gap: calc(var(--scale-factor) * 0.6rem);
-    min-height: calc(var(--scale-factor) * 40px);
+    margin: 0 0 calc(var(--scale-factor) * 0.15rem) 0; /* No top margin, small bottom margin */
+    gap: calc(var(--scale-factor) * 0.5rem); /* Reduced gap for compact layout */
+    min-height: calc(var(--scale-factor) * 38px); /* Slightly reduced height */
   }
 
 /* Mobile-optimized dice center content - always visible */
@@ -1380,18 +1366,19 @@ canvas {
   flex-wrap: nowrap;
 }
 
-/* Proportionally scaled button groups */
+/* Proportionally scaled button groups - Optimized for better visibility */
 .game-screen-base .button-group {
   flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
-  gap: calc(var(--scale-factor) * 1.2rem);
+  gap: calc(var(--scale-factor) * 0.9rem); /* Slightly reduced gap */
   flex-shrink: 0;
-  margin: calc(var(--scale-factor) * 0.3rem) 0 calc(var(--scale-factor) * 0.2rem) 0;
-  min-height: calc(var(--scale-factor) * 48px);
+  margin: calc(var(--scale-factor) * 0.1rem) 0 calc(var(--scale-factor) * 0.2rem) 0; /* Moved up: less top margin, more bottom */
+  min-height: calc(var(--scale-factor) * 44px);
   padding: 0;
   width: 100%;
-  max-width: calc(var(--container-width) * 0.85);
+  max-width: calc(var(--container-width) * 0.90);
+  order: 10; /* Ensure buttons appear at bottom but with proper spacing */
 }
 
 /* Proportionally scaled game screen buttons */
@@ -1434,8 +1421,8 @@ canvas {
   /* Optimized game screen buttons for tablets */
   .game-screen-base .button-group {
     flex-wrap: nowrap;
-    gap: 0.8rem;
-    margin: 0.2rem 0;
+    gap: 0.7rem; /* Slightly reduced gap */
+    margin: 0 0 0.3rem 0; /* No top margin, bottom margin for visibility */
     max-width: 350px;
   }
   
@@ -1472,8 +1459,8 @@ canvas {
   /* Optimized game screen buttons for small mobile */
   .game-screen-base .button-group {
     flex-wrap: nowrap;
-    gap: 0.6rem;
-    margin: 0.2rem 0;
+    gap: 0.5rem; /* Reduced gap for compact layout */
+    margin: 0 0 0.25rem 0; /* No top margin, small bottom margin */
     max-width: 320px;
     justify-content: space-evenly;
   }
@@ -1495,10 +1482,10 @@ canvas {
 @media (max-width: 480px) {
   .game-screen-base .button-group {
     flex-wrap: nowrap;
-    gap: 0.5rem;
+    gap: 0.4rem; /* Reduced gap for mobile */
     padding: 0;
     justify-content: center;
-    margin: 0.2rem 0;
+    margin: 0 0 0.3rem 0; /* No top margin, bottom margin for visibility */
     max-width: 300px;
   }
   
@@ -1531,10 +1518,10 @@ canvas {
 @media (max-width: 400px) {
   .game-screen-base .button-group {
     flex-wrap: nowrap;
-    gap: 0.4rem;
+    gap: 0.3rem; /* Further reduced gap for small screens */
     padding: 0;
     justify-content: center;
-    margin: 0.2rem 0;
+    margin: 0 0 0.25rem 0; /* No top margin, small bottom margin */
     max-width: 280px;
   }
   
@@ -2033,6 +2020,32 @@ canvas {
   .btn.auth-required::after {
     font-size: 12px;
     right: 6px;
+  }
+}
+
+/* Additional mobile optimizations for button visibility */
+@media (max-height: 700px) and (max-width: 480px) {
+  .game-screen-base .button-group {
+    margin: 0 0 0.4rem 0 !important; /* Force bottom margin for short mobile screens */
+    gap: 0.3rem !important; /* Compact gap */
+  }
+  
+  .setup-screen-base {
+    padding-top: 0.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+@media (max-height: 600px) and (max-width: 400px) {
+  .game-screen-base .button-group {
+    margin: 0 0 0.5rem 0 !important; /* Extra bottom margin for very short screens */
+    position: relative;
+    bottom: 0.2rem; /* Slightly lift buttons up */
+  }
+  
+  .setup-screen-base {
+    padding-top: 0.3rem !important;
+    padding-bottom: 2rem !important;
   }
 }
 
