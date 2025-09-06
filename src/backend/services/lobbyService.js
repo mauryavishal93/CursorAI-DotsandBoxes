@@ -44,6 +44,14 @@ class LobbyService {
     if (this.lobbies[lobbyCode]) {
       const lobby = this.lobbies[lobbyCode];
       
+      // Check if user is trying to join their own lobby
+      const creatorSocketId = lobby.players[0]; // First player is always the creator
+      if (socketId === creatorSocketId) {
+        const creatorUsername = lobby.playerNames[creatorSocketId] || 'Player';
+        console.log(`Player ${socketId} (${username}) attempted to join their own lobby ${lobbyCode}`);
+        return { success: false, message: `You cannot play against yourself! This lobby was created by you (${creatorUsername}). Please share lobby code ${lobbyCode} with another player to start the game.` };
+      }
+      
       // Check if player is already in the lobby
       if (lobby.players.includes(socketId)) {
         console.log(`Player ${socketId} (${username}) is already in lobby ${lobbyCode}`);

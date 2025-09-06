@@ -632,6 +632,15 @@ if (joinLobbyBtn) {
       return;
     }
     
+    // Check if user is trying to join their own lobby
+    if (currentLobbyCode === code && isCreator) {
+      if (lobbyStatus) {
+        lobbyStatus.textContent = 'You cannot join your own lobby! Please share this code with another player.';
+        lobbyStatus.style.color = '#ef4444'; // Red color for error
+      }
+      return;
+    }
+    
     // Reset any leftover state before joining new lobby
     if (isInLobby || currentLobbyCode) {
       console.log('Resetting leftover lobby state before joining new lobby');

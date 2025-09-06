@@ -6,8 +6,12 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#667eea">
+    <meta name="screen-orientation" content="portrait">
+    <meta name="orientation" content="portrait-primary">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <meta name="theme-color" content="#8B4513">
     <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/manifest.json">
     <title>Dots and Boxes</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/auth.css">
@@ -2838,7 +2842,45 @@
           }
           
           // Initialize mobile-first optimizations
-          document.addEventListener('DOMContentLoaded', function() {
+          // Portrait Mode Enforcement
+    function enforcePortraitMode() {
+      // Try to lock screen orientation to portrait
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(err => {
+          console.log('Orientation lock not supported:', err);
+        });
+      } else if (screen.lockOrientation) {
+        screen.lockOrientation('portrait');
+      } else if (screen.mozLockOrientation) {
+        screen.mozLockOrientation('portrait');
+      } else if (screen.msLockOrientation) {
+        screen.msLockOrientation('portrait');
+      }
+      
+      // Handle orientation change events
+      function handleOrientationChange() {
+        const isLandscape = window.innerWidth > window.innerHeight;
+        const isSmallHeight = window.innerHeight < 600;
+        const isMobileWidth = window.innerWidth < 900;
+        
+        // Block landscape only on mobile devices
+        if (isLandscape && isSmallHeight && isMobileWidth) {
+          document.body.classList.add('landscape-blocked');
+        } else {
+          document.body.classList.remove('landscape-blocked');
+        }
+      }
+      
+      // Listen for orientation changes
+      window.addEventListener('orientationchange', handleOrientationChange);
+      window.addEventListener('resize', handleOrientationChange);
+      
+      // Initial check
+      handleOrientationChange();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+              enforcePortraitMode();
               forceMobileView();
               optimizeTouchInteractions();
               crossPlatformOptimization();
