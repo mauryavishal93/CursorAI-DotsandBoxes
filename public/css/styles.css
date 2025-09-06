@@ -91,6 +91,28 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* FULL SCREEN RESET */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden;
+  position: relative;
+  
+  /* Additional full screen enforcement for hosting environments */
+  min-height: 100vh !important;
+  min-width: 100vw !important;
+  max-height: 100vh !important;
+  max-width: 100vw !important;
+}
+
 /* MOBILE-FIRST DESIGN - ALWAYS MOBILE VIEW */
 body {
   font-family: 'Inter', sans-serif;
@@ -99,6 +121,7 @@ body {
   align-items: center;
   min-height: 100vh;
   width: 100vw;
+  height: 100vh;
   background: linear-gradient(to bottom right, #8B4513, #A0522D);
   color: #333;
   padding: 0;
@@ -189,8 +212,8 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
   flex-direction: column;
   align-items: center;
   background: #E0C097;
-  border-radius: 1.5rem;
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  border-radius: 0;
+  box-shadow: none;
   padding: 1rem;
   
   /* Full viewport size for better mobile experience */
@@ -201,7 +224,7 @@ body.ultra-compact-mobile .dice-center-content .text-xl {
   min-width: 320px;
   min-height: 100vh;
   
-  border: 3px solid #654321;
+  border: none;
   position: relative;
   box-sizing: border-box;
   overflow: auto;
@@ -316,25 +339,26 @@ body.landscape-blocked::after {
   --container-height: min(100vh, min(875px, 100vw / 0.648));
 }
 
-/* Large screens (Desktop) - Centered container with reasonable size */
+/* Large screens (Desktop) - Full screen experience */
 @media (min-width: 769px) {
   body {
     background: linear-gradient(to bottom right, #8B4513, #A0522D);
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem;
+    padding: 0;
+    margin: 0;
   }
   
   .screen-container {
-    /* Reasonable desktop size - not full viewport */
-    width: min(567px, 90vw);
-    height: min(875px, 90vh);
-    border-width: 3px;
+    /* Full viewport on all devices for consistent experience */
+    width: 100vw;
+    height: 100vh;
+    border-width: 0;
     padding: 1rem;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    border-radius: 1.5rem;
-    margin: 0 auto;
+    box-shadow: none;
+    border-radius: 0;
+    margin: 0;
   }
   
   .game-screen-base canvas, canvas {

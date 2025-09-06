@@ -2842,7 +2842,48 @@
           }
           
           // Initialize mobile-first optimizations
-          // Portrait Mode Enforcement
+          // Full Screen Enforcement
+    function enforceFullScreen() {
+      // Ensure full screen on page load
+      document.documentElement.style.width = '100vw';
+      document.documentElement.style.height = '100vh';
+      document.body.style.width = '100vw';
+      document.body.style.height = '100vh';
+      
+      // Remove any potential scrollbars
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      
+      // Request fullscreen API if available (for PWA)
+      function requestFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen().catch(err => {
+            console.log('Fullscreen request failed:', err);
+          });
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else if (elem.mozRequestFullScreen) {
+          elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) {
+          elem.msRequestFullscreen();
+        }
+      }
+      
+      // Auto-request fullscreen on first user interaction (for mobile)
+      let fullscreenRequested = false;
+      function handleFirstInteraction() {
+        if (!fullscreenRequested && (navigator.userAgent.match(/iPhone|iPad|iPod|Android/i))) {
+          fullscreenRequested = true;
+          requestFullscreen();
+        }
+      }
+      
+      document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+      document.addEventListener('click', handleFirstInteraction, { once: true });
+    }
+
+    // Portrait Mode Enforcement
     function enforcePortraitMode() {
       // Try to lock screen orientation to portrait
       if (screen.orientation && screen.orientation.lock) {
@@ -2880,6 +2921,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+              enforceFullScreen();
               enforcePortraitMode();
               forceMobileView();
               optimizeTouchInteractions();
