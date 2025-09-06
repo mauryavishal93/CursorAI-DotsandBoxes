@@ -250,8 +250,10 @@
    * Displays a custom message box.
    * @param {string} title - The title of the message box.
    * @param {string} text - The main text content.
+   * @param {function} onClose - Callback function to execute when message is closed.
+   * @param {boolean} forceAutoClose - Force auto-close regardless of player turn (for AI actions).
    */
-  function showMessage(title, text, onClose) {
+  function showMessage(title, text, onClose, forceAutoClose = false) {
       if (!messageTitle || !messageText || !messageBox || !messageBoxCloseBtn) {
           console.error('Message box elements not found');
           return;
@@ -268,11 +270,12 @@
       }
       
       // Auto-close message box for AI players in single player mode after 2.4s
-      if (gameMode === 'singlePlayer' && playerTurn === 2) {
-          console.log('[MESSAGE BOX] AI player - auto-closing message box after 2.4s for:', title);
+      // OR when forceAutoClose is true (for AI-specific actions)
+      if (gameMode === 'singlePlayer' && (playerTurn === 2 || forceAutoClose)) {
+          console.log('[MESSAGE BOX] Auto-closing message box after 2.4s for:', title, '(playerTurn:', playerTurn, ', forceAutoClose:', forceAutoClose, ')');
           setTimeout(() => {
               hideMessageBox();
-              console.log('[MESSAGE BOX] Message box auto-closed for AI player');
+              console.log('[MESSAGE BOX] Message box auto-closed');
           }, 2400);
       }
       
@@ -3837,7 +3840,11 @@
       case '💨 Poof! Turn vanished':
         // Current player's remaining lines are set to 0 immediately and turn passes
         linesToDraw = 0;
-        showMessage('Lucky Draw', '💨 Poof! Your turn just vanished into thin air!');
+        
+        // Capture current player before switching turns to determine auto-close behavior
+        const isAITurn = (gameMode === 'singlePlayer' && playerTurn === 2);
+        
+        showMessage('Lucky Draw', '💨 Poof! Your turn just vanished into thin air!', null, isAITurn);
         updateScoreDisplay();
         // For online multiplayer, only the current player should trigger turn switch
         if (gameMode === 'onlineMultiplayer' && playerTurn === onlinePlayerRole) {
