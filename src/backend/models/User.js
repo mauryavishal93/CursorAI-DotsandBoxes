@@ -235,6 +235,54 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// Method to update last login timestamp
+userSchema.methods.updateLastLogin = async function() {
+  this.lastLogin = new Date();
+  return await this.save();
+};
+
+// Method to update game stats (legacy compatibility)
+userSchema.methods.updateGameStats = async function(won, score) {
+  this.gamesPlayed += 1;
+  if (won) this.wins += 1;
+  this.points += score;
+  this.lastGamePlayed = new Date();
+  return await this.save();
+};
+
+// Method to update AI game statistics with new scoring system
+userSchema.methods.updateAIStatsNew = async function(won, scoreChange) {
+  console.log('🎯 MongoDB User updateAIStatsNew called with:', { won, scoreChange });
+  console.log('Stats before update:', {
+    gamesPlayed: this.gamesPlayed,
+    wins: this.wins,
+    points: this.points
+  });
+  
+  // Both players: gamesPlayed incremented by 1
+  this.gamesPlayed += 1;
+  
+  // Winner: wins incremented by 1, points incremented by 5
+  // Loser: points decremented by 2 (but not below 0)
+  if (won) {
+    this.wins += 1;
+    this.points += 5;
+  } else {
+    // Loser: decrement by 2, but not below 0
+    this.points = Math.max(0, this.points - 2);
+  }
+  
+  this.lastGamePlayed = new Date();
+  
+  console.log('Stats after update:', {
+    gamesPlayed: this.gamesPlayed,
+    wins: this.wins,
+    points: this.points
+  });
+  
+  return await this.save();
+};
+
 // Static methods for leaderboards
 userSchema.statics.getLeaderboard = async function(limit = 10, sortBy = 'points') {
   const validSortFields = ['points', 'wins', 'highestStreak', 'winRate'];
