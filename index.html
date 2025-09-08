@@ -31,7 +31,7 @@
                 </div>
                 <div id="user-info" class="user-info" style="display: flex; align-items: center; gap: 8px;">
                     <p class="user-name" id="user-name" style="display: none;">Username</p>
-                    <button id="view-stats-btn" class="btn-icon stats-icon"  style="font-size: 24px" onclick="showStatsModal()" title="View Statistics">📊</button>
+                    <button id="view-stats-btn" class="btn-icon stats-icon"  style="font-size: 24px" title="View Statistics">📊</button>
                     <button id="profile-btn" class="btn btn-sm">Test</button>
                 </div>
             </div>
@@ -851,7 +851,7 @@
                 <div class="stats-tabs">
                     <button class="stats-tab active" data-tab="profile">My Stats</button>
                     <button class="stats-tab" data-tab="leaderboard">Leaderboard</button>
-                    <button class="stats-tab" data-tab="recent">Recent Games</button>
+                    <button class="stats-tab" data-tab="recent">My Recent Games</button>
                 </div>
 
                 <!-- Profile Stats Tab -->
@@ -3119,17 +3119,39 @@
       const statsTabContents = document.querySelectorAll('.stats-tab-content');
       
       // Initialize stats service with socket when available
-      if (typeof socket !== 'undefined' && window.statsService) {
-        window.statsService.initialize(socket);
+      function initializeStatsService() {
+        if (typeof socket !== 'undefined' && window.statsService) {
+          console.log('🔌 Initializing statsService with socket');
+          window.statsService.initialize(socket);
+        } else {
+          console.log('⏳ Socket or statsService not ready, retrying in 1 second...');
+          setTimeout(initializeStatsService, 1000);
+        }
       }
       
-      // Stats button is now in the main header, no longer needed here
+      initializeStatsService();
+      
+      // Add event listener for stats button
+      const viewStatsBtn = document.getElementById('view-stats-btn');
+      if (viewStatsBtn) {
+        viewStatsBtn.addEventListener('click', function() {
+          console.log('📊 Stats button clicked');
+          window.showStatsModal();
+        });
+      }
       
       // Show statistics modal
       window.showStatsModal = function() {
+        console.log('📊 showStatsModal called');
         if (statsModal) {
           statsModal.style.display = 'block';
-          loadUserStats();
+          
+          // Wait a bit for modal to be visible and services to be ready
+          setTimeout(() => {
+            loadUserStats();
+          }, 100);
+        } else {
+          console.error('❌ statsModal element not found');
         }
       };
       
@@ -3171,7 +3193,9 @@
             targetContent.classList.add('active');
             
             // Load data for specific tab
-            if (targetTab === 'leaderboard') {
+            if (targetTab === 'profile') {
+              loadUserStats();
+            } else if (targetTab === 'leaderboard') {
               loadLeaderboard();
             } else if (targetTab === 'recent') {
               loadRecentGames();
@@ -3182,34 +3206,83 @@
       
       // Load user statistics
       async function loadUserStats() {
-        if (!window.statsService || !window.authService) return;
+        console.log('🔍 loadUserStats called');
+        
+        if (!window.statsService) {
+          console.error('❌ window.statsService not available');
+          return;
+        }
+        if (!window.authService) {
+          console.error('❌ window.authService not available');
+          return;
+        }
         
         try {
           const currentUser = window.authService.getCurrentUser();
-          if (!currentUser || !currentUser._id) return;
+          console.log('👤 Current user:', currentUser);
           
-          const response = await window.statsService.getUserStats(currentUser._id);
+          if (!currentUser) {
+            console.error('❌ No current user found');
+            return;
+          }
+          
+          // Check for both _id and id fields (different sources may use different field names)
+          const userId = currentUser._id || currentUser.id;
+          if (!userId) {
+            console.error('❌ Current user has no _id or id field:', currentUser);
+            return;
+          }
+          
+          console.log('📡 Requesting user stats for ID:', userId);
+          const response = await window.statsService.getUserStats(userId);
+          console.log('📊 Stats response:', response);
+          
           if (response.success) {
+            console.log('✅ Stats loaded successfully, updating UI');
             updateProfileStats(response.user);
             
             // Create score chart if score history exists
             if (response.scoreHistory && response.scoreHistory.length > 0) {
               window.statsService.createScoreChart('scoreChart', response.scoreHistory);
             }
+          } else {
+            console.error('❌ Stats request failed:', response);
           }
         } catch (error) {
-          console.error('Error loading user stats:', error);
+          console.error('❌ Error loading user stats:', error);
         }
       }
       
       // Update profile statistics display
       function updateProfileStats(stats) {
-        document.querySelector('.points-value').textContent = stats.points || 0;
-        document.querySelector('.wins-value').textContent = stats.wins || 0;
-        document.querySelector('.losses-value').textContent = stats.losses || 0;
-        document.querySelector('.streak-value').textContent = stats.currentStreak || 0;
-        document.querySelector('.max-streak-value').textContent = stats.highestStreak || 0;
-        document.querySelector('.winrate-value').textContent = `${stats.winRate || 0}%`;
+        console.log('🎯 updateProfileStats called with:', stats);
+        
+        const elements = {
+          points: document.querySelector('.points-value'),
+          wins: document.querySelector('.wins-value'),
+          losses: document.querySelector('.losses-value'),
+          streak: document.querySelector('.streak-value'),
+          maxStreak: document.querySelector('.max-streak-value'),
+          winrate: document.querySelector('.winrate-value')
+        };
+        
+        console.log('🎯 DOM elements found:', {
+          points: !!elements.points,
+          wins: !!elements.wins,
+          losses: !!elements.losses,
+          streak: !!elements.streak,
+          maxStreak: !!elements.maxStreak,
+          winrate: !!elements.winrate
+        });
+        
+        if (elements.points) elements.points.textContent = stats.points || 0;
+        if (elements.wins) elements.wins.textContent = stats.wins || 0;
+        if (elements.losses) elements.losses.textContent = stats.losses || 0;
+        if (elements.streak) elements.streak.textContent = stats.currentStreak || 0;
+        if (elements.maxStreak) elements.maxStreak.textContent = stats.highestStreak || 0;
+        if (elements.winrate) elements.winrate.textContent = `${stats.winRate || 0}%`;
+        
+        console.log('✅ Stats UI updated');
       }
       
       // Load leaderboard
@@ -3248,7 +3321,7 @@
             <div class="points">${user.points}</div>
             <div class="wins">${user.wins}</div>
             <div class="streak">${user.highestStreak}</div>
-            <div class="winrate">${user.winRate || 0}%</div>
+            <div class="winrate">${Math.round(user.winRate || 0)}%</div>
           </div>
         `).join('');
         
@@ -3257,15 +3330,27 @@
       
       // Load recent games
       async function loadRecentGames() {
-        if (!window.statsService) return;
+        if (!window.statsService || !window.authService) return;
         
         const recentGamesList = document.getElementById('recent-games-list');
-        recentGamesList.innerHTML = '<div class="loading-message">Loading recent games...</div>';
+        recentGamesList.innerHTML = '<div class="loading-message">Loading your recent games...</div>';
         
         try {
-          const response = await window.statsService.getRecentGames(20);
+          const currentUser = window.authService.getCurrentUser();
+          const userId = currentUser._id || currentUser.id;
+          
+          if (!userId) {
+            console.error('❌ No user ID available for recent games');
+            recentGamesList.innerHTML = '<div class="empty-message"><div class="icon">👤</div>Please log in to view your recent games</div>';
+            return;
+          }
+          
+          console.log('🎮 Loading recent games for user:', userId);
+          const response = await window.statsService.getRecentGames(20, userId);
           if (response.success) {
             displayRecentGames(response.games);
+          } else {
+            recentGamesList.innerHTML = '<div class="empty-message"><div class="icon">🎮</div>No recent games found</div>';
           }
         } catch (error) {
           console.error('Error loading recent games:', error);
@@ -3273,6 +3358,31 @@
         }
       }
       
+      // Calculate game duration from startedAt and endedAt
+      function calculateGameDuration(startedAt, endedAt) {
+        if (!startedAt || !endedAt) {
+          return 'N/A';
+        }
+        
+        const startTime = new Date(startedAt);
+        const endTime = new Date(endedAt);
+        const durationMs = endTime - startTime;
+        
+        if (durationMs < 0) {
+          return 'N/A';
+        }
+        
+        const totalSeconds = Math.floor(durationMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        
+        if (minutes > 0) {
+          return `${minutes}m ${seconds}s`;
+        } else {
+          return `${seconds}s`;
+        }
+      }
+
       // Display recent games
       function displayRecentGames(games) {
         const recentGamesList = document.getElementById('recent-games-list');
@@ -3286,6 +3396,14 @@
           const winner = game.winner;
           const players = game.players;
           const loser = players.find(p => p.result === 'loss');
+          const duration = calculateGameDuration(game.startedAt, game.endedAt);
+          
+          console.log('🎮 Game duration calculation:', {
+            gameId: game.gameId,
+            startedAt: game.startedAt,
+            endedAt: game.endedAt,
+            calculatedDuration: duration
+          });
           
           return `
             <div class="recent-game-item">
@@ -3298,7 +3416,7 @@
               </div>
               <div class="game-details">
                 Winner: ${winner.username} (${players.find(p => p.result === 'win').finalScore} squares) | 
-                Duration: ${Math.round(game.gameStats.gameDuration / 60)} min
+                Duration: ${duration}
               </div>
             </div>
           `;

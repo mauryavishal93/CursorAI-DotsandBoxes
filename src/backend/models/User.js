@@ -288,46 +288,44 @@ userSchema.statics.getLeaderboard = async function(limit = 10, sortBy = 'points'
   const validSortFields = ['points', 'wins', 'highestStreak', 'winRate'];
   const sortField = validSortFields.includes(sortBy) ? sortBy : 'points';
   
-  let sortQuery = {};
-  if (sortField === 'winRate') {
-    // For win rate, we need to sort by a calculated field
-    return await this.aggregate([
-      { $match: { gamesPlayed: { $gt: 0 } } }, // Only users who played games
-      {
-        $addFields: {
-          winRate: {
-            $cond: [
-              { $eq: ['$gamesPlayed', 0] },
-              0,
-              { $multiply: [{ $divide: ['$wins', '$gamesPlayed'] }, 100] }
-            ]
-          }
-        }
-      },
-      { $sort: { winRate: -1, points: -1 } },
-      { $limit: limit },
-      {
-        $project: {
-          username: 1,
-          points: 1,
-          wins: 1,
-          losses: 1,
-          gamesPlayed: 1,
-          currentStreak: 1,
-          highestStreak: 1,
-          winRate: 1,
-          avatar: 1
+  // Always use aggregation to calculate winRate for all users
+  const sortQuery = {};
+  sortQuery[sortField] = -1;
+  
+  // Add secondary sort by points for tie-breaking (except when sorting by points)
+  if (sortField !== 'points') {
+    sortQuery.points = -1;
+  }
+  
+  return await this.aggregate([
+    { $match: { gamesPlayed: { $gt: 0 } } }, // Only users who played games
+    {
+      $addFields: {
+        winRate: {
+          $cond: [
+            { $eq: ['$gamesPlayed', 0] },
+            0,
+            { $round: [{ $multiply: [{ $divide: ['$wins', '$gamesPlayed'] }, 100] }, 0] }
+          ]
         }
       }
-    ]);
-  } else {
-    sortQuery[sortField] = -1;
-    return await this.find({ gamesPlayed: { $gt: 0 } })
-      .select('username points wins losses gamesPlayed currentStreak highestStreak avatar')
-      .sort(sortQuery)
-      .limit(limit)
-      .lean();
-  }
+    },
+    { $sort: sortQuery },
+    { $limit: limit },
+    {
+      $project: {
+        username: 1,
+        points: 1,
+        wins: 1,
+        losses: 1,
+        gamesPlayed: 1,
+        currentStreak: 1,
+        highestStreak: 1,
+        winRate: 1,
+        avatar: 1
+      }
+    }
+  ]);
 };
 
 // Hash password before saving

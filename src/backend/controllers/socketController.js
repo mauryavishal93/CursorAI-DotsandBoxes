@@ -280,8 +280,8 @@ class SocketController {
       // Handle recent games requests
       socket.on('getRecentGames', async (data, callback) => {
         try {
-          const { limit = 20 } = data || {};
-          const result = await ScoringService.getRecentGames(limit);
+          const { limit = 20, userId = null } = data || {};
+          const result = await ScoringService.getRecentGames(limit, userId);
           callback(result);
         } catch (error) {
           console.error('❌ Error fetching recent games:', error);

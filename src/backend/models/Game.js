@@ -95,4 +95,15 @@ gameSchema.statics.getRecentGames = async function(limit = 20) {
     .lean();
 };
 
+gameSchema.statics.getUserRecentGames = async function(userId, limit = 20) {
+  return await this.find({ 
+    'players.userId': userId,
+    gameMode: 'onlineMultiplayer' 
+  })
+    .sort({ endedAt: -1 })
+    .limit(limit)
+    .populate('players.userId', 'username avatar')
+    .lean();
+};
+
 module.exports = mongoose.model('Game', gameSchema);

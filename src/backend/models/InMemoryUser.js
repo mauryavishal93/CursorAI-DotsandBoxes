@@ -148,6 +148,64 @@ class InMemoryUser {
     return this;
   }
 
+  // Methods for online multiplayer game processing (matching MongoDB User model)
+  processGameWin(opponent = null) {
+    console.log(`🏆 InMemoryUser ${this.username} processing game win against ${opponent}`);
+    
+    // Winner gains +5 points
+    this.totalScore += 5;
+    this.gamesWon += 1;
+    this.gamesPlayed += 1;
+    this.currentStreak = (this.currentStreak || 0) + 1;
+    this.lastGamePlayed = new Date();
+    
+    // Update highest streak if needed
+    if (!this.highestStreak) this.highestStreak = 0;
+    if (this.currentStreak > this.highestStreak) {
+      this.highestStreak = this.currentStreak;
+    }
+    
+    console.log(`🏆 ${this.username} won! New stats: ${this.totalScore} points, ${this.gamesWon} wins, ${this.currentStreak} streak`);
+    
+    return this;
+  }
+
+  processGameLoss(opponent = null) {
+    console.log(`😞 InMemoryUser ${this.username} processing game loss against ${opponent}`);
+    
+    // Loser loses -2 points (minimum 0)
+    this.totalScore = Math.max(0, this.totalScore - 2);
+    
+    // Initialize losses if not present
+    if (!this.losses) this.losses = 0;
+    this.losses += 1;
+    
+    this.gamesPlayed += 1;
+    this.currentStreak = 0; // Reset streak on loss
+    this.lastGamePlayed = new Date();
+    
+    console.log(`😞 ${this.username} lost! New stats: ${this.totalScore} points, ${this.losses} losses, streak reset`);
+    
+    return this;
+  }
+
+  // Method to get public profile (matching MongoDB User model)
+  getPublicProfile() {
+    return {
+      _id: this._id || this.id,
+      username: this.username,
+      points: this.totalScore || 0,
+      wins: this.gamesWon || 0,
+      losses: this.losses || 0,
+      gamesPlayed: this.gamesPlayed || 0,
+      currentStreak: this.currentStreak || 0,
+      highestStreak: this.highestStreak || 0,
+      avatar: this.avatar || 'default-1',
+      lastGamePlayed: this.lastGamePlayed,
+      isGuest: this.isGuest || false
+    };
+  }
+
   static async findOne(query) {
     const users = InMemoryUser.getAllUsers();
     let userData = null;
@@ -218,6 +276,52 @@ class InMemoryUser {
     global.inMemoryUsers = global.inMemoryUsers.filter(u => u._id !== id && u.id !== id);
     
     return global.inMemoryUsers.length < initialLength;
+  }
+
+  // Static method for leaderboard (matching MongoDB User model)
+  static async getLeaderboard(limit = 10, sortBy = 'points') {
+    const users = InMemoryUser.getAllUsers();
+    
+    // Filter users who have played games
+    const playersWithGames = users.filter(user => user.gamesPlayed > 0);
+    
+    // Map to consistent format and calculate win rate
+    const mappedUsers = playersWithGames.map(user => {
+      const winRate = user.gamesPlayed > 0 ? 
+        Math.round((user.gamesWon / user.gamesPlayed) * 100) : 0;
+      
+      return {
+        username: user.username,
+        points: user.totalScore || 0,
+        wins: user.gamesWon || 0,
+        losses: (user.gamesPlayed || 0) - (user.gamesWon || 0),
+        gamesPlayed: user.gamesPlayed || 0,
+        currentStreak: user.currentStreak || 0,
+        highestStreak: user.highestStreak || 0,
+        winRate: winRate,
+        avatar: user.avatar || 'default-1'
+      };
+    });
+    
+    // Sort based on the requested field
+    const validSortFields = ['points', 'wins', 'highestStreak', 'winRate'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'points';
+    
+    mappedUsers.sort((a, b) => {
+      if (sortField === 'winRate') {
+        // Sort by win rate first, then by points as tiebreaker
+        if (b.winRate !== a.winRate) {
+          return b.winRate - a.winRate;
+        }
+        return b.points - a.points;
+      } else {
+        // For other fields, sort descending
+        return b[sortField] - a[sortField];
+      }
+    });
+    
+    // Limit results
+    return mappedUsers.slice(0, limit);
   }
 }
 

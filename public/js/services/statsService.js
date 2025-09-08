@@ -108,18 +108,24 @@ class StatsService {
   }
 
   /**
-   * Fetch recent games
+   * Fetch recent games for a specific user
    * @param {number} limit - Number of games to fetch
+   * @param {string} userId - User ID to filter games for (optional, if not provided gets all games)
    * @returns {Promise<Object>} Recent games data
    */
-  async getRecentGames(limit = 20) {
+  async getRecentGames(limit = 20, userId = null) {
     return new Promise((resolve, reject) => {
       if (!this.socket) {
         reject(new Error('Socket not initialized'));
         return;
       }
 
-      this.socket.emit('getRecentGames', { limit }, (response) => {
+      const requestData = { limit };
+      if (userId) {
+        requestData.userId = userId;
+      }
+
+      this.socket.emit('getRecentGames', requestData, (response) => {
         if (response.success) {
           resolve(response);
         } else {
