@@ -1,4 +1,6 @@
 const lobbyService = require('../services/lobbyService');
+const ScoringService = require('../services/scoringService');
+const User = require('../models/User');
 
 class SocketController {
   constructor(io) {
@@ -77,9 +79,9 @@ class SocketController {
             if (!result.lobby.gameStarting) {
               result.lobby.gameStarting = true; // Prevent multiple game starts
               
-              setTimeout(() => {
-                const room = this.io.sockets.adapter.rooms.get(lobbyCode);
-                const socketCount = room ? room.size : 0;
+            setTimeout(() => {
+              const room = this.io.sockets.adapter.rooms.get(lobbyCode);
+              const socketCount = room ? room.size : 0;
                 console.log(`🔍 Cross-platform check - Room ${lobbyCode} has ${socketCount} sockets`);
                 
                 // Double-check that both players are in the room before starting
@@ -201,7 +203,7 @@ class SocketController {
             return;
           }
           
-          console.log('Game action received:', action.type, 'in lobby:', lobbyCode);
+        console.log('Game action received:', action.type, 'in lobby:', lobbyCode);
           
           // Verify lobby exists and player is in it
           const lobby = lobbyService.getLobby(lobbyCode);
@@ -209,14 +211,14 @@ class SocketController {
             console.error('Player not in lobby or lobby does not exist:', { lobbyCode, socketId: socket.id });
             return;
           }
-          
-          // Broadcast action to the other player in the lobby
-          socket.to(lobbyCode).emit('gameAction', action);
-          
-          // If the action is game over, mark the lobby as finished and update stats
+        
+        // Broadcast action to the other player in the lobby
+        socket.to(lobbyCode).emit('gameAction', action);
+        
+        // If the action is game over, mark the lobby as finished and update stats
           if (action.type === 'gameOver') {
-            lobbyService.markGameOver(lobbyCode, action.winner, action.winnerRole, action.winnerScore);
-            this.handleGameOver(lobbyCode, action);
+          lobbyService.markGameOver(lobbyCode, action.winner, action.winnerRole, action.winnerScore);
+          this.handleGameOver(lobbyCode, action);
           }
         } catch (error) {
           console.error('Error handling gameAction:', error);
@@ -230,9 +232,76 @@ class SocketController {
             console.error('Invalid leaveLobby request - no lobby code provided');
             return;
           }
-          this.handlePlayerLeave(socket, lobbyCode);
+        this.handlePlayerLeave(socket, lobbyCode);
         } catch (error) {
           console.error('Error handling leaveLobby:', error);
+        }
+      });
+
+      // Handle leaderboard requests
+      socket.on('getLeaderboard', async (data, callback) => {
+        try {
+          const { limit = 10, sortBy = 'points' } = data || {};
+          const result = await ScoringService.getLeaderboard(limit, sortBy);
+          callback(result);
+        } catch (error) {
+          console.error('❌ Error fetching leaderboard:', error);
+          callback({ success: false, error: error.message });
+        }
+      });
+
+      // Handle user stats requests
+      socket.on('getUserStats', async (data, callback) => {
+        try {
+          const { userId } = data || {};
+          if (!userId) {
+            callback({ success: false, error: 'User ID required' });
+            return;
+          }
+          const result = await ScoringService.getUserStats(userId);
+          callback(result);
+        } catch (error) {
+          console.error('❌ Error fetching user stats:', error);
+          callback({ success: false, error: error.message });
+        }
+      });
+
+      // Handle platform stats requests
+      socket.on('getPlatformStats', async (callback) => {
+        try {
+          const result = await ScoringService.getPlatformStats();
+          callback(result);
+        } catch (error) {
+          console.error('❌ Error fetching platform stats:', error);
+          callback({ success: false, error: error.message });
+        }
+      });
+
+      // Handle recent games requests
+      socket.on('getRecentGames', async (data, callback) => {
+        try {
+          const { limit = 20, userId = null } = data || {};
+          const result = await ScoringService.getRecentGames(limit, userId);
+          callback(result);
+        } catch (error) {
+          console.error('❌ Error fetching recent games:', error);
+          callback({ success: false, error: error.message });
+        }
+      });
+
+      // Handle admin reset stats requests
+      socket.on('resetUserStats', async (data, callback) => {
+        try {
+          const { userId, adminId } = data || {};
+          if (!userId || !adminId) {
+            callback({ success: false, error: 'User ID and Admin ID required' });
+            return;
+          }
+          const result = await ScoringService.resetUserStats(userId, adminId);
+          callback(result);
+        } catch (error) {
+          console.error('❌ Error resetting user stats:', error);
+          callback({ success: false, error: error.message });
         }
       });
 
@@ -354,7 +423,10 @@ class SocketController {
   async handleGameOver(lobbyCode, action) {
     try {
       const lobby = lobbyService.getLobby(lobbyCode);
-      if (!lobby || !lobby.players) return;
+      if (!lobby || !lobby.players) {
+        console.log('❌ No lobby found for game over processing');
+        return;
+      }
 
       // Get user info for both players
       const player1SocketId = lobby.players[0];
@@ -363,64 +435,102 @@ class SocketController {
       const player1User = this.socketUsers.get(player1SocketId);
       const player2User = this.socketUsers.get(player2SocketId);
 
+      // Validate that we have both players
+      if (!player1User || !player2User) {
+        console.log('❌ Missing user data for one or both players');
+        return;
+      }
+
       // Get scores for both players from the action
       const winnerRole = action.winnerRole;
-      const winnerScore = action.winnerScore;
-      const player1Score = action.player1Score || 0; // Use actual score or 0 if not provided
-      const player2Score = action.player2Score || 0; // Use actual score or 0 if not provided
+      const player1Score = action.player1Score || 0;
+      const player2Score = action.player2Score || 0;
       
-      console.log(`Game over - Player 1: ${player1Score} points, Player 2: ${player2Score} points, Winner: ${winnerRole}`);
-      console.log(`Player 1 User:`, player1User ? `${player1User.username} (${player1User.userId})` : 'Not found');
-      console.log(`Player 2 User:`, player2User ? `${player2User.username} (${player2User.userId})` : 'Not found');
-      
-      // Update statistics for both players with their actual scores
-      if (player1User) {
-        const isWinner = winnerRole === 1; // Only player 1 wins if winnerRole is 1
-        await this.updateUserStats(player1User.userId, isWinner, player1Score);
-        console.log(`Updated Player 1 (${player1User.username}) stats: won=${isWinner}, score=${player1Score}`);
+      console.log(`🎮 Game Over Processing:`, {
+        lobbyCode,
+        player1: `${player1User.username} (${player1Score} squares)`,
+        player2: `${player2User.username} (${player2Score} squares)`,
+        winner: `Player ${winnerRole}`
+      });
+
+      // Determine winner and loser
+      const winner = winnerRole === 1 ? 
+        { username: player1User.username, userId: player1User.userId, score: player1Score } :
+        { username: player2User.username, userId: player2User.userId, score: player2Score };
         
-        // Emit stats update to player 1's socket
+      const loser = winnerRole === 1 ? 
+        { username: player2User.username, userId: player2User.userId, score: player2Score } :
+        { username: player1User.username, userId: player1User.userId, score: player1Score };
+
+      // Generate unique game ID
+      const gameId = `game_${lobbyCode}_${Date.now()}`;
+
+      // Prepare game result data
+      const gameResult = {
+        gameId,
+        lobbyCode,
+        winner,
+        loser,
+        gameStats: {
+          totalMoves: action.totalMoves || 0,
+          gameDuration: action.gameDuration || 0,
+          boardSize: action.boardSize || '4x4',
+          startedAt: lobby.startedAt || new Date(Date.now() - 300000) // Default to 5 minutes ago
+        }
+      };
+
+      // Process game result using the scoring service
+      const result = await ScoringService.processGameResult(gameResult);
+      
+      if (result.success) {
+        console.log(`✅ Game result processed successfully for ${gameId}`);
+        
+        // Emit updated stats to both players
         const player1Socket = this.io.sockets.sockets.get(player1SocketId);
+        const player2Socket = this.io.sockets.sockets.get(player2SocketId);
+        
         if (player1Socket) {
-          const User = global.useInMemoryStorage 
-            ? require('../models/InMemoryUser')
-            : require('../models/User');
-          const updatedUser = await User.findById(player1User.userId);
-          if (updatedUser) {
+          const updatedPlayer1 = winnerRole === 1 ? result.winner : result.loser;
             player1Socket.emit('statsUpdated', {
               userId: player1User.userId,
-              stats: updatedUser.getStats()
-            });
-            console.log(`Emitted stats update to Player 1 (${player1User.username})`);
-          }
+            stats: updatedPlayer1,
+            gameResult: {
+              won: winnerRole === 1,
+              pointsChange: winnerRole === 1 ? 5 : -2,
+              opponentUsername: player2User.username
+            }
+          });
+          console.log(`📊 Stats update sent to ${player1User.username}`);
         }
-      }
-      
-      if (player2User) {
-        const isWinner = winnerRole === 2; // Only player 2 wins if winnerRole is 2
-        await this.updateUserStats(player2User.userId, isWinner, player2Score);
-        console.log(`Updated Player 2 (${player2User.username}) stats: won=${isWinner}, score=${player2Score}`);
         
-        // Emit stats update to player 2's socket
-        const player2Socket = this.io.sockets.sockets.get(player2SocketId);
         if (player2Socket) {
-          const User = global.useInMemoryStorage 
-            ? require('../models/InMemoryUser')
-            : require('../models/User');
-          const updatedUser = await User.findById(player2User.userId);
-          if (updatedUser) {
+          const updatedPlayer2 = winnerRole === 2 ? result.winner : result.loser;
             player2Socket.emit('statsUpdated', {
               userId: player2User.userId,
-              stats: updatedUser.getStats()
-            });
-            console.log(`Emitted stats update to Player 2 (${player2User.username})`);
-          }
+            stats: updatedPlayer2,
+            gameResult: {
+              won: winnerRole === 2,
+              pointsChange: winnerRole === 2 ? 5 : -2,
+              opponentUsername: player1User.username
+            }
+          });
+          console.log(`📊 Stats update sent to ${player2User.username}`);
         }
+        
+        // Emit game result to both players for potential UI updates
+        this.io.to(lobbyCode).emit('gameResultProcessed', {
+          gameId,
+          winner: result.winner,
+          loser: result.loser,
+          message: 'Game statistics updated successfully!'
+        });
+        
+      } else {
+        console.error('❌ Failed to process game result:', result.error);
       }
       
-      console.log(`Game statistics updated for lobby ${lobbyCode}`);
     } catch (error) {
-      console.error('Error updating game statistics:', error);
+      console.error('❌ Error in handleGameOver:', error);
     }
   }
 
@@ -442,7 +552,7 @@ class SocketController {
           await user.updateAIStats(won, score);
         } else {
           // Fallback to legacy method
-          await user.updateGameStats(won, score);
+        await user.updateGameStats(won, score);
         }
         
         console.log(`After update - User ${userId} stats:`, user.getStats());
