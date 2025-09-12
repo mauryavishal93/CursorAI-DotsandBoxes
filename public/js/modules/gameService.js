@@ -262,9 +262,8 @@ export class GameService {
       const player1Score = this.gameLogic.playerScores[1];
       const player2Score = this.gameLogic.playerScores[2];
       const winner = player1Score > player2Score ? 1 : 2;
-      const winnerScore = this.gameLogic.playerScores[winner];
-      
-      this.showMessage('Game Over!', `Player ${winner} wins with ${winnerScore} squares!`);
+      const margin = Math.abs(player1Score - player2Score);
+      this.showMessage('Game Over!', `🎉 Player ${winner} wins by ${margin} squares!`);
       
       if (this.gameMode === GAME_MODES.ONLINE_MULTIPLAYER) {
         this.onlineService.sendGameAction({

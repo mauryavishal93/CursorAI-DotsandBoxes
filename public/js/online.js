@@ -1014,8 +1014,19 @@ socket.on('gameAction', (action) => {
 
 // Note: playerDisconnected handler is now unified above to prevent conflicts
 
+// Prevent re-entrant resets that can cause repeated logs and UI flicker
+let __onlineResetInProgress = false;
+let __lastOnlineResetAt = 0;
+
 // Function to reset all online game state
 function resetOnlineGameState() {
+  // Debounce/guard resets within 500ms and prevent re-entry
+  const now = Date.now();
+  if (__onlineResetInProgress || (now - __lastOnlineResetAt) < 500) {
+    return;
+  }
+  __onlineResetInProgress = true;
+  __lastOnlineResetAt = now;
   console.log('Resetting online game state...');
   
   // Clear any pending timers to prevent memory leaks
@@ -1032,10 +1043,16 @@ function resetOnlineGameState() {
     window.socketReconnectTimer = null;
   }
   
+  // Proactively leave lobby on server before clearing local state
+  if (socket && currentLobbyCode) {
+    try {
+      socket.emit('leaveLobby', currentLobbyCode);
+    } catch (e) {}
+  }
+
   // Reset all lobby variables
   isInLobby = false;
   isGameStarted = false;
-  currentLobbyCode = null;
   isCreator = false;
   playerRole = null;
   
@@ -1072,10 +1089,13 @@ function resetOnlineGameState() {
     console.log('Share icon container hidden during reset');
   }
   
-  // Ensure client leaves socket room
+  // Ensure client leaves socket room (best-effort)
   if (socket && currentLobbyCode) {
-    socket.leave(currentLobbyCode);
+    try { socket.leave && socket.leave(currentLobbyCode); } catch (e) {}
   }
+
+  // Clear lobby code last
+  currentLobbyCode = null;
   
   // Reset game state
   if (typeof window.resetOnlineGameState === 'function') {
@@ -1094,6 +1114,9 @@ function resetOnlineGameState() {
   console.log('  - currentLobbyCode:', currentLobbyCode);
   console.log('  - isCreator:', isCreator);
   console.log('  - playerRole:', playerRole);
+
+  // Release re-entry guard after microtask to allow subsequent user actions
+  setTimeout(() => { __onlineResetInProgress = false; }, 0);
 }
 
 // Handle page unload to notify opponent when user leaves

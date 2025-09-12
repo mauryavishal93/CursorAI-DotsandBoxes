@@ -140,8 +140,8 @@ userSchema.methods.addScoreHistory = function(points, gameResult = 'initial', op
 };
 
 userSchema.methods.processGameWin = function(opponent = null) {
-  // Winner gains +1 point (online scoring spec)
-  this.points += 1;
+  // Winner gains +5 points (online scoring spec)
+  this.points += 5;
   this.wins += 1;
   this.gamesPlayed += 1;
   this.currentStreak += 1;
@@ -159,8 +159,8 @@ userSchema.methods.processGameWin = function(opponent = null) {
 };
 
 userSchema.methods.processGameLoss = function(opponent = null) {
-  // Loser loses -1 point (minimum 0)
-  this.points = Math.max(0, this.points - 1);
+  // Loser loses -3 points (minimum 0)
+  this.points = Math.max(0, this.points - 3);
   this.losses += 1;
   this.gamesPlayed += 1;
   this.currentStreak = 0; // Reset streak on loss
@@ -298,7 +298,7 @@ userSchema.statics.getLeaderboard = async function(limit = 10, sortBy = 'points'
   }
   
   return await this.aggregate([
-    { $match: { gamesPlayed: { $gt: 0 } } }, // Only users who played games
+    { $match: { gamesPlayed: { $gt: 0 }, isGuest: false } }, // Only non-guest users who played games
     {
       $addFields: {
         winRate: {
