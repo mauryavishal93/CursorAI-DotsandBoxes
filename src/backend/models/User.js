@@ -140,8 +140,8 @@ userSchema.methods.addScoreHistory = function(points, gameResult = 'initial', op
 };
 
 userSchema.methods.processGameWin = function(opponent = null) {
-  // Winner gains +5 points
-  this.points += 5;
+  // Winner gains +1 point (online scoring spec)
+  this.points += 1;
   this.wins += 1;
   this.gamesPlayed += 1;
   this.currentStreak += 1;
@@ -159,8 +159,8 @@ userSchema.methods.processGameWin = function(opponent = null) {
 };
 
 userSchema.methods.processGameLoss = function(opponent = null) {
-  // Loser loses -2 points (minimum 0)
-  this.points = Math.max(0, this.points - 2);
+  // Loser loses -1 point (minimum 0)
+  this.points = Math.max(0, this.points - 1);
   this.losses += 1;
   this.gamesPlayed += 1;
   this.currentStreak = 0; // Reset streak on loss

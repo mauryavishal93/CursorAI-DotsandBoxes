@@ -428,6 +428,12 @@ class SocketController {
         return;
       }
 
+      // Prevent duplicate processing if multiple gameOver events arrive
+      if (lobby.gameResultProcessed) {
+        console.log(`ℹ️ Game result already processed for lobby ${lobbyCode}, ignoring duplicate gameOver`);
+        return;
+      }
+
       // Get user info for both players
       const player1SocketId = lobby.players[0];
       const player2SocketId = lobby.players[1];
@@ -478,6 +484,9 @@ class SocketController {
           startedAt: lobby.startedAt || new Date(Date.now() - 300000) // Default to 5 minutes ago
         }
       };
+
+      // Mark as processed before calling scoring to avoid race conditions
+      lobby.gameResultProcessed = true;
 
       // Process game result using the scoring service
       const result = await ScoringService.processGameResult(gameResult);

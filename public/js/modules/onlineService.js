@@ -18,12 +18,36 @@ export class OnlineService {
     this.isCreator = false;
     this.playerRole = null;
     this.setupEventHandlers();
+
+    // If already connected (common when reusing global socket), associate user immediately
+    try {
+      if (this.socket.connected && window.authService && window.authService.isUserAuthenticated()) {
+        const user = window.authService.getCurrentUser();
+        if (user && (user._id || user.id) && user.username) {
+          const userId = user._id || user.id;
+          this.socket.emit('associateUser', { userId, username: user.username });
+        }
+      }
+    } catch (e) {
+      // no-op
+    }
   }
 
   setupEventHandlers() {
     // Socket connection event handlers
     this.socket.on('connect', () => {
       console.log('Connected to server');
+      try {
+        if (window.authService && window.authService.isUserAuthenticated()) {
+          const user = window.authService.getCurrentUser();
+          if (user && (user._id || user.id) && user.username) {
+            const userId = user._id || user.id;
+            this.socket.emit('associateUser', { userId, username: user.username });
+          }
+        }
+      } catch (e) {
+        // no-op
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -58,7 +82,9 @@ export class OnlineService {
   }
 
   createLobby(callback) {
-    this.socket.emit('createLobby', (response) => {
+    const username = (window.authService && window.authService.getCurrentUser()) ? window.authService.getCurrentUser().username : undefined;
+    const payload = username ? { username } : undefined;
+    this.socket.emit('createLobby', payload, (response) => {
       this.currentLobbyCode = response.lobbyCode;
       this.isInLobby = true;
       this.isCreator = true;
@@ -69,7 +95,9 @@ export class OnlineService {
   }
 
   joinLobby(lobbyCode, callback) {
-    this.socket.emit('joinLobby', lobbyCode, (response) => {
+    const username = (window.authService && window.authService.getCurrentUser()) ? window.authService.getCurrentUser().username : undefined;
+    const payload = username ? { lobbyCode, username } : lobbyCode;
+    this.socket.emit('joinLobby', payload, (response) => {
       if (response.success) {
         this.currentLobbyCode = lobbyCode;
         this.isInLobby = true;

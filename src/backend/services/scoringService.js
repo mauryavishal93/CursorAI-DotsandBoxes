@@ -26,12 +26,15 @@ class ScoringService {
     const session = User.startSession ? await User.startSession() : null; // Conditional session for MongoDB
     
     try {
+      let resultData = null;
       const transactionWrapper = session ? 
         (callback) => session.withTransaction(callback) : 
         (callback) => callback(); // Direct execution for in-memory
         
       await transactionWrapper(async () => {
         const { gameId, lobbyCode, winner, loser, gameStats = {} } = gameResult;
+        const winnerId = winner.userId;
+        const loserId = loser.userId;
         
         console.log(`🎮 Processing game result for game ${gameId}:`, {
           winner: winner.username,
@@ -43,8 +46,8 @@ class ScoringService {
         // Find both users
         const findUserOptions = session ? { session } : {};
         const [winnerUser, loserUser] = await Promise.all([
-          session ? User.findById(winner.userId).session(session) : User.findById(winner.userId),
-          session ? User.findById(loser.userId).session(session) : User.findById(loser.userId)
+          session ? User.findById(winnerId).session(session) : User.findById(winnerId),
+          session ? User.findById(loserId).session(session) : User.findById(loserId)
         ]);
         
         if (!winnerUser || !loserUser) {
@@ -130,32 +133,25 @@ class ScoringService {
           gameId: gameId
         });
         
-        return {
+        resultData = {
           success: true,
           winner: winnerUser.getPublicProfile ? winnerUser.getPublicProfile() : winnerUser,
           loser: loserUser.getPublicProfile ? loserUser.getPublicProfile() : loserUser,
-          gameRecord: gameRecord ? gameRecord.toObject() : null
+          gameRecord: gameRecord ? gameRecord.toObject() : null,
+          message: 'Game result processed successfully'
         };
       });
       
-      // Return the result (transaction was successful)
-      const [updatedWinner, updatedLoser] = await Promise.all([
-        User.findById(winner.userId).lean ? User.findById(winner.userId).lean() : User.findById(winner.userId),
-        User.findById(loser.userId).lean ? User.findById(loser.userId).lean() : User.findById(loser.userId)
-      ]);
-      
-      return {
-        success: true,
-        winner: updatedWinner,
-        loser: updatedLoser,
-        message: 'Game result processed successfully'
-      };
+      // Return the result captured from transaction
+      return resultData || { success: true, message: 'Game result processed successfully' };
       
     } catch (error) {
       console.error('❌ Error processing game result:', error);
       throw error;
     } finally {
-      await session.endSession();
+      if (session && session.endSession) {
+        await session.endSession();
+      }
     }
   }
   

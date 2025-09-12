@@ -259,26 +259,21 @@ export class GameService {
 
   checkGameOver() {
     if (this.gameLogic.checkGameOver()) {
-      const winner = this.gameLogic.playerScores[1] > this.gameLogic.playerScores[2] ? 1 : 2;
+      const player1Score = this.gameLogic.playerScores[1];
+      const player2Score = this.gameLogic.playerScores[2];
+      const winner = player1Score > player2Score ? 1 : 2;
       const winnerScore = this.gameLogic.playerScores[winner];
       
       this.showMessage('Game Over!', `Player ${winner} wins with ${winnerScore} squares!`);
-      
-      // Update user stats if authenticated
-      if (window.authService && window.authService.isUserAuthenticated()) {
-        const currentUser = window.authService.getCurrentUser();
-        const isWinner = (this.gameMode === GAME_MODES.SINGLE_PLAYER && winner === 1) || 
-                        (this.gameMode === GAME_MODES.TWO_PLAYERS && winner === 1) ||
-                        (this.gameMode === GAME_MODES.ONLINE_MULTIPLAYER && winner === currentUser.playerRole);
-        
-        window.authService.updateStats(isWinner, winnerScore);
-      }
       
       if (this.gameMode === GAME_MODES.ONLINE_MULTIPLAYER) {
         this.onlineService.sendGameAction({
           type: 'gameOver',
           winner: winner,
-          winnerScore: winnerScore
+          winnerRole: winner,
+          winnerScore: winnerScore,
+          player1Score: player1Score,
+          player2Score: player2Score
         });
       }
     }
