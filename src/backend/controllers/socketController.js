@@ -391,29 +391,63 @@ class SocketController {
   }
 
   handlePlayerLeave(socket, lobbyCode) {
+    // Capture lobby and both players BEFORE removal so we don't lose context
+    const preLeaveLobby = lobbyService.getLobby(lobbyCode);
+    const playerSocketIds = preLeaveLobby ? [...preLeaveLobby.players] : [];
+    const playerRoles = preLeaveLobby ? { ...preLeaveLobby.playerRoles } : {};
+    const player1SocketIdPre = playerSocketIds[0];
+    const player2SocketIdPre = playerSocketIds[1];
+    const player1UserPre = player1SocketIdPre ? this.socketUsers.get(player1SocketIdPre) : null;
+    const player2UserPre = player2SocketIdPre ? this.socketUsers.get(player2SocketIdPre) : null;
+
     const result = lobbyService.leaveLobby(lobbyCode, socket.id);
     if (result.success) {
       // Remove socket from room before sending message
       socket.leave(lobbyCode);
       
-      // Check if game was already over before showing disconnect message
-      if (result.remainingPlayers > 0 && !result.gameOver) {
-        // Game was not over, so show the opponent left message
+      const lobby = lobbyService.getLobby(lobbyCode);
+      // If another player remains and game not over, award win/loss and process as game over
+      if (result.remainingPlayers > 0 && lobby && !lobby.gameOver) {
+        // Determine remaining and leaving users based on pre-leave snapshot
+        const remainingSocketId = (player1SocketIdPre === socket.id) ? player2SocketIdPre : player1SocketIdPre;
+        const remainingUser = remainingSocketId ? this.socketUsers.get(remainingSocketId) : null;
+        const leavingUser = this.socketUsers.get(socket.id) || (socket.id === player1SocketIdPre ? player1UserPre : player2UserPre);
+
+        if (remainingUser && leavingUser) {
+          // Build synthetic gameOver action with margin 1
+          const winnerRole = (playerRoles && remainingSocketId && playerRoles[remainingSocketId]) ? playerRoles[remainingSocketId] : 1;
+          const player1User = player1UserPre;
+          const player2User = player2UserPre;
+          const action = {
+            type: 'gameOver',
+            winnerRole,
+            player1Score: winnerRole === 1 ? 1 : 0,
+            player2Score: winnerRole === 2 ? 1 : 0,
+            totalMoves: lobby.gameState?.totalMoves || 0,
+            gameDuration: Math.round(((Date.now()) - (lobby.startedAt || Date.now())) / 1000),
+            boardSize: lobby.gameState?.boardSize || '4x4',
+            // Provide explicit user context so handleGameOver can proceed even if lobby lost a player
+            player1User,
+            player2User
+          };
+          lobbyService.markGameOver(lobbyCode, winnerRole, winnerRole, action.winnerRole === 1 ? action.player1Score : action.player2Score);
+          this.handleGameOver(lobbyCode, action);
+        }
+
+        // Inform remaining player
         this.io.to(lobbyCode).emit('playerDisconnected', { 
           message: 'Your opponent has left the game. Congratulations, you win!',
-          winner: lobbyService.getLobby(lobbyCode).players[0] // The remaining player wins
+          winner: remainingSocketId
         });
-        
-        // Destroy the lobby session immediately after message delivery
+
+        // Cleanup lobby after short delay
         setTimeout(() => {
           lobbyService.destroyLobby(lobbyCode);
-        }, 500); // Reduced delay for faster cleanup
+        }, 500);
       } else if (result.remainingPlayers > 0 && result.gameOver) {
-        // Game was already over, just destroy the lobby without showing disconnect message
         console.log(`Player left lobby ${lobbyCode} but game was already over, destroying lobby silently`);
         lobbyService.destroyLobby(lobbyCode);
       } else {
-        // If no players left, destroy immediately
         lobbyService.destroyLobby(lobbyCode);
       }
     }
@@ -434,12 +468,19 @@ class SocketController {
         return;
       }
 
-      // Get user info for both players
-      const player1SocketId = lobby.players[0];
-      const player2SocketId = lobby.players[1];
-      
-      const player1User = this.socketUsers.get(player1SocketId);
-      const player2User = this.socketUsers.get(player2SocketId);
+      // Prefer explicit users passed via action (e.g., on leave) to avoid relying on lobby state
+      let player1User = action.player1User;
+      let player2User = action.player2User;
+      // Track socket ids for optional direct emits
+      let player1SocketId = null;
+      let player2SocketId = null;
+      // Fallback to lobby mapping if not provided
+      if (!player1User || !player2User) {
+        player1SocketId = Array.isArray(lobby.players) ? lobby.players[0] : null;
+        player2SocketId = Array.isArray(lobby.players) ? lobby.players[1] : null;
+        player1User = player1User || (player1SocketId ? this.socketUsers.get(player1SocketId) : null);
+        player2User = player2User || (player2SocketId ? this.socketUsers.get(player2SocketId) : null);
+      }
 
       // Validate that we have both players
       if (!player1User || !player2User) {
@@ -495,8 +536,8 @@ class SocketController {
         console.log(`✅ Game result processed successfully for ${gameId}`);
         
         // Emit updated stats to both players
-        const player1Socket = this.io.sockets.sockets.get(player1SocketId);
-        const player2Socket = this.io.sockets.sockets.get(player2SocketId);
+        const player1Socket = player1SocketId ? this.io.sockets.sockets.get(player1SocketId) : null;
+        const player2Socket = player2SocketId ? this.io.sockets.sockets.get(player2SocketId) : null;
         
         if (player1Socket) {
           const updatedPlayer1 = winnerRole === 1 ? result.winner : result.loser;
@@ -505,7 +546,7 @@ class SocketController {
             stats: updatedPlayer1,
             gameResult: {
               won: winnerRole === 1,
-              pointsChange: winnerRole === 1 ? 5 : -2,
+              pointsChange: winnerRole === 1 ? 5 : -3,
               opponentUsername: player2User.username
             }
           });
@@ -519,7 +560,7 @@ class SocketController {
             stats: updatedPlayer2,
             gameResult: {
               won: winnerRole === 2,
-              pointsChange: winnerRole === 2 ? 5 : -2,
+              pointsChange: winnerRole === 2 ? 5 : -3,
               opponentUsername: player1User.username
             }
           });

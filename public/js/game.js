@@ -952,7 +952,8 @@
       // Check for majority win
       if (playerScores[1] > maxSquares / 2) {
           gameOver = true;
-          showMessage("Game Over!", `${truncateUsername(playerNames[1])} wins with ${playerScores[1]} squares!`);
+          const marginP1 = Math.abs(playerScores[1] - playerScores[2]);
+          showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[1])} wins by ${marginP1} squares!`);
           
           // Emit game over event to server for online multiplayer
           if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
@@ -984,7 +985,8 @@
       }
       if (playerScores[2] > maxSquares / 2) {
           gameOver = true;
-          showMessage("Game Over!", `${truncateUsername(playerNames[2])} wins with ${playerScores[2]} squares!`);
+          const marginP2 = Math.abs(playerScores[2] - playerScores[1]);
+          showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[2])} wins by ${marginP2} squares!`);
           
           // Emit game over event to server for online multiplayer
           if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
@@ -1023,10 +1025,12 @@
           let winnerMessage = '';
           let winner = null;
           if (playerScores[1] > playerScores[2]) {
-              winnerMessage = `${truncateUsername(playerNames[1])} wins with ${playerScores[1]} squares!`;
+              const margin = Math.abs(playerScores[1] - playerScores[2]);
+              winnerMessage = `🎉 ${truncateUsername(playerNames[1])} wins by ${margin} squares!`;
               winner = 1;
           } else if (playerScores[2] > playerScores[1]) {
-              winnerMessage = `${truncateUsername(playerNames[2])} wins with ${playerScores[2]} squares!`;
+              const margin = Math.abs(playerScores[2] - playerScores[1]);
+              winnerMessage = `🎉 ${truncateUsername(playerNames[2])} wins by ${margin} squares!`;
               winner = 2;
           } else {
               winnerMessage = "It's a tie!";
@@ -1070,6 +1074,10 @@
    */
   async function triggerDatabaseWrite() {
     try {
+      if (gameMode !== 'onlineMultiplayer') {
+        console.log('ℹ️ Skipping DB write: not online multiplayer');
+        return;
+      }
       console.log('🎯 triggerDatabaseWrite called');
       console.log('🎯 Game mode:', gameMode);
       console.log('🎯 Player scores:', playerScores);
@@ -1205,6 +1213,10 @@
    */
   async function directDatabaseWrite(humanWon, humanScore) {
     try {
+      if (gameMode !== 'onlineMultiplayer') {
+        console.log('ℹ️ Skipping direct DB write: not online multiplayer');
+        return;
+      }
       console.log('🔄 directDatabaseWrite called with:', { humanWon, humanScore });
       
       // Check if user is logged in
@@ -1259,6 +1271,10 @@
    */
   async function updateAIGameStats(humanWon, humanScore) {
     try {
+      if (gameMode !== 'onlineMultiplayer') {
+        console.log('ℹ️ Skipping AI stats update: not online multiplayer');
+        return;
+      }
       console.log('🎯 updateAIGameStats called with:', { humanWon, humanScore });
       console.log('🎯 Game mode:', gameMode);
       console.log('🎯 Current player turn:', playerTurn);

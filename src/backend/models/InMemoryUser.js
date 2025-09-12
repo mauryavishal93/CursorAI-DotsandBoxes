@@ -152,8 +152,8 @@ class InMemoryUser {
   processGameWin(opponent = null) {
     console.log(`🏆 InMemoryUser ${this.username} processing game win against ${opponent}`);
     
-    // Winner gains +1 point (online scoring spec)
-    this.totalScore += 1;
+    // Winner gains +5 points (online scoring spec)
+    this.totalScore += 5;
     this.gamesWon += 1;
     this.gamesPlayed += 1;
     this.currentStreak = (this.currentStreak || 0) + 1;
@@ -173,8 +173,8 @@ class InMemoryUser {
   processGameLoss(opponent = null) {
     console.log(`😞 InMemoryUser ${this.username} processing game loss against ${opponent}`);
     
-    // Loser loses -1 point (minimum 0)
-    this.totalScore = Math.max(0, this.totalScore - 1);
+    // Loser loses -3 points (minimum 0)
+    this.totalScore = Math.max(0, this.totalScore - 3);
     
     // Initialize losses if not present
     if (!this.losses) this.losses = 0;

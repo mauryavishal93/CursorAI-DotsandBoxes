@@ -182,8 +182,8 @@ class StatsService {
    * @param {Object} data - Game result data
    */
   showGameResultNotification(data) {
-    const message = `Game completed! ${data.message}`;
-    this.showNotification(message, 'info');
+    // No-op: winner popup is handled by game UI; skip generic info popup
+    return;
   }
 
   /**

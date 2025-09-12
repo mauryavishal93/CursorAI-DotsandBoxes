@@ -333,7 +333,16 @@ router.post('/logout', async (req, res) => {
       
       if (user && user.isGuest) {
         console.log('Deleting guest user on logout:', user.username);
-        const deleted = await User.deleteById(req.session.userId);
+        let deleted = false;
+        if (typeof User.deleteById === 'function') {
+          deleted = await User.deleteById(req.session.userId);
+        } else if (typeof User.findByIdAndDelete === 'function') {
+          const resDelete = await User.findByIdAndDelete(req.session.userId);
+          deleted = !!resDelete;
+        } else if (typeof User.deleteOne === 'function') {
+          const resDelete = await User.deleteOne({ _id: req.session.userId });
+          deleted = resDelete && (resDelete.deletedCount > 0);
+        }
         if (deleted) {
           console.log('Guest user successfully deleted from database');
         } else {
