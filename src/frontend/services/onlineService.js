@@ -1,8 +1,10 @@
 import { io } from 'socket.io-client';
+import AuthService from './authService.js';
 
 export class OnlineService {
   constructor() {
     this.socket = io();
+    this.authService = new AuthService();
     this.currentLobbyCode = null;
     this.isInLobby = false;
     this.isGameStarted = false;
@@ -15,6 +17,14 @@ export class OnlineService {
     // Socket connection event handlers
     this.socket.on('connect', () => {
       console.log('Connected to server');
+      try {
+        const user = this.authService.getCurrentUser();
+        if (user && user._id && user.username) {
+          this.socket.emit('associateUser', { userId: user._id, username: user.username });
+        }
+      } catch (e) {
+        // no-op
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -49,7 +59,9 @@ export class OnlineService {
   }
 
   createLobby(callback) {
-    this.socket.emit('createLobby', (response) => {
+    const user = this.authService.getCurrentUser();
+    const payload = user && user.username ? { username: user.username } : undefined;
+    this.socket.emit('createLobby', payload, (response) => {
       this.currentLobbyCode = response.lobbyCode;
       this.isInLobby = true;
       this.isCreator = true;
@@ -60,7 +72,9 @@ export class OnlineService {
   }
 
   joinLobby(lobbyCode, callback) {
-    this.socket.emit('joinLobby', lobbyCode, (response) => {
+    const user = this.authService.getCurrentUser();
+    const payload = user && user.username ? { lobbyCode, username: user.username } : lobbyCode;
+    this.socket.emit('joinLobby', payload, (response) => {
       if (response.success) {
         this.currentLobbyCode = lobbyCode;
         this.isInLobby = true;

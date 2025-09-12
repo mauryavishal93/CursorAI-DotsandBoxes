@@ -149,15 +149,18 @@ socket.on('connect', () => {
   console.log('Socket connected:', socket.id);
   
   // Associate socket with current user if logged in
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  
-  if (token && user.id) {
-    socket.emit('associateUser', {
-      userId: user.id,
-      username: user.username
-    });
-    console.log('Socket associated with user:', user.username);
+  let user = null;
+  try {
+    const userData = localStorage.getItem('dotsAndBoxesUser');
+    if (userData) user = JSON.parse(userData);
+  } catch (e) {}
+  const token = localStorage.getItem('dotsAndBoxesToken');
+  if (token && user && (user._id || user.id)) {
+    const userId = user._id || user.id;
+    socket.emit('associateUser', { userId, username: user.username });
+    console.log('Socket associated with user:', user.username, userId);
+  } else {
+    console.log('No authenticated user found to associate on connect');
   }
 });
 
@@ -175,6 +178,20 @@ socket.on('reconnect', (attemptNumber) => {
     lobbyStatus.textContent = 'Reconnected! Game should continue normally.';
   }
   
+  // Re-associate user after reconnect
+  try {
+    const userData = localStorage.getItem('dotsAndBoxesUser');
+    const token = localStorage.getItem('dotsAndBoxesToken');
+    if (userData && token) {
+      const user = JSON.parse(userData);
+      const userId = user._id || user.id;
+      if (userId) {
+        socket.emit('associateUser', { userId, username: user.username });
+        console.log('Re-associated user after reconnect:', user.username, userId);
+      }
+    }
+  } catch (e) {}
+
   // Attempt to reconnect to lobby if we were in one
   if (currentLobbyCode && isInLobby) {
     console.log('Attempting to reconnect to lobby:', currentLobbyCode);
