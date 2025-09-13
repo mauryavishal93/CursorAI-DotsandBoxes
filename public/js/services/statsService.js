@@ -458,23 +458,50 @@ class StatsService {
   /**
    * Refresh current user stats display
    */
-  async refreshCurrentUserStats() {
-    if (!this.currentUserStats) return;
+  // async refreshCurrentUserStats() {
+  //   if (!this.currentUserStats) return;
     
-    try {
-      const response = await this.getUserStats(this.currentUserStats._id || this.currentUserStats.userId);
-      this.updateStatsDisplays(response.user);
+  //   try {
+  //     const response = await this.getUserStats(this.currentUserStats._id || this.currentUserStats.userId);
+  //     this.updateStatsDisplays(response.user);
       
+  //     // Update score chart if visible
+  //     const scoreCanvas = document.getElementById('scoreChart');
+  //     if (scoreCanvas && response.scoreHistory) {
+  //       this.createScoreChart('scoreChart', response.scoreHistory);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error refreshing user stats:', error);
+  //   }
+  // }
+  async refreshCurrentUserStats() {
+    if (!this.currentUserStats) {
+      console.warn("No currentUserStats available, skipping refresh.");
+      return;
+    }
+  
+    try {
+      const userId = this.currentUserStats._id || this.currentUserStats.userId;
+      if (!userId) {
+        console.warn("No user ID in currentUserStats:", this.currentUserStats);
+        return; // Prevent the server error
+      }
+  
+      const response = await this.getUserStats(userId);
+  
+      if (response && response.user) {
+        this.updateStatsDisplays(response.user);
+      }
+  
       // Update score chart if visible
       const scoreCanvas = document.getElementById('scoreChart');
-      if (scoreCanvas && response.scoreHistory) {
+      if (scoreCanvas && Array.isArray(response.scoreHistory)) {
         this.createScoreChart('scoreChart', response.scoreHistory);
       }
     } catch (error) {
       console.error('Error refreshing user stats:', error);
     }
   }
-
   /**
    * Format number with commas
    * @param {number} num - Number to format

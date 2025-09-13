@@ -240,10 +240,15 @@ export class GameService {
 
   checkGameOver() {
     if (this.gameLogic.checkGameOver()) {
+
+
       const player1Score = this.gameLogic.playerScores[1];
       const player2Score = this.gameLogic.playerScores[2];
       const winner = player1Score > player2Score ? 1 : 2;
-      this.showMessage('Game Over!', `Player ${winner} wins with ${this.gameLogic.playerScores[winner]} squares!`);
+      const margin = Math.abs(player1Score - player2Score);
+      const loser  = winner === 1 ? 2 : 1;
+      const winnerScore=this.gameLogic.playerScores[winner]-this.gameLogic.playerScores[loser];
+      this.showMessage('Game Over!', `Player ${winner} wins with ${margin} squares!`);
       
       if (this.gameMode === GAME_MODES.ONLINE_MULTIPLAYER) {
         this.onlineService.sendGameAction({

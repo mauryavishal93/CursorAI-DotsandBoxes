@@ -1451,6 +1451,10 @@ function showShareError() {
 socket.on('statsUpdated', (data) => {
   console.log('Received stats update from server:', data);
   
+
+  window.authService.isLoggedIn = function() {
+    return !!this.getCurrentUser() && !!this.getToken();
+  };
   // Update the profile statistics display if user is logged in
   if (typeof window.authService !== 'undefined' && window.authService.isLoggedIn()) {
     // Update the current user's stats in localStorage
