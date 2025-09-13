@@ -3359,8 +3359,23 @@
         // Fallback to original logic
         winnerName = action.winnerName || `Player ${action.winner}`;
       }
-      
-      showMessage("Game Over!", `${truncateUsername(winnerName)} wins with ${winnerScore} squares!`);
+
+      let winnerMessage;
+      let winner;
+      if (playerScores[1] > playerScores[2]) {
+        const margin = Math.abs(playerScores[1] - playerScores[2]);
+        winnerMessage = `🎉 ${truncateUsername(playerNames[1])} wins by ${margin} squares!`;
+        winner = 1;
+    } else if (playerScores[2] > playerScores[1]) {
+        const margin = Math.abs(playerScores[2] - playerScores[1]);
+        winnerMessage = `🎉 ${truncateUsername(playerNames[2])} wins by ${margin} squares!`;
+        winner = 2;
+    } else {
+        winnerMessage = "It's a tie!";
+        winner = 0; // Tie
+    }
+    showMessage("Game Over!", winnerMessage);
+      // showMessage("Game Over!", `${truncateUsername(winnerName)} wins with ${winnerScore} squares!`);
       
       // Disable game interactions
       if (typeof window.disableGameInteractions === 'function') {
