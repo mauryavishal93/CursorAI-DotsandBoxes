@@ -825,6 +825,30 @@
    * Switches the current player turn.
    */
   function switchTurn() {
+      // Special handling for single player when opponent's next turn is skipped
+      const nextPlayer = playerTurn === 1 ? 2 : 1;
+      if (gameMode === 'singlePlayer' && skipNextTurnForPlayer === nextPlayer) {
+        const skippedPlayerName = truncateUsername(playerNames[nextPlayer]) || `Player ${nextPlayer}`;
+        // Consume skip and keep the same player
+        skipNextTurnForPlayer = null;
+        // Reset per-turn states to allow a fresh roll for the same player
+        linesToDraw = 0;
+        hasRolledDice = false;
+        hasSpunLuckyWheelThisTurn = false;
+        displayDiceValue(0);
+        showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
+        // Update UI for continued turn
+        updateScoreDisplay();
+        updateDiceInteractivity();
+        // If AI is continuing, trigger its move after a short delay
+        if (playerTurn === 2 && !gameOver) {
+          if (!isLuckyWheelActive) {
+            setTimeout(aiMakeMove, 1000);
+          }
+        }
+        return;
+      }
+
       const previousPlayer = playerTurn;
       playerTurn = playerTurn === 1 ? 2 : 1;
       linesToDraw = 0; // Reset lines to draw for the new player
@@ -860,7 +884,7 @@
           skipNextTurnForPlayer = null;
           showMessage('Turn Skipped!', `${skippedPlayerName}'s turn is skipped due to Lucky Draw.`);
           // Immediately advance again to the other player
-        switchTurn();
+          switchTurn();
           return;
         }
       
@@ -2133,10 +2157,179 @@
               }
           }
 
-          // If no square can be completed, pick a random available line
+          // If no square can be completed, use unbeatable minimax strategy
           if (!chosenLine && availableLines.length > 0) {
-              chosenLine = availableLines[Math.floor(Math.random() * availableLines.length)];
-              console.log("AI: No square to complete, picking random line:", chosenLine);
+              console.log("AI: Using unbeatable minimax strategy...");
+              
+              // Minimax with alpha-beta pruning for unbeatable play
+              const minimax = (linesSet, depth, alpha, beta, isMaximizing) => {
+                  if (depth === 0) {
+                      return evaluatePosition(linesSet);
+                  }
+                  
+                  const moves = getAvailableMoves(linesSet);
+                  if (moves.length === 0) {
+                      return evaluatePosition(linesSet);
+                  }
+                  
+                  if (isMaximizing) {
+                      let maxEval = -Infinity;
+                      for (const move of moves) {
+                          const newLinesSet = new Set(linesSet);
+                          newLinesSet.add(getCanonicalLineKey(move.start, move.end));
+                          
+                          // Check if this move completes squares (AI continues)
+                          let squaresCompleted = 0;
+                          if (move.start.row === move.end.row) { // Horizontal
+                              const minCol = Math.min(move.start.col, move.end.col);
+                              if (move.start.row > 0 && checkHypotheticalSquareCompletion(move.start.row - 1, minCol, newLinesSet)) squaresCompleted++;
+                              if (move.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(move.start.row, minCol, newLinesSet)) squaresCompleted++;
+                          } else { // Vertical
+                              const minRow = Math.min(move.start.row, move.end.row);
+                              if (move.start.col > 0 && checkHypotheticalSquareCompletion(minRow, move.start.col - 1, newLinesSet)) squaresCompleted++;
+                              if (move.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, move.start.col, newLinesSet)) squaresCompleted++;
+                          }
+                          
+                          // If AI completes squares, it continues (same player)
+                          const eval = minimax(newLinesSet, depth - 1, alpha, beta, squaresCompleted > 0);
+                          maxEval = Math.max(maxEval, eval);
+                          alpha = Math.max(alpha, eval);
+                          if (beta <= alpha) break; // Alpha-beta pruning
+                      }
+                      return maxEval;
+                  } else {
+                      let minEval = Infinity;
+                      for (const move of moves) {
+                          const newLinesSet = new Set(linesSet);
+                          newLinesSet.add(getCanonicalLineKey(move.start, move.end));
+                          
+                          // Check if this move completes squares (Human continues)
+                          let squaresCompleted = 0;
+                          if (move.start.row === move.end.row) { // Horizontal
+                              const minCol = Math.min(move.start.col, move.end.col);
+                              if (move.start.row > 0 && checkHypotheticalSquareCompletion(move.start.row - 1, minCol, newLinesSet)) squaresCompleted++;
+                              if (move.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(move.start.row, minCol, newLinesSet)) squaresCompleted++;
+                          } else { // Vertical
+                              const minRow = Math.min(move.start.row, move.end.row);
+                              if (move.start.col > 0 && checkHypotheticalSquareCompletion(minRow, move.start.col - 1, newLinesSet)) squaresCompleted++;
+                              if (move.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, move.start.col, newLinesSet)) squaresCompleted++;
+                          }
+                          
+                          // If human completes squares, they continue (same player)
+                          const eval = minimax(newLinesSet, depth - 1, alpha, beta, squaresCompleted === 0);
+                          minEval = Math.min(minEval, eval);
+                          beta = Math.min(beta, eval);
+                          if (beta <= alpha) break; // Alpha-beta pruning
+                      }
+                      return minEval;
+                  }
+              };
+              
+              // Get all available moves from current position
+              const getAvailableMoves = (linesSet) => {
+                  const moves = [];
+                  for (let r = 0; r <= GRID_SIZE; r++) {
+                      for (let c = 0; c <= GRID_SIZE; c++) {
+                          // Horizontal lines
+                          if (c < GRID_SIZE) {
+                              const line = { start: { row: r, col: c }, end: { row: r, col: c + 1 } };
+                              if (isValidLine(line) && !linesSet.has(getCanonicalLineKey(line.start, line.end))) {
+                                  moves.push(line);
+                              }
+                          }
+                          // Vertical lines
+                          if (r < GRID_SIZE) {
+                              const line = { start: { row: r, col: c }, end: { row: r + 1, col: c } };
+                              if (isValidLine(line) && !linesSet.has(getCanonicalLineKey(line.start, line.end))) {
+                                  moves.push(line);
+                              }
+                          }
+                      }
+                  }
+                  return moves;
+              };
+              
+              // Evaluate board position (positive = good for AI, negative = good for human)
+              const evaluatePosition = (linesSet) => {
+                  let score = 0;
+                  
+                  // Count completed squares
+                  for (let r = 0; r < GRID_SIZE; r++) {
+                      for (let c = 0; c < GRID_SIZE; c++) {
+                          if (checkHypotheticalSquareCompletion(r, c, linesSet)) {
+                              // Estimate ownership based on position (simplified)
+                              const squareIndex = r * GRID_SIZE + c;
+                              score += (squareIndex % 2 === 0) ? 1 : -1;
+                          }
+                      }
+                  }
+                  
+                  // Count 3-sided squares (potential threats/opportunities)
+                  for (let r = 0; r < GRID_SIZE; r++) {
+                      for (let c = 0; c < GRID_SIZE; c++) {
+                          if (!checkHypotheticalSquareCompletion(r, c, linesSet)) {
+                              const sidesCount = countSquareSides(r, c, linesSet);
+                              if (sidesCount === 3) {
+                                  const squareIndex = r * GRID_SIZE + c;
+                                  score += (squareIndex % 2 === 0) ? 0.5 : -0.5;
+                              }
+                          }
+                      }
+                  }
+                  
+                  return score;
+              };
+              
+              // Count sides of a square
+              const countSquareSides = (r, c, linesSet) => {
+                  if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return 0;
+                  
+                  let count = 0;
+                  const hasLine = (startRow, startCol, endRow, endCol) => {
+                      return linesSet.has(getCanonicalLineKey({row: startRow, col: startCol}, {row: endRow, col: endCol}));
+                  };
+                  
+                  if (hasLine(r, c, r, c + 1)) count++; // Top
+                  if (hasLine(r + 1, c, r + 1, c + 1)) count++; // Bottom
+                  if (hasLine(r, c, r + 1, c)) count++; // Left
+                  if (hasLine(r, c + 1, r + 1, c + 1)) count++; // Right
+                  
+                  return count;
+              };
+              
+              // Find best move using minimax
+              let bestMove = null;
+              let bestScore = -Infinity;
+              const searchDepth = Math.min(8, Math.max(4, Math.floor(availableLines.length / 3))); // Adaptive depth
+              
+              console.log(`AI: Searching ${availableLines.length} moves with depth ${searchDepth}`);
+              
+              for (const move of availableLines) {
+                  const newLinesSet = new Set(drawnLineKeys);
+                  newLinesSet.add(getCanonicalLineKey(move.start, move.end));
+                  
+                  // Check if this move completes squares (AI continues)
+                  let squaresCompleted = 0;
+                  if (move.start.row === move.end.row) { // Horizontal
+                      const minCol = Math.min(move.start.col, move.end.col);
+                      if (move.start.row > 0 && checkHypotheticalSquareCompletion(move.start.row - 1, minCol, newLinesSet)) squaresCompleted++;
+                      if (move.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(move.start.row, minCol, newLinesSet)) squaresCompleted++;
+                  } else { // Vertical
+                      const minRow = Math.min(move.start.row, move.end.row);
+                      if (move.start.col > 0 && checkHypotheticalSquareCompletion(minRow, move.start.col - 1, newLinesSet)) squaresCompleted++;
+                      if (move.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, move.start.col, newLinesSet)) squaresCompleted++;
+                  }
+                  
+                  const score = minimax(newLinesSet, searchDepth, -Infinity, Infinity, squaresCompleted > 0);
+                  
+                  if (score > bestScore) {
+                      bestScore = score;
+                      bestMove = move;
+                  }
+              }
+              
+              chosenLine = bestMove || availableLines[Math.floor(Math.random() * availableLines.length)];
+              console.log("AI: Unbeatable minimax chosen line:", chosenLine, "score:", bestScore);
           }
 
           if (chosenLine) {
