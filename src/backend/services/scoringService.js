@@ -200,10 +200,26 @@ class ScoringService {
       console.log(`📈 Fetching user stats for userId: ${userId} (type: ${typeof userId})`);
       const User = getUserModel();
       
+      // Check if userId is a UUID (from in-memory storage)
+      const mongoose = require('mongoose');
+      const userIdStr = userId.toString();
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+      const isUUID = userIdStr.length === 36 && userIdStr.includes('-') && 
+                     !!userIdStr.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      // ObjectId format: exactly 24 hex characters
+      const isValidObjectId = userIdStr.length === 24 && 
+                              /^[0-9a-fA-F]{24}$/.test(userIdStr) &&
+                              mongoose.Types.ObjectId.isValid(userId);
+      
       let user, recentGames;
-      if (global.useInMemoryStorage) {
-        console.log('🔍 Using in-memory storage for user lookup');
+      if (global.useInMemoryStorage || isUUID) {
+        console.log('🔍 Using in-memory storage for user lookup (UUID detected)');
         user = await User.findById(userId);
+        recentGames = []; // In-memory storage doesn't track games
+      } else if (!isValidObjectId) {
+        // Invalid ID format
+        console.log(`⚠️  Invalid user ID format: ${userId} (not UUID or ObjectId)`);
+        throw new Error('Invalid user ID format');
       } else {
         console.log('🔍 Using MongoDB for user lookup');
         // MongoDB findById can handle string IDs automatically
@@ -231,8 +247,8 @@ class ScoringService {
       
       // Get user's rank
       let rank = 1;
-      if (global.useInMemoryStorage) {
-        const allUsers = User.getAllUsers();
+      if (global.useInMemoryStorage || isUUID) {
+        const allUsers = User.getAllUsers ? User.getAllUsers() : [];
         const usersWithHigherPoints = allUsers.filter(u => 
           u.totalScore > (user.totalScore || 0) && u.gamesPlayed > 0
         );
@@ -247,7 +263,7 @@ class ScoringService {
       
       // Format user data consistently
       let userData;
-      if (global.useInMemoryStorage) {
+      if (global.useInMemoryStorage || isUUID) {
         userData = {
           _id: user._id || user.id,
           username: user.username,
@@ -365,27 +381,69 @@ class ScoringService {
       if (userId) {
         console.log(`🎯 Fetching recent online games for user ${userId} (limit: ${limit})`);
         
-        if (global.useInMemoryStorage) {
-          // For in-memory storage, we don't have a Game model, so return empty array
+        // Early validation - check if user is from in-memory storage (UUID format)
+        const mongoose = require('mongoose');
+        const userIdStr = String(userId).trim();
+        
+        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isUUID = userIdStr.length === 36 && userIdStr.includes('-') && uuidPattern.test(userIdStr);
+        
+        // ObjectId format: exactly 24 hex characters
+        const objectIdPattern = /^[0-9a-fA-F]{24}$/;
+        const isValidObjectId = userIdStr.length === 24 && 
+                                objectIdPattern.test(userIdStr) &&
+                                mongoose.Types.ObjectId.isValid(userIdStr);
+        
+        // Return early for UUID users - don't even try to query MongoDB
+        if (global.useInMemoryStorage || isUUID) {
+          console.log(`ℹ️  User ${userIdStr} is from in-memory storage (UUID format). Game history not available.`);
           return {
             success: true,
             games: [],
             totalGames: 0,
-            message: 'Game history not available in demo mode'
+            message: 'Game history not available for guest/in-memory users'
           };
-        } else {
+        }
+        
+        // Return early for invalid ObjectId format
+        if (!isValidObjectId) {
+          console.log(`⚠️  Invalid user ID format: ${userIdStr} (length: ${userIdStr.length}, not UUID or ObjectId)`);
+          return {
+            success: true,
+            games: [],
+            totalGames: 0,
+            message: 'Invalid user ID format'
+          };
+        }
+        
+        // Only query MongoDB if we have a valid ObjectId
+        try {
           // For MongoDB, get user's recent online multiplayer games
-          const recentGames = await Game.getUserRecentGames(userId, limit);
+          const recentGames = await Game.getUserRecentGames(userIdStr, limit);
           
           // Debug: Log game data to verify startedAt and endedAt are present
-          recentGames.forEach(game => {
-            console.log(`🎮 Game ${game.gameId}: startedAt=${game.startedAt}, endedAt=${game.endedAt}, duration=${game.gameStats?.gameDuration}s`);
-          });
+          if (recentGames.length > 0) {
+            recentGames.forEach(game => {
+              console.log(`🎮 Game ${game.gameId}: startedAt=${game.startedAt}, endedAt=${game.endedAt}, duration=${game.gameStats?.gameDuration}s`);
+            });
+          } else {
+            console.log(`ℹ️  No recent games found for user ${userId}`);
+          }
           
           return {
             success: true,
             games: recentGames,
             totalGames: recentGames.length
+          };
+        } catch (queryError) {
+          // Catch any errors from Game.getUserRecentGames
+          console.error(`❌ Error in Game.getUserRecentGames for user ${userIdStr}:`, queryError.message);
+          return {
+            success: true,
+            games: [],
+            totalGames: 0,
+            message: 'Error fetching games'
           };
         }
       } else {
@@ -400,7 +458,13 @@ class ScoringService {
       }
     } catch (error) {
       console.error('❌ Error fetching recent games:', error);
-      throw error;
+      // Return empty result instead of throwing to prevent app crash
+      return {
+        success: false,
+        games: [],
+        totalGames: 0,
+        error: error.message
+      };
     }
   }
   

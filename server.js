@@ -4,6 +4,9 @@
  * Version: 3.0.0
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -24,10 +27,12 @@ class ProductionServer {
     this.app = express();
     this.server = http.createServer(this.app);
     this.io = new Server(this.server);
-    this.connectDatabase();
+    this.dbConnected = false;
     this.setupMiddleware();
     this.setupRoutes();
     this.setupSocket();
+    // Initialize database connection (non-blocking)
+    this.connectDatabase();
   }
 
   async connectDatabase() {
@@ -53,13 +58,52 @@ class ProductionServer {
       
       console.log('✅ Successfully connected to MongoDB Atlas');
       global.useInMemoryStorage = false;
+      this.dbConnected = true;
       console.log('📊 Using MongoDB Atlas storage system');
       console.log('💾 Database: dots-and-boxes');
+      console.log(`🔗 Connection State: ${mongoose.connection.readyState} (1=connected)`);
+      console.log(`🌐 Host: ${mongoose.connection.host}`);
       
-      // Test the connection
+      // Verify the flag is set correctly
+      if (global.useInMemoryStorage === false) {
+        console.log('✅ global.useInMemoryStorage correctly set to FALSE');
+      } else {
+        console.warn('⚠️  WARNING: global.useInMemoryStorage is not FALSE! Current value:', global.useInMemoryStorage);
+        global.useInMemoryStorage = false; // Force it to false
+      }
+      
+      // Test the connection with read/write operations
       const db = mongoose.connection.db;
       const collections = await db.listCollections().toArray();
       console.log(`📋 Available collections: ${collections.length > 0 ? collections.map(c => c.name).join(', ') : 'None (will be created as needed)'}`);
+      
+      // Test database read operation
+      try {
+        const User = require('./src/backend/models/User');
+        const userCount = await User.countDocuments();
+        console.log(`👥 Users in database: ${userCount}`);
+      } catch (readError) {
+        console.log(`⚠️  Read test warning: ${readError.message}`);
+      }
+      
+      // Test database write operation
+      try {
+        const User = require('./src/backend/models/User');
+        const testUser = new User({
+          username: `connection_test_${Date.now()}`,
+          email: `test_${Date.now()}@connection.test`,
+          password: 'test_password',
+          isGuest: true
+        });
+        await testUser.save();
+        console.log(`✅ Write test successful - Test user created with ID: ${testUser._id}`);
+        // Clean up test user
+        await User.deleteOne({ _id: testUser._id });
+        console.log(`🧹 Test user cleaned up`);
+      } catch (writeError) {
+        console.log(`⚠️  Write test warning: ${writeError.message}`);
+        // Don't fail connection if write test fails (might be permissions issue)
+      }
       
       // Set up connection event handlers
       mongoose.connection.on('connected', () => {
@@ -93,9 +137,18 @@ class ProductionServer {
       
       // Use in-memory storage as fallback
       global.useInMemoryStorage = true;
+      this.dbConnected = false;
       console.log('⚠️  Falling back to in-memory storage');
       console.log('📝 Note: Data will be lost on server restart');
     }
+  }
+  
+  async waitForDatabase(maxWaitTime = 30000) {
+    const startTime = Date.now();
+    while (!this.dbConnected && !global.useInMemoryStorage && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return this.dbConnected || global.useInMemoryStorage;
   }
 
   setupMiddleware() {
@@ -195,14 +248,80 @@ class ProductionServer {
 
     // Health check endpoint
     this.app.get('/health', (req, res) => {
+      const mongoose = require('mongoose');
+      const isConnected = mongoose.connection.readyState === 1;
+      
       res.json({
         status: 'OK',
         version: '3.0.0',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         memory: process.memoryUsage(),
-        database: global.useInMemoryStorage ? 'in-memory' : 'mongodb'
+        database: {
+          type: global.useInMemoryStorage ? 'in-memory' : 'mongodb',
+          connected: isConnected,
+          readyState: mongoose.connection.readyState,
+          name: mongoose.connection.name,
+          host: mongoose.connection.host
+        }
       });
+    });
+    
+    // Database diagnostic endpoint
+    this.app.get('/api/db-status', async (req, res) => {
+      try {
+        const mongoose = require('mongoose');
+        const User = require('./src/backend/models/User');
+        const Game = require('./src/backend/models/Game');
+        
+        const isConnected = mongoose.connection.readyState === 1;
+        const useInMemory = global.useInMemoryStorage;
+        
+        let userCount = 0;
+        let gameCount = 0;
+        let sampleUsers = [];
+        
+        if (isConnected && !useInMemory) {
+          try {
+            userCount = await User.countDocuments();
+            gameCount = await Game.countDocuments();
+            sampleUsers = await User.find().limit(5).select('username email points wins gamesPlayed');
+          } catch (error) {
+            console.error('Error reading database:', error);
+          }
+        }
+        
+        res.json({
+          success: true,
+          database: {
+            type: useInMemory ? 'in-memory' : 'mongodb',
+            connected: isConnected,
+            readyState: mongoose.connection.readyState,
+            name: mongoose.connection.name,
+            host: mongoose.connection.host,
+            port: mongoose.connection.port
+          },
+          statistics: {
+            users: userCount,
+            games: gameCount,
+            sampleUsers: sampleUsers.map(u => ({
+              username: u.username,
+              email: u.email,
+              points: u.points,
+              wins: u.wins,
+              gamesPlayed: u.gamesPlayed
+            }))
+          },
+          globalFlag: {
+            useInMemoryStorage: global.useInMemoryStorage
+          }
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
     });
 
     // Specific routes for static files to ensure proper MIME types
@@ -269,8 +388,34 @@ class ProductionServer {
   }
 }
 
-// Start the server
-const server = new ProductionServer();
-server.start();
+// Start the server with async initialization
+async function startServer() {
+  const server = new ProductionServer();
+  
+  // Wait a bit for database connection to establish
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Check database status
+  if (mongoose.connection.readyState === 1) {
+    console.log('✅ Database ready - Starting server...');
+  } else if (global.useInMemoryStorage) {
+    console.log('⚠️  Using in-memory storage - Starting server...');
+  } else {
+    console.log('⏳ Waiting for database connection...');
+    // Wait up to 10 seconds for connection
+    let waited = 0;
+    while (mongoose.connection.readyState !== 1 && !global.useInMemoryStorage && waited < 10000) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      waited += 500;
+    }
+  }
+  
+  server.start();
+}
+
+startServer().catch(error => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
+});
 
 module.exports = ProductionServer;

@@ -1410,6 +1410,15 @@ canvas {
   order: 10; /* Ensure buttons appear at bottom but with proper spacing */
 }
 
+/* Center align button for online game screen */
+#online-game-screen .button-group {
+  justify-content: center;
+}
+
+#online-game-screen .button-group .btn {
+  flex: 0 0 auto;
+}
+
 /* Proportionally scaled game screen buttons */
 .game-screen-base .button-group .btn {
   min-width: calc(var(--scale-factor) * 140px);

@@ -176,7 +176,6 @@
   const onlineCurrentPlayerNameDisplay = document.getElementById('online-current-player-name-display');
   const onlineLinesToDrawCountEl = document.getElementById('online-lines-to-draw-count');
   const onlineDiceDisplayEl = document.getElementById('online-dice-display');
-  const onlineRestartBtn = document.getElementById('online-restart-btn');
   const onlineBackToHomeBtn = document.getElementById('online-back-to-home-btn');
   const onlineSpecialLineIndicatorEl = document.getElementById('online-special-line-indicator');
   let onlineCtx = null; // Will be initialized after DOM is loaded
@@ -2715,20 +2714,6 @@
   }
 
   // Online game screen event listeners
-  if (onlineRestartBtn) {
-  onlineRestartBtn.addEventListener('click', () => {
-      if (gameMode === 'onlineMultiplayer') {
-          showConfirmation("Restart Game", "Are you sure you want to restart the game? This will end the current session.", () => {
-              // Emit leave lobby event to notify opponent
-              if (onlineSocket && onlineLobbyCode) {
-                  onlineSocket.emit('leaveLobby', onlineLobbyCode);
-              }
-              showScreen(homeScreen);
-          }, () => {});
-      }
-  });
-  }
-
   if (onlineBackToHomeBtn) {
   onlineBackToHomeBtn.addEventListener('click', () => {
       if (gameMode === 'onlineMultiplayer') {

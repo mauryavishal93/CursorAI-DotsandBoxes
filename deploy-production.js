@@ -6,7 +6,7 @@
 console.log('🚀 Starting Production Deployment...');
 
 // Set all required environment variables
-process.env.MONGODB_URI = "mongodb+srv://mauryavishal93_db_user:j2mFtqt7kKN6B2G0@dotsandboxes.wmzzcle.mongodb.net/dots-and-boxes?retryWrites=true&w=majority";
+process.env.MONGODB_URI = "mongodb+srv://mauryavishal93_db_user:j2mFtqt7kKN6B2G0@dotsandboxes.wmzzcle.mongodb.net/dots-and-boxes?authSource=admin";
 process.env.SESSION_SECRET = "dots-and-boxes-super-secret-session-key-2024";
 process.env.NODE_ENV = "production";
 process.env.PORT = process.env.PORT || 3000;

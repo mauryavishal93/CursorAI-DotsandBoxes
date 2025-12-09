@@ -1,15 +1,19 @@
 const jwt = require('jsonwebtoken');
+const { getUserModel: getDbUserModel, isMongoDBConnected } = require('../utils/dbHelper');
 
 // Function to get the appropriate User model
 function getUserModel() {
-  console.log('getUserModel called, useInMemoryStorage:', global.useInMemoryStorage);
-  if (global.useInMemoryStorage) {
-    console.log('Using InMemoryUser model');
-    return require('../models/InMemoryUser');
-  } else {
-    console.log('Using MongoDB User model');
-    return require('../models/User');
-  }
+  const isConnected = isMongoDBConnected();
+  const useInMemory = global.useInMemoryStorage;
+  
+  console.log('getUserModel called:', {
+    useInMemoryStorage: useInMemory,
+    mongoDBConnected: isConnected,
+    mongooseReadyState: require('mongoose').connection.readyState
+  });
+  
+  // Use the helper function which checks actual connection status
+  return getDbUserModel();
 }
 
 // JWT Secret (in production, use environment variable)

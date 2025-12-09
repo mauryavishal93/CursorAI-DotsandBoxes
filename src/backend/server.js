@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -28,8 +31,8 @@ class GameServer {
 
   async connectDatabase() {
     try {
-      // Try local MongoDB first, then Atlas
-      const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dots-and-boxes';
+      // Use MongoDB Atlas (or fallback to local if MONGODB_URI not set)
+      const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://mauryavishal93_db_user:j2mFtqt7kKN6B2G0@dotsandboxes.wmzzcle.mongodb.net/dots-and-boxes?authSource=admin';
       
       console.log('🔄 Attempting to connect to MongoDB...');
       console.log(`📍 Connection URI: ${mongoUri.replace(/\/\/.*@/, '//***:***@')}`);

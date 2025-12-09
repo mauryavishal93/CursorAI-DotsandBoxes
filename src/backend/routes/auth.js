@@ -2,13 +2,11 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 
+const { getUserModel: getDbUserModel } = require('../utils/dbHelper');
+
 // Function to get the appropriate User model
 function getUserModel() {
-  if (global.useInMemoryStorage) {
-    return require('../models/InMemoryUser');
-  } else {
-    return require('../models/User');
-  }
+  return getDbUserModel();
 }
 
 const { generateToken, authenticate } = require('../middleware/auth');
