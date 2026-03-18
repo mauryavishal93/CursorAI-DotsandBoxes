@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Game = require('../models/Game');
+const mongoose = require('mongoose');
 
 // Dynamic user model selection based on storage type
 function getUserModel() {
@@ -35,6 +36,11 @@ class ScoringService {
         const { gameId, lobbyCode, winner, loser, gameStats = {} } = gameResult;
         const winnerId = winner.userId;
         const loserId = loser.userId;
+
+        const matchIntent = gameResult.matchIntent || null;
+        const plannedOpponentType = gameResult.plannedOpponentType || null;
+        const plannedOpponentName = gameResult.plannedOpponentName || null;
+        const botDifficulty = gameResult.botDifficulty || null;
         
         console.log(`🎮 Processing game result for game ${gameId}:`, {
           winner: winner.username,
@@ -42,6 +48,29 @@ class ScoringService {
           winnerScore: winner.score,
           loserScore: loser.score
         });
+
+        // If IDs are not valid ObjectIds (common for UUID guest users),
+        // skip DB lookups/scoring updates to avoid Mongoose CastErrors.
+        if (!global.useInMemoryStorage) {
+          const winnerIdOk = mongoose.Types.ObjectId.isValid(winnerId);
+          const loserIdOk = mongoose.Types.ObjectId.isValid(loserId);
+          if (!winnerIdOk || !loserIdOk) {
+            console.log('ℹ️ Invalid ObjectId(s) for MongoDB lookup. Skipping stats update:', {
+              winnerId,
+              loserId,
+              winnerIdOk,
+              loserIdOk
+            });
+            resultData = {
+              success: true,
+              message: 'Game result processed without DB stats (invalid ObjectId(s))',
+              winner,
+              loser,
+              gameRecord: null
+            };
+            return;
+          }
+        }
         
         // Find both users
         const findUserOptions = session ? { session } : {};
@@ -101,6 +130,10 @@ class ScoringService {
           gameRecord = new Game({
             gameId: gameId,
             gameMode: 'onlineMultiplayer',
+            matchIntent: matchIntent,
+            plannedOpponentType: plannedOpponentType,
+            plannedOpponentName: plannedOpponentName,
+            botDifficulty: botDifficulty,
             players: [
               {
                 username: winner.username,
@@ -334,6 +367,31 @@ class ScoringService {
         scoreHistory: userData.scoreHistory || []
       };
     } catch (error) {
+      // CastErrors happen when guest UUIDs/non-ObjectIds are passed to MongoDB queries.
+      // For gameplay stability, return safe defaults instead of throwing.
+      if (error && (error.name === 'CastError' || String(error.message || '').includes('Cast to ObjectId'))) {
+        console.warn('ℹ️ Returning default stats due to ObjectId CastError:', { userId });
+        return {
+          success: true,
+          user: {
+            _id: userId,
+            username: 'Guest',
+            points: 0,
+            wins: 0,
+            losses: 0,
+            gamesPlayed: 0,
+            currentStreak: 0,
+            highestStreak: 0,
+            avatar: 'default-1',
+            winRate: 0,
+            lossRate: 0,
+            rank: 0
+          },
+          recentGames: [],
+          scoreHistory: []
+        };
+      }
+
       console.error('❌ Error fetching user stats:', error);
       throw error;
     }

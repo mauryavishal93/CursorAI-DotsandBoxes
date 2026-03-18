@@ -47,6 +47,8 @@ const createLobbyBtn = document.getElementById('create-lobby-btn');
 const joinLobbyBtn = document.getElementById('join-lobby-btn');
 const joinLobbyCodeInput = document.getElementById('join-lobby-code');
 const joinLobbySpinner = document.getElementById('join-lobby-spinner');
+const randomMatchBtn = document.getElementById('random-match-btn');
+const randomMatchSpinner = document.getElementById('random-match-spinner');
 const lobbyStatus = document.getElementById('lobby-status');
 const shareIconContainer = document.getElementById('share-icon-container');
 
@@ -112,6 +114,155 @@ function hideJoinLobbySpinner() {
   }
 }
 
+function showRandomMatchSpinner() {
+  if (randomMatchSpinner) {
+    randomMatchSpinner.style.display = 'flex';
+  }
+}
+
+function hideRandomMatchSpinner() {
+  if (randomMatchSpinner) {
+    randomMatchSpinner.style.display = 'none';
+  }
+}
+
+function getCurrentUsername() {
+  try {
+    if (window.authService && typeof window.authService.getCurrentUser === 'function') {
+      const u = window.authService.getCurrentUser();
+      if (u && u.username) return u.username;
+    }
+  } catch (e) {}
+
+  try {
+    const userData = localStorage.getItem('dotsAndBoxesUser');
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      if (parsed && parsed.username) return parsed.username;
+    }
+  } catch (e) {}
+
+  return 'Player';
+}
+
+// Server-backed auth fallback (uses session cookie) for reliable socket association.
+let __authUserCache = null;
+let __authUserPromise = null;
+async function getAuthenticatedUserFromServer() {
+  // Cache result to avoid spamming /api/auth/me
+  if (__authUserCache) return __authUserCache;
+  if (__authUserPromise) return __authUserPromise;
+
+  __authUserPromise = (async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.success && data.user && data.user.username) {
+        __authUserCache = data.user; // { id, username, ... }
+        return __authUserCache;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    } finally {
+      // Keep __authUserPromise resolved so subsequent calls can use cache.
+    }
+  })();
+
+  return __authUserPromise;
+}
+
+async function getAuthenticatedUserForSocket() {
+  // 1) Prefer already-available client-side user
+  try {
+    const userData = localStorage.getItem('dotsAndBoxesUser');
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      if (parsed && parsed.username && (parsed.id || parsed._id)) return parsed;
+    }
+  } catch (e) {}
+
+  try {
+    if (window.authService && typeof window.authService.getCurrentUser === 'function') {
+      const u = window.authService.getCurrentUser();
+      if (u && u.username && (u.id || u._id)) return u;
+    }
+  } catch (e) {}
+
+  // 2) Fallback to server session lookup
+  return getAuthenticatedUserFromServer();
+}
+
+function startRandomMatch() {
+  if (!socket) return;
+  if (!randomMatchBtn) return;
+  if (isSearchingRandomMatch) return;
+
+  // Reset any existing lobby state for safety
+  currentLobbyCode = null;
+  playerRole = null;
+  isInLobby = true;
+  isGameStarted = false;
+  isCreator = false;
+
+  const username = getCurrentUsername();
+
+  isSearchingRandomMatch = true;
+
+  // UI locks so user can't mix modes
+  if (randomMatchBtn) randomMatchBtn.disabled = true;
+  if (createLobbyBtn) createLobbyBtn.disabled = true;
+  if (joinLobbyCodeInput) joinLobbyCodeInput.disabled = true;
+  if (joinLobbyBtn) joinLobbyBtn.disabled = true;
+
+  showRandomMatchSpinner();
+  hideJoinLobbySpinner();
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Searching for opponent...';
+    lobbyStatus.style.color = '#3b82f6';
+  }
+
+  console.log('🔎 Quick Match: findRandomOpponent emitted', { username });
+  socket.emit('findRandomOpponent', { username }, (response) => {
+    console.log('🔎 Quick Match: findRandomOpponent callback', response);
+    if (!response || !response.success) {
+      isSearchingRandomMatch = false;
+      hideRandomMatchSpinner();
+      if (randomMatchBtn) randomMatchBtn.disabled = false;
+      if (createLobbyBtn) createLobbyBtn.disabled = false;
+      if (joinLobbyCodeInput) joinLobbyCodeInput.disabled = false;
+      if (joinLobbyBtn) joinLobbyBtn.disabled = false;
+      if (lobbyStatus) {
+        lobbyStatus.textContent = response && response.message ? response.message : 'Random match failed.';
+        lobbyStatus.style.color = '#ef4444';
+      }
+      return;
+    }
+
+    // If not matched immediately, we will get `randomMatchAssigned` or `quickMatchBot`
+    if (!response.matched) {
+      console.log('Random match: waiting for opponent...');
+    } else {
+      console.log('Random match: matched immediately.');
+    }
+  });
+}
+
+function stopRandomMatchSearching() {
+  if (!isSearchingRandomMatch) return;
+  isSearchingRandomMatch = false;
+  hideRandomMatchSpinner();
+
+  if (randomMatchBtn) randomMatchBtn.disabled = false;
+  if (createLobbyBtn) createLobbyBtn.disabled = false;
+  if (joinLobbyCodeInput) {
+    joinLobbyCodeInput.disabled = false;
+    updateJoinButtonState();
+  }
+  if (joinLobbyBtn) joinLobbyBtn.disabled = joinLobbyBtn && !joinLobbyCodeInput?.value?.trim();
+}
+
 // Auto-convert lobby code input to uppercase as user types and handle button state
 if (joinLobbyCodeInput) {
   
@@ -155,6 +306,7 @@ let isInLobby = false;
 let isGameStarted = false;
 let isCreator = false;
 let playerRole = null;
+let isSearchingRandomMatch = false;
 
 function formatChatTime(ts) {
   try {
@@ -463,21 +615,22 @@ if (onlineGameBtn) {
 // Socket connection event handlers
 socket.on('connect', () => {
   console.log('Socket connected:', socket.id);
-  
-  // Associate socket with current user if logged in
-  let user = null;
-  try {
-    const userData = localStorage.getItem('dotsAndBoxesUser');
-    if (userData) user = JSON.parse(userData);
-  } catch (e) {}
-  const token = localStorage.getItem('dotsAndBoxesToken');
-  if (token && user && (user._id || user.id)) {
-    const userId = user._id || user.id;
-    socket.emit('associateUser', { userId, username: user.username });
-    console.log('Socket associated with user:', user.username, userId);
-  } else {
-    console.log('No authenticated user found to associate on connect');
-  }
+
+  // Associate socket with current user if logged in (prefer local, fallback to server session)
+  (async () => {
+    try {
+      const user = await getAuthenticatedUserForSocket();
+      if (user && (user._id || user.id) && user.username) {
+        const userId = user._id || user.id;
+        socket.emit('associateUser', { userId, username: user.username });
+        console.log('Socket associated with user:', user.username, userId);
+      } else {
+        console.log('No authenticated user found to associate on connect');
+      }
+    } catch (e) {
+      console.log('Failed to fetch user for socket association:', e?.message || e);
+    }
+  })();
 });
 
 socket.on('connect_error', (error) => {
@@ -495,18 +648,16 @@ socket.on('reconnect', (attemptNumber) => {
   }
   
   // Re-associate user after reconnect
-  try {
-    const userData = localStorage.getItem('dotsAndBoxesUser');
-    const token = localStorage.getItem('dotsAndBoxesToken');
-    if (userData && token) {
-      const user = JSON.parse(userData);
-      const userId = user._id || user.id;
-      if (userId) {
+  (async () => {
+    try {
+      const user = await getAuthenticatedUserForSocket();
+      if (user && (user._id || user.id) && user.username) {
+        const userId = user._id || user.id;
         socket.emit('associateUser', { userId, username: user.username });
         console.log('Re-associated user after reconnect:', user.username, userId);
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  })();
 
   // Attempt to reconnect to lobby if we were in one
   if (currentLobbyCode && isInLobby) {
@@ -665,6 +816,14 @@ socket.on('rejoinFailed', (data) => {
 
 // Expose socket globally for game.js
 window.socket = socket;
+
+if (randomMatchBtn) {
+  randomMatchBtn.addEventListener('click', () => {
+    // Ensure we're on the online lobby UI
+    if (typeof showLobbyUI === 'function') showLobbyUI();
+    startRandomMatch();
+  });
+}
 
 if (createLobbyBtn) {
   createLobbyBtn.addEventListener('click', () => {
@@ -1019,7 +1178,118 @@ socket.on('lobbyUpdate', ({ players }) => {
   }
 });
 
-socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform, playerNames }) => {
+// Quick Match assignment: tells this client which lobby to join (so it can start when `startGame` arrives)
+socket.on('randomMatchAssigned', (data) => {
+  if (!data || !data.lobbyCode) return;
+  console.log('🎯 randomMatchAssigned received', data);
+
+  // Stop "searching for opponent" UI
+  isSearchingRandomMatch = false;
+  hideRandomMatchSpinner();
+
+  currentLobbyCode = data.lobbyCode;
+  window.lobbyCode = currentLobbyCode;
+  window.onlineLobbyCode = currentLobbyCode;
+
+  playerRole = typeof data.playerRole === 'number' ? data.playerRole : null;
+  isInLobby = true;
+  isCreator = !!data.isCreator;
+  isGameStarted = false;
+
+  window.onlinePlayerRole = playerRole;
+
+  initChatCrypto();
+
+  if (lobbyStatus) {
+    lobbyStatus.textContent = `Match found! Waiting for game to start...`;
+    lobbyStatus.style.color = '#10b981';
+  }
+
+  // Lock lobby UI buttons during match
+  if (randomMatchBtn) randomMatchBtn.disabled = true;
+  if (createLobbyBtn) createLobbyBtn.disabled = true;
+  if (joinLobbyCodeInput) joinLobbyCodeInput.disabled = true;
+  if (joinLobbyBtn) joinLobbyBtn.disabled = true;
+
+  // Share icon only for creator
+  if (shareIconContainer) {
+    shareIconContainer.style.display = isCreator ? 'block' : 'none';
+  }
+});
+
+// Bot fallback: starts an online-look game where the opponent is local AI
+socket.on('quickMatchBot', (data) => {
+  try {
+    if (!data) return;
+    console.log('🤖 quickMatchBot received', data);
+
+    isSearchingRandomMatch = false;
+    hideRandomMatchSpinner();
+
+    // Clear any lobby tracking (we are playing locally vs bot)
+    currentLobbyCode = null;
+    window.lobbyCode = null;
+    window.onlineLobbyCode = null;
+    window.onlinePlayerRole = 1;
+    playerRole = null;
+    isInLobby = false;
+    isCreator = false;
+    isGameStarted = true;
+
+    if (lobbyStatus) {
+      const opponentName = data.player2Name || 'Opponent';
+      lobbyStatus.textContent = `No opponent found online. Playing vs ${opponentName}...`;
+      lobbyStatus.style.color = '#f59e0b';
+    }
+
+    const player1Name = data.player1Name || getCurrentUsername();
+    const player2Name = data.player2Name || 'Opponent';
+    const botDifficulty = data.botDifficulty || 'hard';
+    const botMatchId = data.botMatchId || null;
+
+    const gameOptions = {
+      opponentIsBot: true,
+      playerRole: 1,
+      lobbyCode: null,
+      socket: null,
+      player1Name,
+      player2Name,
+      botDifficulty,
+      botMatchId
+    };
+
+    const tryStart = () => {
+      if (typeof window.startGame !== 'function') {
+        console.error('❌ quickMatchBot: window.startGame is not available yet');
+        return false;
+      }
+      console.log('🎮 quickMatchBot: starting online game (bot mode)...', gameOptions);
+      window.startGame('onlineMultiplayer', gameOptions);
+      return true;
+    };
+
+    if (typeof window.startGame === 'function') {
+      // Next tick helps when game.js is still attaching globals.
+      setTimeout(() => tryStart(), 0);
+    } else {
+      // Fallback: game.js should already be present, but if not, load it.
+      const gameScript = document.createElement('script');
+      gameScript.src = '/js/game.js';
+      gameScript.onload = () => {
+        setTimeout(() => tryStart(), 0);
+      };
+      document.head.appendChild(gameScript);
+    }
+
+  } catch (e) {
+    console.error('Failed to start bot quick match:', e);
+    if (typeof window.showToast === 'function') {
+      window.showToast('Match error', 'Unable to start bot game. Please try again.', { type: 'error', duration: 3000 });
+    }
+  }
+});
+
+socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform, playerNames, playerRolesBySocketId }) => {
   console.log('🎮 startGame event received:', { 
     lobbyCode, 
     currentLobbyCode, 
@@ -1030,8 +1300,29 @@ socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform, playerNames }) =>
     socketId: socket.id,
     timestamp,
     crossPlatform,
-    playerNames
+    playerNames,
+    playerRolesBySocketIdKeys: playerRolesBySocketId ? Object.keys(playerRolesBySocketId) : null
   });
+
+  // Extra recovery for quick match: if we somehow missed `randomMatchAssigned` ordering,
+  // ensure local lobby context is initialized before other checks.
+  if (lobbyCode && !isGameStarted && !currentLobbyCode) {
+    currentLobbyCode = lobbyCode;
+    window.lobbyCode = lobbyCode;
+    window.onlineLobbyCode = lobbyCode;
+    isInLobby = true;
+  }
+
+  // If role wasn't set yet, recover it from mapping sent by the server.
+  if (lobbyCode && playerRole === null && playerRolesBySocketId && typeof playerRolesBySocketId === 'object') {
+    const assignedRole = playerRolesBySocketId[socket.id];
+    if (typeof assignedRole === 'number') {
+      playerRole = assignedRole;
+      window.onlinePlayerRole = assignedRole;
+      isCreator = assignedRole === 1;
+      isInLobby = true;
+    }
+  }
   
   // Check if state was somehow corrupted and try to recover
   if (currentLobbyCode === lobbyCode && playerRole === null) {
@@ -1423,11 +1714,19 @@ function resetOnlineGameState() {
     } catch (e) {}
   }
 
+  // Cancel quick match search (if active) so server doesn't pair later.
+  if (socket && isSearchingRandomMatch) {
+    try {
+      socket.emit('cancelRandomOpponent');
+    } catch (e) {}
+  }
+
   // Reset all lobby variables
   isInLobby = false;
   isGameStarted = false;
   isCreator = false;
   playerRole = null;
+  isSearchingRandomMatch = false;
   
   // Reset global variables
   if (typeof window.gameMode !== 'undefined') {
@@ -1448,13 +1747,18 @@ function resetOnlineGameState() {
   
   // Clear UI elements
   hideJoinLobbySpinner();
+  hideRandomMatchSpinner();
   if (lobbyStatus) {
     lobbyStatus.textContent = '';
   }
   if (joinLobbyCodeInput) {
     joinLobbyCodeInput.value = '';
+    joinLobbyCodeInput.disabled = false;
     updateJoinButtonState(); // Update button state after clearing input
   }
+
+  if (randomMatchBtn) randomMatchBtn.disabled = false;
+  if (createLobbyBtn) createLobbyBtn.disabled = false;
   
   // Hide share icon container
   if (shareIconContainer) {

@@ -131,10 +131,9 @@
   // Lucky Wheel Toggle Feature
   let isLuckyWheelEnabled = DEFAULT_LUCKY_WHEEL_ENABLED; // Default from deployment configuration
 
-  // Initialize game state immediately when window loads
-  // This ensures drawnLineKeys and other state variables are properly initialized
-  // before any functions (like runAllTests) try to access them.
-  resetGameState();
+  // Do not call resetGameState() at this point.
+  // Some state variables are declared later in this file, and calling it too early
+  // can crash initialization (which breaks button handlers in some environments).
   
   // Fetch Lucky Wheel configuration from server
   fetchLuckyWheelConfig();
@@ -160,6 +159,100 @@
   const tpPlayer2NameInput = document.getElementById('tp-player2-name-input'); 
   const startTwoPlayerGameBtn = document.getElementById('start-two-player-game-btn'); 
   const tpSetupBackToHomeBtn = document.getElementById('tp-setup-back-to-home-btn'); // New back button for setup screen
+
+  // ----------------------------
+  // Robust home screen handling
+  // ----------------------------
+  // If another script/auth gating fails to wire listeners correctly, ensure the
+  // core single player setup flow still works.
+  if (!window.__singlePlayerHomeDelegationBound) {
+    window.__singlePlayerHomeDelegationBound = true;
+
+    if (singlePlayerBtn) singlePlayerBtn.disabled = false;
+    if (twoPlayerBtn) twoPlayerBtn.disabled = false;
+
+    document.addEventListener('click', (e) => {
+      try {
+        const t = e.target;
+        // In some browsers/headless environments, e.target may be a text node
+        // which doesn't implement `.closest()`. Normalize to an Element.
+        const targetEl = (t && t.nodeType === 3 && t.parentElement) ? t.parentElement : t;
+        const clickedSinglePlayer = !!(targetEl && targetEl.closest && targetEl.closest('#single-player-btn'));
+        if (clickedSinglePlayer) {
+          window.__userNavigatedFromHome = true;
+          // Re-query DOM to avoid stale/NULL references captured during init.
+          const setupScreenEl = document.getElementById('single-player-setup-screen');
+          const nameInputEl = document.getElementById('sp-player-name-input');
+          if (setupScreenEl) {
+            showScreen(setupScreenEl);
+            if (nameInputEl) {
+              try {
+                nameInputEl.focus();
+                nameInputEl.select();
+              } catch (err) {}
+            }
+            // No toast for mode navigation to avoid noisy UI.
+          }
+          return;
+        }
+
+        const clickedTwoPlayer = !!(targetEl && targetEl.closest && targetEl.closest('#two-player-btn'));
+        if (clickedTwoPlayer) {
+          window.__userNavigatedFromHome = true;
+          const setupScreenEl = document.getElementById('two-player-setup-screen');
+          const p1InputEl = document.getElementById('tp-player1-name-input');
+          if (setupScreenEl) {
+            showScreen(setupScreenEl);
+            if (p1InputEl) {
+              try {
+                p1InputEl.focus();
+                p1InputEl.select();
+              } catch (err) {}
+            }
+            // No toast for mode navigation to avoid noisy UI.
+          }
+          return;
+        }
+
+        const clickedOnline = !!(targetEl && targetEl.closest && targetEl.closest('#online-game-btn'));
+        if (clickedOnline) {
+          // online-lobby-ui is nested inside home-screen, so ensure home is visible first.
+          if (homeScreen) showScreen(homeScreen);
+          window.__userNavigatedFromHome = true;
+          const onlineLobbyEl = document.getElementById('online-lobby-ui');
+          if (onlineLobbyEl) onlineLobbyEl.style.display = 'flex';
+          // No toast for mode navigation to avoid noisy UI.
+          return;
+        }
+
+        const clickedBack = !!(targetEl && targetEl.closest && targetEl.closest('#sp-setup-back-to-home-btn'));
+        if (clickedBack) {
+          showScreen(homeScreen);
+          return;
+        }
+
+        const clickedRules = !!(targetEl && targetEl.closest && targetEl.closest('#rules-btn-home'));
+        if (clickedRules) {
+          if (rulesModal) {
+            rulesModal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+          }
+          return;
+        }
+
+        const clickedInfo = !!(targetEl && targetEl.closest && targetEl.closest('#info-btn-home'));
+        if (clickedInfo) {
+          if (infoModal) {
+            infoModal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+          }
+          return;
+        }
+      } catch (err) {
+        console.error('Home button click delegation failed:', err);
+      }
+    });
+  }
 
   const messageBox = document.getElementById('messageBox');
   const messageTitle = document.getElementById('messageTitle');
@@ -228,6 +321,11 @@
   let onlinePlayerRole = null; // 1 or 2
   let onlineLobbyCode = null;
   let onlineSocket = null;
+  let opponentIsBot = false; // When true, local AI controls the opponent
+  let botDifficulty = 'normal'; // e.g. 'normal' | 'hard'
+  let botMatchId = null; // For bot fallback matchmaking persistence
+  let onlineGameStartedAt = null;
+  let hasSubmittedBotGameResult = false;
   let gameStateLock = false; // Prevent concurrent game state modifications
 
   // New UI elements for Rules and Info modals
@@ -602,6 +700,11 @@
       hasSpunLuckyWheelThisTurn = false; // Reset Lucky Wheel flag for new game
       twoPlayerExtraRollAfterFinish = false; // Reset extra roll flag for new game
       isLuckyWheelActive = false; // Reset Lucky Wheel active state for new game
+
+      // Reset bot matchmaking persistence flags
+      hasSubmittedBotGameResult = false;
+      botMatchId = null;
+      onlineGameStartedAt = null;
   }
 
   /**
@@ -903,7 +1006,7 @@
       console.log(`[TURN SWITCH] Game Mode: ${gameMode}, Lines to Draw: ${linesToDraw}, Has Rolled Dice: ${hasRolledDice}`);
       
       // For online multiplayer, emit turn switch to sync with other player
-      if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+      if (gameMode === 'onlineMultiplayer' && !opponentIsBot && onlineSocket && onlineLobbyCode) {
         onlineSocket.emit('gameAction', {
           lobbyCode: onlineLobbyCode,
           action: {
@@ -941,6 +1044,14 @@
           } else {
             console.log('[AI] Lucky Wheel is active, AI moves will start after wheel completes');
           }
+      }
+
+      // Bot fallback mode: start local AI moves when it's the bot's turn.
+      if (gameMode === 'onlineMultiplayer' && opponentIsBot && !gameOver) {
+        const opponentRole = onlinePlayerRole === 1 ? 2 : 1;
+        if (playerTurn === opponentRole && !isLuckyWheelActive) {
+          setTimeout(aiMakeMove, 900);
+        }
       }
   }
 
@@ -1001,6 +1112,54 @@
     if (totalScoreEl) totalScoreEl.textContent = stats.totalScore || 0;
   }
 
+  // Persist bot-match stats + Game record in backend.
+  function submitBotGameResultToServer() {
+    try {
+      if (hasSubmittedBotGameResult) return;
+      hasSubmittedBotGameResult = true;
+
+      // Only for bot fallback online game.
+      if (gameMode !== 'onlineMultiplayer' || !opponentIsBot) return;
+      if (!window.socket) return;
+
+      if (!botMatchId) {
+        botMatchId = `botmatch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      const humanScore = playerScores[1];
+      const botScore = playerScores[2];
+      const winnerRoleForScoring = humanScore > botScore ? 1 : 2; // tie -> bot win
+
+      const gameDurationSeconds = onlineGameStartedAt
+        ? Math.max(0, Math.round((Date.now() - onlineGameStartedAt) / 1000))
+        : 0;
+
+      const totalMoves = drawnLines ? drawnLines.length : 0;
+
+      window.socket.emit('botGameOver', {
+        botMatchId,
+        player1Name: playerNames[1],
+        player2Name: playerNames[2],
+        player1Score: humanScore,
+        player2Score: botScore,
+        botDifficulty: botDifficulty || null,
+        matchIntent: 'randomOnlineBotFallback',
+        plannedOpponentType: 'bot',
+        plannedOpponentName: playerNames[2],
+        gameStats: {
+          totalMoves,
+          gameDuration: gameDurationSeconds,
+          boardSize: `${GRID_SIZE}x${GRID_SIZE}`,
+          startedAt: onlineGameStartedAt ? new Date(onlineGameStartedAt).toISOString() : new Date(Date.now() - 300000).toISOString()
+        },
+        winnerRole: winnerRoleForScoring
+      });
+    } catch (e) {
+      // Stats persistence should never block gameplay.
+      console.error('Failed to submit bot game result:', e);
+    }
+  }
+
   /**
    * Checks if the game is over and determines the winner.
    */
@@ -1021,9 +1180,13 @@
           gameOver = true;
           const marginP1 = Math.abs(playerScores[1] - playerScores[2]);
           showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[1])} wins by ${marginP1} squares!`);
+
+          if (gameMode === 'onlineMultiplayer' && opponentIsBot) {
+            submitBotGameResultToServer();
+          }
           
           // Emit game over event to server for online multiplayer
-          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+          if (gameMode === 'onlineMultiplayer' && !opponentIsBot && onlineSocket && onlineLobbyCode) {
               onlineSocket.emit('gameAction', {
                   lobbyCode: onlineLobbyCode,
                   action: {
@@ -1054,9 +1217,13 @@
           gameOver = true;
           const marginP2 = Math.abs(playerScores[2] - playerScores[1]);
           showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[2])} wins by ${marginP2} squares!`);
+
+          if (gameMode === 'onlineMultiplayer' && opponentIsBot) {
+            submitBotGameResultToServer();
+          }
           
           // Emit game over event to server for online multiplayer
-          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+          if (gameMode === 'onlineMultiplayer' && !opponentIsBot && onlineSocket && onlineLobbyCode) {
               onlineSocket.emit('gameAction', {
                   lobbyCode: onlineLobbyCode,
                   action: {
@@ -1104,9 +1271,13 @@
               winner = 0; // Tie
           }
           showMessage("Game Over!", winnerMessage);
+
+          if (gameMode === 'onlineMultiplayer' && opponentIsBot) {
+            submitBotGameResultToServer();
+          }
           
           // Emit game over event to server for online multiplayer
-          if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+          if (gameMode === 'onlineMultiplayer' && !opponentIsBot && onlineSocket && onlineLobbyCode) {
               onlineSocket.emit('gameAction', {
                   lobbyCode: onlineLobbyCode,
                   action: {
@@ -2033,7 +2204,8 @@
               drawnLineKeys.add(finalKey); // Add canonical key to the Set
               drawLine(finalLine, (playerTurn === 1) ? LINE_COLOR_PLAYER1 : LINE_COLOR_PLAYER2);
               // Emit line draw to other player in online multiplayer
-              if (gameMode === 'onlineMultiplayer' && onlineSocket && onlineLobbyCode) {
+              // In bot fallback mode, we keep everything local.
+              if (gameMode === 'onlineMultiplayer' && !opponentIsBot && onlineSocket && onlineLobbyCode && playerTurn === onlinePlayerRole) {
                   onlineSocket.emit('gameAction', {
                       lobbyCode: onlineLobbyCode,
                       action: {
@@ -2089,10 +2261,12 @@
                       updateDiceInteractivity();
                   } else {
                       // For online multiplayer, only the current player should trigger turn switch
-                      if (gameMode === 'onlineMultiplayer' && playerTurn === onlinePlayerRole) {
-                          switchTurn();
+                      if (gameMode === 'onlineMultiplayer') {
+                          if (playerTurn === onlinePlayerRole || opponentIsBot) {
+                              switchTurn();
+                          }
                       } else if (gameMode !== 'onlineMultiplayer') {
-                      switchTurn();
+                          switchTurn();
                       }
                   }
               }
@@ -2140,7 +2314,7 @@
               console.log(`AI: Dice animation complete. Got ${diceValue} lines to draw`);
               
               // Check if Lucky Draw wheel should be triggered (only when enabled)
-              if (isLuckyWheelEnabled && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
+              if (gameMode !== 'onlineMultiplayer' && isLuckyWheelEnabled && diceValue === 6 && !hasSpunLuckyWheelThisTurn) {
                   console.log('[LUCKY WHEEL] AI rolled 6, triggering Lucky Draw wheel');
                   triggerLuckyWheel();
                   return; // Let the Lucky Draw wheel handle the rest
@@ -2206,33 +2380,88 @@
 
           let chosenLine = null;
 
-          // Prioritize completing a square
-          for (const line of availableLines) {
-              const tempDrawnLineKeys = new Set(drawnLineKeys); // Create a temporary set
-              tempDrawnLineKeys.add(getCanonicalLineKey(line.start, line.end)); // Add hypothetical line
+          const isHardOnlineBot = (gameMode === 'onlineMultiplayer' && opponentIsBot && botDifficulty === 'hard');
 
-              let completesSquareForAI = false;
-              if (line.start.row === line.end.row) { // Horizontal line
-                  const minCol = Math.min(line.start.col, line.end.col);
-                  if (line.start.row > 0 && checkHypotheticalSquareCompletion(line.start.row - 1, minCol, tempDrawnLineKeys)) completesSquareForAI = true;
-                  if (line.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(line.start.row, minCol, tempDrawnLineKeys)) completesSquareForAI = true;
-              } else { // Vertical line
-                  const minRow = Math.min(line.start.row, line.end.row);
-                  if (line.start.col > 0 && checkHypotheticalSquareCompletion(minRow, line.start.col - 1, tempDrawnLineKeys)) completesSquareForAI = true;
-                  if (line.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, line.start.col, tempDrawnLineKeys)) completesSquareForAI = true;
-              }
-              if (completesSquareForAI) {
-                  chosenLine = line;
-                  console.log("AI: Chosen line (completes square):", chosenLine);
-                  break; // Found a winning move, take it!
-              }
-          }
+          if (isHardOnlineBot) {
+              // Hard bot: choose the move that completes squares AND minimizes giving the opponent
+              // new "three-sided" squares (easy wins next turn).
+              let bestImmediateCompletes = -1;
+              let bestOpponentThreats = Infinity; // lower is better
+              let bestCandidates = [];
 
-          // If no square can be completed, use a simple and fast strategy:
-          // just pick a random available line to keep the AI responsive.
-          if (!chosenLine && availableLines.length > 0) {
-              console.log("AI: Using simple fallback strategy (random line).");
-              chosenLine = availableLines[Math.floor(Math.random() * availableLines.length)];
+              for (const line of availableLines) {
+                  const tempDrawnLineKeys = new Set(drawnLineKeys);
+                  tempDrawnLineKeys.add(getCanonicalLineKey(line.start, line.end));
+
+                  // 1) Immediate gain (how many squares this line completes now)
+                  let immediateCompletes = 0;
+                  if (line.start.row === line.end.row) { // Horizontal
+                      const minCol = Math.min(line.start.col, line.end.col);
+                      if (line.start.row > 0 && checkHypotheticalSquareCompletion(line.start.row - 1, minCol, tempDrawnLineKeys)) immediateCompletes++;
+                      if (line.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(line.start.row, minCol, tempDrawnLineKeys)) immediateCompletes++;
+                  } else { // Vertical
+                      const minRow = Math.min(line.start.row, line.end.row);
+                      if (line.start.col > 0 && checkHypotheticalSquareCompletion(minRow, line.start.col - 1, tempDrawnLineKeys)) immediateCompletes++;
+                      if (line.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, line.start.col, tempDrawnLineKeys)) immediateCompletes++;
+                  }
+
+                  // 2) Opponent threats (count squares that become 3-sided after this move)
+                  let opponentThreats = 0;
+                  for (let r = 0; r < GRID_SIZE; r++) {
+                      for (let c = 0; c < GRID_SIZE; c++) {
+                          if (isThreeSided(r, c, tempDrawnLineKeys)) opponentThreats++;
+                      }
+                  }
+
+                  if (immediateCompletes > bestImmediateCompletes) {
+                      bestImmediateCompletes = immediateCompletes;
+                      bestOpponentThreats = opponentThreats;
+                      bestCandidates = [line];
+                  } else if (immediateCompletes === bestImmediateCompletes) {
+                      if (opponentThreats < bestOpponentThreats) {
+                          bestOpponentThreats = opponentThreats;
+                          bestCandidates = [line];
+                      } else if (opponentThreats === bestOpponentThreats) {
+                          bestCandidates.push(line);
+                      }
+                  }
+              }
+
+              if (bestCandidates.length > 0) {
+                  chosenLine = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+                  console.log('AI: Hard bot chose line:', chosenLine, {
+                      bestImmediateCompletes,
+                      bestOpponentThreats
+                  });
+              }
+          } else {
+              // Normal bot (and single-player AI): prioritize completing a square,
+              // otherwise pick a random valid line for responsiveness.
+              for (const line of availableLines) {
+                  const tempDrawnLineKeys = new Set(drawnLineKeys); // Create a temporary set
+                  tempDrawnLineKeys.add(getCanonicalLineKey(line.start, line.end)); // Add hypothetical line
+
+                  let completesSquareForAI = false;
+                  if (line.start.row === line.end.row) { // Horizontal line
+                      const minCol = Math.min(line.start.col, line.end.col);
+                      if (line.start.row > 0 && checkHypotheticalSquareCompletion(line.start.row - 1, minCol, tempDrawnLineKeys)) completesSquareForAI = true;
+                      if (line.start.row < GRID_SIZE && checkHypotheticalSquareCompletion(line.start.row, minCol, tempDrawnLineKeys)) completesSquareForAI = true;
+                  } else { // Vertical line
+                      const minRow = Math.min(line.start.row, line.end.row);
+                      if (line.start.col > 0 && checkHypotheticalSquareCompletion(minRow, line.start.col - 1, tempDrawnLineKeys)) completesSquareForAI = true;
+                      if (line.start.col < GRID_SIZE && checkHypotheticalSquareCompletion(minRow, line.start.col, tempDrawnLineKeys)) completesSquareForAI = true;
+                  }
+                  if (completesSquareForAI) {
+                      chosenLine = line;
+                      console.log("AI: Chosen line (completes square):", chosenLine);
+                      break; // Found a winning move, take it!
+                  }
+              }
+
+              if (!chosenLine && availableLines.length > 0) {
+                  console.log("AI: Using simple fallback strategy (random line).");
+                  chosenLine = availableLines[Math.floor(Math.random() * availableLines.length)];
+              }
           }
 
           if (chosenLine) {
@@ -2476,8 +2705,19 @@
           
           // Set online multiplayer context
           onlinePlayerRole = onlineOptions && onlineOptions.playerRole ? onlineOptions.playerRole : 1;
+          opponentIsBot = !!(onlineOptions && onlineOptions.opponentIsBot);
           onlineLobbyCode = onlineOptions && onlineOptions.lobbyCode ? onlineOptions.lobbyCode : null;
           onlineSocket = onlineOptions && onlineOptions.socket ? onlineOptions.socket : window.socket;
+          botDifficulty = (onlineOptions && onlineOptions.botDifficulty) ? onlineOptions.botDifficulty : 'normal';
+          botMatchId = (onlineOptions && onlineOptions.botMatchId) ? onlineOptions.botMatchId : null;
+          hasSubmittedBotGameResult = false;
+          onlineGameStartedAt = Date.now();
+          
+          // Bot fallback: no server sync, only local AI moves.
+          if (opponentIsBot) {
+            onlineLobbyCode = null;
+            onlineSocket = null;
+          }
           
           console.log('🎮 Online multiplayer context set:', { 
             onlinePlayerRole, 
@@ -2601,6 +2841,13 @@
   if (singlePlayerBtn) {
   singlePlayerBtn.addEventListener('click', () => {
       showScreen(singlePlayerSetupScreen);
+      if (spPlayerNameInput) {
+        try {
+          spPlayerNameInput.focus();
+          spPlayerNameInput.select();
+        } catch (e) {}
+      }
+      // No toast for mode navigation to avoid noisy UI.
   });
   }
 
@@ -2661,10 +2908,28 @@
   }
 
   if (startSinglePlayerGameBtn) {
-  startSinglePlayerGameBtn.addEventListener('click', () => startGame('singlePlayer'));
+  startSinglePlayerGameBtn.addEventListener('click', () => {
+    try {
+      startGame('singlePlayer');
+    } catch (e) {
+      console.error('startGame(singlePlayer) failed:', e);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Start Game failed', 'Single player could not start. Check console.', { type: 'error', duration: 4000 });
+      }
+    }
+  });
   }
   if (startTwoPlayerGameBtn) {
-  startTwoPlayerGameBtn.addEventListener('click', () => startGame('twoPlayers'));
+  startTwoPlayerGameBtn.addEventListener('click', () => {
+    try {
+      startGame('twoPlayers');
+    } catch (e) {
+      console.error('startGame(twoPlayers) failed:', e);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Start Game failed', 'Two player could not start. Check console.', { type: 'error', duration: 4000 });
+      }
+    }
+  });
   }
 
   // Setup screen back button handlers
@@ -2833,38 +3098,56 @@
 
   // Fallback mechanism: Re-attach event listeners if buttons are clicked but don't work
   function attachFallbackEventListeners() {
-    // Remove existing event listeners and re-attach
-    if (rulesBtnHome) {
-      const newRulesBtn = rulesBtnHome.cloneNode(true);
-      rulesBtnHome.parentNode.replaceChild(newRulesBtn, rulesBtnHome);
-      newRulesBtn.addEventListener('click', () => {
-        console.log('Fallback: Rules button clicked');
-        if (rulesModal) {
-          console.log('Fallback: Showing rules modal');
-          rulesModal.style.display = 'block';
-          document.body.style.overflow = 'hidden';
-        }
-      });
+    // Important: don't replace DOM nodes (auth code may keep references).
+    // Instead, ensure the click handlers exist via `onclick`.
+    if (singlePlayerBtn && singlePlayerSetupScreen) {
+      singlePlayerBtn.onclick = () => {
+        showScreen(singlePlayerSetupScreen);
+        // No toast for mode navigation to avoid noisy UI.
+      };
     }
 
-    if (infoBtnHome) {
-      const newInfoBtn = infoBtnHome.cloneNode(true);
-      infoBtnHome.parentNode.replaceChild(newInfoBtn, infoBtnHome);
-      newInfoBtn.addEventListener('click', () => {
+    if (twoPlayerBtn && twoPlayerSetupScreen) {
+      twoPlayerBtn.onclick = () => {
+        showScreen(twoPlayerSetupScreen);
+      };
+    }
+
+    const onlineLobbyEl = document.getElementById('online-lobby-ui');
+    if (onlineGameBtn && onlineLobbyEl) {
+      onlineGameBtn.onclick = () => {
+        onlineLobbyEl.style.display = 'block';
+        // Note: actual switch to the online game happens in the online flow.
+      };
+    }
+
+    if (rulesBtnHome && rulesModal) {
+      rulesBtnHome.onclick = () => {
+        console.log('Fallback: Rules button clicked');
+        rulesModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+      };
+    }
+
+    if (infoBtnHome && infoModal) {
+      infoBtnHome.onclick = () => {
         console.log('Fallback: Info button clicked');
-        if (infoModal) {
-          console.log('Fallback: Showing info modal');
-          infoModal.style.display = 'block';
-          document.body.style.overflow = 'hidden';
-        }
-      });
+        infoModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+      };
     }
   }
 
-  // Set up fallback mechanism after a delay
-  setTimeout(() => {
+  // Set up fallback mechanism immediately + shortly after.
+  // This makes mode buttons reliable even if initial bindings were skipped.
+  try {
     attachFallbackEventListeners();
-  }, 1000);
+  } catch (e) {}
+  setTimeout(() => {
+    try {
+      attachFallbackEventListeners();
+    } catch (e) {}
+  }, 300);
 
   const testResultsDiv = document.createElement('div');
   testResultsDiv.id = 'test-results';
@@ -3181,13 +3464,15 @@
   
   // Additional check to ensure home screen visibility
   setTimeout(() => {
-    if (homeScreen && homeScreen.style.display === 'none') {
+    if (homeScreen && !window.__userNavigatedFromHome && homeScreen.style.display === 'none') {
       console.log('game.js fallback: Re-showing home screen');
       showScreen(homeScreen);
     }
   }, 100);
 
-  runUnitTestsBtn.addEventListener('click', runAllTests);
+  if (runUnitTestsBtn && typeof runAllTests === 'function') {
+    runUnitTestsBtn.addEventListener('click', runAllTests);
+  }
 
   // --- DICE ROLL SYNC ANIMATION FOR ONLINE MULTIPLAYER ---
   // Helper to animate dice roll
@@ -3563,6 +3848,11 @@
     onlinePlayerRole = null;
     onlineSocket = null;
     onlineLobbyCode = null;
+    opponentIsBot = false;
+    botDifficulty = 'normal';
+    botMatchId = null;
+    onlineGameStartedAt = null;
+    hasSubmittedBotGameResult = false;
     
     // Reset game state
     gameOver = false;

@@ -68,6 +68,24 @@ const gameSchema = new mongoose.Schema({
   lobbyCode: {
     type: String,
     default: null
+  },
+  // How the game was intended to be played from matchmaking/lobby perspective
+  matchIntent: {
+    type: String,
+    default: null
+  },
+  plannedOpponentType: {
+    type: String,
+    enum: ['human', 'bot'],
+    default: null
+  },
+  plannedOpponentName: {
+    type: String,
+    default: null
+  },
+  botDifficulty: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

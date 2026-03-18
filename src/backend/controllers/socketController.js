@@ -9,7 +9,70 @@ class SocketController {
     // Cache chat public keys per lobby so late joiners can derive the shared secret.
     // Structure: Map<lobbyCode, Map<socketId, publicKeyB64>>
     this.chatPublicKeysByLobby = new Map();
+
+    // Random matchmaking queue for "Quick Match" mode
+    // Items are { socketId, username, enqueuedAt }
+    this.randomMatchQueue = [];
+    this.randomMatchBotTimers = new Map(); // Map<socketId, timeoutId>
+    this.RANDOM_MATCH_BOT_TIMEOUT_MS = 15000; // 15s waiting for a real opponent
+
+    // "Human-like" bot identities so it doesn't read as "Bot".
+    // (Names are intentionally mixed across regions.)
+    this.quickMatchBotNames = [
+      'Aarav Sharma',       // Indian
+      'Vihaan Patel',       // Indian
+      'Arjun Mehta',        // Indian
+      'Ethan Johnson',      // American
+      'Liam Anderson',      // American
+      'Noah Williams',      // American
+      'Mei Zhang',          // Chinese
+      'Xiao Li',            // Chinese
+      'Wei Chen',           // Chinese
+      'Santiago Alvarez',  // Latin/Spanish
+      'Diego Martinez',    // Latin/Spanish
+      'Tomas Novak',       // European
+      'Omar Al-Farsi',     // Middle Eastern
+      'Layla Hassan',      // Middle Eastern
+      'Ravi Singh',        // Indian
+    ];
+
+    this.quickMatchBotDifficulty = 'hard';
+
+    // Single DB user to represent the bot for scoring purposes.
+    // We store the in-game (display) name separately in Game.matchIntent fields.
+    this.quickBotUserCache = null;
+
     this.setupSocketHandlers();
+  }
+
+  async getOrCreateQuickBotUser() {
+    if (this.quickBotUserCache) return this.quickBotUserCache;
+
+    // Use in-memory user store when running in demo mode.
+    const UserModel = global.useInMemoryStorage
+      ? require('../models/InMemoryUser')
+      : require('../models/User');
+
+    const botUsername = 'QuickBotUser';
+
+    // Try find existing bot user
+    const existing = await UserModel.findOne({ username: botUsername });
+    if (existing) {
+      this.quickBotUserCache = existing;
+      return existing;
+    }
+
+    // Create bot user
+    const created = await UserModel.create({
+      username: botUsername,
+      email: 'quickbotuser@local.dev',
+      password: 'bot_password_' + Date.now(),
+      isGuest: false,
+      avatar: 'default-1'
+    });
+
+    this.quickBotUserCache = created;
+    return created;
   }
 
   setupSocketHandlers() {
@@ -97,7 +160,9 @@ class SocketController {
                     lobbyCode,
                     timestamp: Date.now(),
                     crossPlatform: true,
-                    playerNames: lobby.playerNames || {}
+                    playerNames: lobby.playerNames || {},
+                    // Allow clients to safely recover assignment before joinLobby callbacks complete.
+                    playerRolesBySocketId: lobby.playerRoles || {}
                   });
                   
                   console.log(`🚀 Cross-platform startGame event emitted to lobby ${lobbyCode}`);
@@ -118,7 +183,8 @@ class SocketController {
                       lobbyCode,
                       timestamp: Date.now(),
                       crossPlatform: true,
-                      retry: true
+                      retry: true,
+                      playerRolesBySocketId: lobby.playerRoles || {}
                     });
                     
                     console.log(`🚀 Cross-platform startGame event emitted to lobby ${lobbyCode} (retry)`);
@@ -134,6 +200,168 @@ class SocketController {
         } else {
           callback({ success: false, message: result.message });
         }
+      });
+
+      // ---- Random Matchmaking (Quick Match) ----
+      // Lets two searching players be paired randomly. If nobody matches within timeout,
+      // the client starts a local bot game.
+      socket.on('findRandomOpponent', (data, callback) => {
+        const username = (data && typeof data === 'object' && data.username) ? data.username : 'Player';
+        const actualCallback = typeof callback === 'function' ? callback : null;
+
+        console.log('🔎 findRandomOpponent:', {
+          socketId: socket.id,
+          username,
+          queuedCount: this.randomMatchQueue.length
+        });
+
+        // Prevent duplicate queue entries
+        if (this.randomMatchQueue.some(e => e.socketId === socket.id)) {
+          if (actualCallback) actualCallback({ success: false, message: 'Already searching for an opponent.' });
+          return;
+        }
+
+        // If we have a waiting player, pair immediately
+        if (this.randomMatchQueue.length > 0) {
+          const opponentEntry = this.randomMatchQueue.shift();
+          const waitingSocketId = opponentEntry.socketId;
+
+          console.log('⚡ Random match pairing:', {
+            waitingSocketId,
+            currentSocketId: socket.id,
+            waitingUsername: opponentEntry.username,
+          });
+
+          // Clear bot fallback timer for the paired player
+          if (this.randomMatchBotTimers.has(waitingSocketId)) {
+            clearTimeout(this.randomMatchBotTimers.get(waitingSocketId));
+            this.randomMatchBotTimers.delete(waitingSocketId);
+          }
+
+          const waitingSocket = this.io.sockets.sockets.get(waitingSocketId);
+          if (!waitingSocket) {
+            // Waiting socket vanished; re-queue current socket
+            this.randomMatchQueue.push({ socketId: socket.id, username, enqueuedAt: Date.now() });
+            if (actualCallback) actualCallback({ success: true, matched: false, message: 'Opponent vanished; searching again.' });
+            return;
+          }
+
+          // Create a lobby with the waiting player as creator (role=1)
+          const lobbyCode = lobbyService.createLobby(waitingSocketId, opponentEntry.username);
+          const joinResult = lobbyService.joinLobby(lobbyCode, socket.id, username);
+          if (!joinResult.success) {
+            if (actualCallback) actualCallback({ success: false, message: joinResult.message || 'Failed to join matchmaking lobby.' });
+            lobbyService.destroyLobby(lobbyCode);
+            return;
+          }
+
+          // Join sockets to the room so existing online flow works
+          waitingSocket.join(lobbyCode);
+          socket.join(lobbyCode);
+
+          const lobby = lobbyService.getLobby(lobbyCode);
+          lobby.matchIntent = 'randomOnline';
+          lobby.plannedOpponentType = 'human';
+          lobby.plannedOpponentName = 'Online Opponent';
+          lobby.botDifficulty = null;
+          lobby.gameOver = false;
+          lobby.startedAt = Date.now();
+          lobby.playersReady = new Set();
+          lobby.gameStartConfirmed = false;
+          lobby.gameStarting = true;
+
+          // Assignment events so clients can set currentLobbyCode/playerRole before `startGame`
+          const roleWaiting = lobby.playerRoles[waitingSocketId];
+          const roleCurrent = lobby.playerRoles[socket.id];
+
+          waitingSocket.emit('randomMatchAssigned', {
+            lobbyCode,
+            playerRole: roleWaiting,
+            isCreator: roleWaiting === 1,
+            playerNames: lobby.playerNames || {}
+          });
+
+          socket.emit('randomMatchAssigned', {
+            lobbyCode,
+            playerRole: roleCurrent,
+            isCreator: roleCurrent === 1,
+            playerNames: lobby.playerNames || {}
+          });
+
+          // Start game shortly after assignment (keeps ordering reliable in practice)
+          setTimeout(() => {
+            this.io.to(lobbyCode).emit('startGame', {
+              lobbyCode,
+              timestamp: Date.now(),
+              crossPlatform: true,
+              playerNames: lobby.playerNames || {},
+              // Used by clients to safely recover assignment even if events arrive out of order
+              playerRolesBySocketId: lobby.playerRoles || {}
+            });
+          }, 100);
+
+          // Reply to the current requester
+          if (actualCallback) {
+            actualCallback({
+              success: true,
+              matched: true,
+              lobbyCode,
+              playerRole: roleCurrent,
+              isCreator: roleCurrent === 1
+            });
+          }
+          return;
+        }
+
+        // No opponent yet: enqueue current socket and wait for timeout
+        this.randomMatchQueue.push({ socketId: socket.id, username, enqueuedAt: Date.now() });
+
+        if (actualCallback) actualCallback({ success: true, matched: false });
+
+        const searchingSocketId = socket.id;
+        const botTimer = setTimeout(() => {
+          // If still waiting, kick off bot game by telling the client to start locally
+          console.log('🤖 Random match bot timeout fired for socket:', searchingSocketId);
+          const stillWaitingIndex = this.randomMatchQueue.findIndex(e => e.socketId === searchingSocketId);
+          if (stillWaitingIndex === -1) return;
+
+          const waitingEntry = this.randomMatchQueue[stillWaitingIndex];
+          const botMatchId = `botmatch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; // unique match id
+          this.randomMatchQueue.splice(stillWaitingIndex, 1);
+          this.randomMatchBotTimers.delete(searchingSocketId);
+
+          const searchingSocket = this.io.sockets.sockets.get(searchingSocketId);
+          if (!searchingSocket) return;
+
+          searchingSocket.emit('quickMatchBot', {
+            playerRole: 1,
+            player1Name: waitingEntry.username,
+            player2Name: this.quickMatchBotNames[Math.floor(Math.random() * this.quickMatchBotNames.length)],
+            botDifficulty: this.quickMatchBotDifficulty,
+            botMatchId,
+            matchIntent: 'randomOnlineBotFallback',
+            plannedOpponentType: 'bot'
+          });
+        }, this.RANDOM_MATCH_BOT_TIMEOUT_MS);
+
+        this.randomMatchBotTimers.set(socket.id, botTimer);
+      });
+
+      socket.on('cancelRandomOpponent', (data, callback) => {
+        const actualCallback = typeof callback === 'function' ? callback : null;
+        const searchingSocketId = socket.id;
+
+        const idx = this.randomMatchQueue.findIndex(e => e.socketId === searchingSocketId);
+        if (idx !== -1) {
+          this.randomMatchQueue.splice(idx, 1);
+        }
+
+        if (this.randomMatchBotTimers.has(searchingSocketId)) {
+          clearTimeout(this.randomMatchBotTimers.get(searchingSocketId));
+          this.randomMatchBotTimers.delete(searchingSocketId);
+        }
+
+        if (actualCallback) actualCallback({ success: true });
       });
 
       // Handle game ready signal for cross-platform synchronization
@@ -225,6 +453,88 @@ class SocketController {
           }
         } catch (error) {
           console.error('Error handling gameAction:', error);
+        }
+      });
+
+      // ---- Bot game result submission (for bot fallback matchmaking) ----
+      // Client plays locally (no opponent socket), but we still want to persist:
+      //  - match intent fields (planned lobby opponent)
+      //  - user stats + Game record in MongoDB
+      socket.on('botGameOver', async (data, callback) => {
+        try {
+          if (!data) {
+            if (typeof callback === 'function') callback({ success: false, error: 'Missing payload' });
+            return;
+          }
+
+          const {
+            botMatchId,
+            player1Name,
+            player2Name,
+            player1Score,
+            player2Score,
+            botDifficulty,
+            matchIntent,
+            plannedOpponentType,
+            plannedOpponentName,
+            gameStats = {}
+          } = data;
+
+          if (!botMatchId) {
+            if (typeof callback === 'function') callback({ success: false, error: 'botMatchId required' });
+            return;
+          }
+
+          // Human player comes from the socket->user association.
+          const socketUser = this.socketUsers.get(socket.id);
+          if (!socketUser || !socketUser.userId) {
+            if (typeof callback === 'function') callback({ success: false, error: 'User not associated with socket' });
+            return;
+          }
+
+          const humanUserId = socketUser.userId;
+          const humanUsername = player1Name || socketUser.username || 'Player';
+
+          const botUser = await this.getOrCreateQuickBotUser();
+          const botUserId = botUser._id || botUser.id;
+          const botDisplayName = player2Name || plannedOpponentName || botUser.username || 'Bot';
+
+          // Determine winner based on scores.
+          // Tie is treated as bot win to match the existing online tie behavior (winnerRole 0 -> else branch).
+          const humanWon = Number(player1Score) > Number(player2Score);
+
+          const winner = humanWon
+            ? { username: humanUsername, userId: humanUserId, score: Number(player1Score) }
+            : { username: botDisplayName, userId: botUserId, score: Number(player2Score) };
+
+          const loser = humanWon
+            ? { username: botDisplayName, userId: botUserId, score: Number(player2Score) }
+            : { username: humanUsername, userId: humanUserId, score: Number(player1Score) };
+
+          const gameId = `bot_${botMatchId}_${Date.now()}`;
+
+          const gameResult = {
+            gameId,
+            lobbyCode: botMatchId,
+            winner,
+            loser,
+            gameStats: {
+              totalMoves: gameStats.totalMoves || Number(gameStats.totalMoves) || 0,
+              gameDuration: gameStats.gameDuration || Number(gameStats.gameDuration) || 0,
+              boardSize: gameStats.boardSize || '5x5',
+              startedAt: gameStats.startedAt ? new Date(gameStats.startedAt) : new Date(Date.now() - 300000)
+            },
+            matchIntent: matchIntent || 'randomOnlineBotFallback',
+            plannedOpponentType: plannedOpponentType || 'bot',
+            plannedOpponentName: plannedOpponentName || botDisplayName,
+            botDifficulty: botDifficulty || null
+          };
+
+          const result = await ScoringService.processGameResult(gameResult);
+          if (typeof callback === 'function') callback(result);
+        } catch (error) {
+          console.error('❌ botGameOver error:', error);
+          if (typeof callback === 'function') callback({ success: false, error: error.message });
         }
       });
 
@@ -617,6 +927,10 @@ class SocketController {
         lobbyCode,
         winner,
         loser,
+        matchIntent: lobby.matchIntent || null,
+        plannedOpponentType: lobby.plannedOpponentType || null,
+        plannedOpponentName: lobby.plannedOpponentName || null,
+        botDifficulty: lobby.botDifficulty || null,
         gameStats: {
           totalMoves: action.totalMoves || 0,
           gameDuration: action.gameDuration || 0,
@@ -717,6 +1031,16 @@ class SocketController {
   handleDisconnect(socket) {
     // Clean up socket user mapping
     this.socketUsers.delete(socket.id);
+
+    // Clean up random matchmaking queue (if user was searching)
+    const qIdx = this.randomMatchQueue.findIndex(e => e.socketId === socket.id);
+    if (qIdx !== -1) {
+      this.randomMatchQueue.splice(qIdx, 1);
+    }
+    if (this.randomMatchBotTimers.has(socket.id)) {
+      clearTimeout(this.randomMatchBotTimers.get(socket.id));
+      this.randomMatchBotTimers.delete(socket.id);
+    }
     
     const lobbies = lobbyService.getAllLobbies();
     for (const [lobbyCode, lobby] of Object.entries(lobbies)) {

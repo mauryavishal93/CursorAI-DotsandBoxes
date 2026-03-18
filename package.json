@@ -42,5 +42,8 @@
     "real-time"
   ],
   "author": "Vishal Maurya",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
 }
