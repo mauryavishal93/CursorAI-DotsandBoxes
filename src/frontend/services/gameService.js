@@ -126,8 +126,18 @@ export class GameService {
     if (result.success) {
       this.animateDiceRoll(result.value, () => {
         this.updateDisplay();
+
+        // Show special line message if granted on this roll
+        if (result.grantedSpecialLine) {
+          this.showMessage('Special Line!', 'You gained a special bonus line. Use it wisely!');
+        }
         
-        if (result.shouldTriggerLuckyWheel && this.isLuckyWheelEnabled) {
+        // Lucky Wheel: only in offline modes and once per turn
+        if (
+          result.shouldTriggerLuckyWheel &&
+          this.isLuckyWheelEnabled &&
+          this.gameMode !== GAME_MODES.ONLINE_MULTIPLAYER
+        ) {
           this.triggerLuckyWheel();
         } else if (this.gameMode === GAME_MODES.SINGLE_PLAYER && this.gameLogic.playerTurn === 2) {
           // Start AI turn
@@ -165,6 +175,21 @@ export class GameService {
   }
 
   triggerLuckyWheel() {
+    // Enforce global and per-turn rules
+    if (!this.isLuckyWheelEnabled) {
+      return;
+    }
+    if (this.gameMode === GAME_MODES.ONLINE_MULTIPLAYER) {
+      // Lucky Wheel is disabled in online multiplayer for balanced gameplay
+      return;
+    }
+    if (this.gameLogic.hasSpunLuckyWheelThisTurn) {
+      // Already used Lucky Wheel this turn
+      return;
+    }
+
+    this.gameLogic.hasSpunLuckyWheelThisTurn = true;
+
     const result = LUCKY_DRAW_OUTCOMES[Math.floor(Math.random() * LUCKY_DRAW_OUTCOMES.length)];
     this.showMessage('Lucky Draw', result);
     
@@ -301,8 +326,12 @@ export class GameService {
   }
 
   showMessage(title, message) {
-    // Simple alert for now - could be replaced with a modal component
-    alert(`${title}: ${message}`);
+    if (typeof window.showToast === 'function') {
+      window.showToast(title || 'Message', message || '', { type: 'info' });
+    } else {
+      // Fallback for environments without toast helper
+      alert(`${title}: ${message}`);
+    }
   }
 }
 

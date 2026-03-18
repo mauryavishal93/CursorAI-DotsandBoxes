@@ -50,6 +50,32 @@ const joinLobbySpinner = document.getElementById('join-lobby-spinner');
 const lobbyStatus = document.getElementById('lobby-status');
 const shareIconContainer = document.getElementById('share-icon-container');
 
+// Online chat modal
+const chatBtn = document.getElementById('chat-btn');
+const chatModalEl = document.getElementById('chatModal');
+const onlineChatMessagesEl = document.getElementById('chatModalMessages');
+const onlineChatInputEl = document.getElementById('chatModalInput');
+const onlineChatSendBtn = document.getElementById('chatModalSendBtn');
+const chatModalCloseBtn = document.getElementById('chatModalCloseBtn');
+const chatUnreadBadgeEl = document.getElementById('chat-unread-badge');
+
+let chatUnreadCount = 0;
+
+function setChatUnreadCount(count) {
+  chatUnreadCount = Math.max(0, Number(count) || 0);
+  if (!chatUnreadBadgeEl) return;
+
+  if (chatUnreadCount <= 0) {
+    chatUnreadBadgeEl.style.display = 'none';
+    chatUnreadBadgeEl.textContent = '0';
+    return;
+  }
+
+  const displayCount = chatUnreadCount > 99 ? '99+' : String(chatUnreadCount);
+  chatUnreadBadgeEl.textContent = displayCount;
+  chatUnreadBadgeEl.style.display = 'inline-flex';
+}
+
 // Function to update join button state based on input value (global scope for reuse)
 function updateJoinButtonState() {
   if (joinLobbyCodeInput && joinLobbyBtn) {
@@ -129,6 +155,296 @@ let isInLobby = false;
 let isGameStarted = false;
 let isCreator = false;
 let playerRole = null;
+
+function formatChatTime(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+}
+
+// =========================
+// Online Chat (E2EE MVP)
+// =========================
+let chatEcdhKeyPair = null; // Local ECDH keypair
+let chatAesGcmKey = null;   // Derived shared AES-GCM key
+let chatSharedReady = false;
+let chatLastRemotePublicKey = null;
+let chatHandshakeStarted = false;
+
+function abToBase64(ab) {
+  const bytes = new Uint8Array(ab);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function initChatCrypto() {
+  if (!socket || !currentLobbyCode) return;
+  if (chatHandshakeStarted) return;
+
+  if (!window.crypto || !window.crypto.subtle) {
+    if (typeof window.showToast === 'function') {
+      window.showToast('Secure chat unavailable', 'Your browser does not support WebCrypto.', { type: 'error', duration: 4000 });
+    }
+    return;
+  }
+
+  chatHandshakeStarted = true;
+  chatSharedReady = false;
+  chatAesGcmKey = null;
+
+  // Generate ephemeral ECDH keypair for this lobby session
+  chatEcdhKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveKey']
+  );
+
+  const publicKeyRaw = await crypto.subtle.exportKey('raw', chatEcdhKeyPair.publicKey);
+  const publicKeyB64 = abToBase64(publicKeyRaw);
+
+  // Send public key to the other player (server only relays)
+  socket.emit('sendChatPublicKey', {
+    lobbyCode: currentLobbyCode,
+    publicKey: publicKeyB64
+  });
+
+  // If we already received the other player's public key earlier,
+  // derive the shared secret now that our keypair is ready.
+  if (chatLastRemotePublicKey && !chatSharedReady) {
+    await tryDeriveSharedKey(chatLastRemotePublicKey);
+  }
+}
+
+async function tryDeriveSharedKey(remotePublicKeyB64) {
+  if (!remotePublicKeyB64) return;
+  // If our local ECDH keypair isn't ready yet, remember the remote key
+  // so initChatCrypto can derive once ready.
+  if (!chatEcdhKeyPair) {
+    chatLastRemotePublicKey = remotePublicKeyB64;
+    return;
+  }
+  if (chatLastRemotePublicKey === remotePublicKeyB64 && chatSharedReady) return;
+
+  const remoteBytes = base64ToUint8Array(remotePublicKeyB64);
+  const remotePublicKey = await crypto.subtle.importKey(
+    'raw',
+    remoteBytes,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    []
+  );
+
+  chatAesGcmKey = await crypto.subtle.deriveKey(
+    { name: 'ECDH', public: remotePublicKey },
+    chatEcdhKeyPair.privateKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+
+  chatLastRemotePublicKey = remotePublicKeyB64;
+  chatSharedReady = true;
+
+  if (typeof window.showToast === 'function') {
+    window.showToast('Secure chat', 'Encrypted chat is ready.', { type: 'success', duration: 2000 });
+  }
+}
+
+async function encryptChatText(plainText) {
+  if (!chatSharedReady || !chatAesGcmKey) {
+    throw new Error('Secure chat key not ready');
+  }
+
+  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV for GCM
+  const plaintextBytes = new TextEncoder().encode(plainText);
+  const ciphertextBuf = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    chatAesGcmKey,
+    plaintextBytes
+  );
+
+  return {
+    iv: abToBase64(iv.buffer),
+    ciphertext: abToBase64(ciphertextBuf)
+  };
+}
+
+async function decryptChatText(ivB64, ciphertextB64) {
+  if (!chatSharedReady || !chatAesGcmKey) {
+    throw new Error('Secure chat key not ready');
+  }
+
+  const ivBytes = base64ToUint8Array(ivB64);
+  const ciphertextBytes = base64ToUint8Array(ciphertextB64);
+
+  const plaintextBuf = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: ivBytes },
+    chatAesGcmKey,
+    ciphertextBytes
+  );
+
+  return new TextDecoder().decode(plaintextBuf);
+}
+
+function appendChatMessage(data) {
+  if (!onlineChatMessagesEl || !data || typeof data.message !== 'string') return;
+
+  const msgEl = document.createElement('div');
+  msgEl.className = 'online-chat-message';
+
+  const who = document.createElement('span');
+  who.className = 'who';
+  who.textContent = data.username ? `${data.username}: ` : 'Player: ';
+
+  const body = document.createElement('span');
+  body.textContent = data.message;
+
+  msgEl.appendChild(who);
+  msgEl.appendChild(body);
+
+  const time = data.timestamp ? ` (${formatChatTime(data.timestamp)})` : '';
+  if (time) {
+    const timeEl = document.createElement('span');
+    timeEl.style.opacity = '0.75';
+    timeEl.style.fontSize = '0.8rem';
+    timeEl.textContent = time;
+    msgEl.appendChild(timeEl);
+  }
+
+  onlineChatMessagesEl.appendChild(msgEl);
+  onlineChatMessagesEl.scrollTop = onlineChatMessagesEl.scrollHeight;
+}
+
+async function sendChatMessage() {
+  if (!socket) return;
+  if (!currentLobbyCode) return;
+  if (!onlineChatInputEl) return;
+
+  const text = (onlineChatInputEl.value || '').trim();
+  if (!text) return;
+
+  // Basic client-side constraints (plaintext never leaves the client)
+  const safeText = text.slice(0, 200);
+
+  // Ensure secure channel is ready
+  if (!chatSharedReady) {
+    if (typeof window.showToast === 'function') {
+      window.showToast('Secure chat', 'Please wait for secure channel to be ready...', { type: 'info', duration: 2500 });
+    }
+    return;
+  }
+
+  onlineChatInputEl.value = '';
+  const encrypted = await encryptChatText(safeText);
+
+  // Since the server relays chat messages only to the *other* player,
+  // render the sender's own outgoing message immediately so both "outgoing"
+  // and "incoming" messages appear in this player's chat window.
+  appendChatMessage({
+    lobbyCode: currentLobbyCode,
+    username: 'You',
+    message: safeText,
+    timestamp: Date.now(),
+    encrypted: false
+  });
+
+  socket.emit('sendChatMessage', {
+    lobbyCode: currentLobbyCode,
+    encrypted: true,
+    iv: encrypted.iv,
+    ciphertext: encrypted.ciphertext
+  });
+}
+
+if (onlineChatSendBtn) {
+  onlineChatSendBtn.addEventListener('click', sendChatMessage);
+}
+
+if (onlineChatInputEl) {
+  onlineChatInputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+}
+
+// Ensure chat is cleared whenever the game resets online session state (game.js global reset).
+// This guarantees "chat deleted when lobby session closes".
+if (typeof window.resetOnlineGameState === 'function') {
+  const __prevResetOnlineGameState = window.resetOnlineGameState;
+  window.resetOnlineGameState = function() {
+    try {
+      if (onlineChatMessagesEl) onlineChatMessagesEl.innerHTML = '';
+    } catch (e) {}
+
+    try {
+      if (chatModalEl) chatModalEl.style.display = 'none';
+    } catch (e) {}
+
+    try {
+      if (onlineChatInputEl) onlineChatInputEl.value = '';
+    } catch (e) {}
+
+    setChatUnreadCount(0);
+
+    chatEcdhKeyPair = null;
+    chatAesGcmKey = null;
+    chatSharedReady = false;
+    chatLastRemotePublicKey = null;
+    chatHandshakeStarted = false;
+
+    return __prevResetOnlineGameState.apply(this, arguments);
+  };
+}
+
+function showChatModal() {
+  if (!chatModalEl) return;
+  if (!currentLobbyCode) return;
+  chatModalEl.style.display = 'block';
+  setChatUnreadCount(0);
+  try {
+    if (onlineChatInputEl) onlineChatInputEl.focus();
+  } catch (e) {}
+}
+
+function hideChatModal() {
+  if (!chatModalEl) return;
+  chatModalEl.style.display = 'none';
+}
+
+// Open chat modal from icon button
+if (chatBtn) {
+  chatBtn.addEventListener('click', () => {
+    if (!currentLobbyCode) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Lobby chat', 'Join an online lobby first to chat.', { type: 'info', duration: 3000 });
+      }
+      return;
+    }
+    showChatModal();
+  });
+}
+
+if (chatModalCloseBtn) {
+  chatModalCloseBtn.addEventListener('click', () => {
+    hideChatModal();
+  });
+}
 
 function showLobbyUI() {
   onlineLobbyUI.style.display = 'block';
@@ -274,7 +590,11 @@ socket.on('playerDisconnected', (data) => {
         });
       } else {
         // Fallback if showMessage is not available
-        alert(`${winMessage}\n${detailMessage}`);
+        if (typeof window.showToast === 'function') {
+          window.showToast(winMessage, detailMessage, { type: 'error', duration: 3500 });
+        } else {
+          alert(`${winMessage}\n${detailMessage}`);
+        }
         resetOnlineGameState();
         if (typeof window.clearLobbyUIData === 'function') {
           window.clearLobbyUIData();
@@ -309,6 +629,7 @@ socket.on('rejoinSuccess', (data) => {
   currentLobbyCode = data.lobbyCode;
   playerRole = data.playerRole;
   isInLobby = true;
+  initChatCrypto();
   
   // Update global variables
   window.onlineLobbyCode = data.lobbyCode;
@@ -395,6 +716,7 @@ if (createLobbyBtn) {
         console.log('Create lobby response:', response);
         currentLobbyCode = response.lobbyCode;
         isInLobby = true;
+        initChatCrypto();
         isCreator = response.isCreator || true;
         playerRole = response.playerRole || 1;
         
@@ -463,6 +785,7 @@ if (createLobbyBtn) {
     console.log('Create lobby response:', response);
     currentLobbyCode = response.lobbyCode;
     isInLobby = true;
+    initChatCrypto();
     isCreator = response.isCreator || true;
     playerRole = response.playerRole || 1;
     
@@ -583,6 +906,7 @@ function joinLobbyWithRetry(lobbyCode, maxAttempts = 3, currentAttempt = 1) {
       
       currentLobbyCode = response.lobbyCode || lobbyCode;
       isInLobby = true;
+      initChatCrypto();
       isCreator = response.isCreator || false;
       playerRole = response.playerRole || 2; // Use server-provided role
       
@@ -969,7 +1293,11 @@ function startOnlineGame(lobbyCode, serverPlayerNames = {}) {
           if (typeof window.showMessage === 'function') {
             window.showMessage('Game Loading Error', 'Game failed to load properly. Please refresh the page and try again.');
           } else {
+          if (typeof window.showToast === 'function') {
+            window.showToast('Game Loading Error', 'Game failed to load. Please refresh the page and try again.', { type: 'error' });
+          } else {
             alert('Game failed to load. Please refresh the page and try again.');
+          }
           }
         }
       }
@@ -1009,6 +1337,51 @@ socket.on('gameAction', (action) => {
   
   if (typeof window.handleRemoteGameAction === 'function') {
     window.handleRemoteGameAction(action);
+  }
+});
+
+// Online chat relay (two players only, scoped to the lobby)
+socket.on('chatMessage', async (data) => {
+  if (!data) return;
+  if (data.lobbyCode && (!currentLobbyCode || data.lobbyCode !== currentLobbyCode)) return;
+
+  try {
+    if (data.encrypted === true) {
+      // Encrypted payload: decrypt content only
+      if (!chatSharedReady || !chatAesGcmKey) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Secure chat', 'Decrypt key not ready yet.', { type: 'info', duration: 2000 });
+        }
+        return;
+      }
+
+      const plaintext = await decryptChatText(data.iv, data.ciphertext);
+      appendChatMessage({ ...data, message: plaintext, encrypted: false });
+      const isChatOpen = chatModalEl && chatModalEl.style.display === 'block';
+      if (!isChatOpen) setChatUnreadCount(chatUnreadCount + 1);
+    } else {
+      appendChatMessage(data);
+      const isChatOpen = chatModalEl && chatModalEl.style.display === 'block';
+      if (!isChatOpen) setChatUnreadCount(chatUnreadCount + 1);
+    }
+  } catch (e) {
+    console.error('Failed to decrypt chat message:', e);
+    if (typeof window.showToast === 'function') {
+      window.showToast('Chat error', 'Could not decrypt the message.', { type: 'error', duration: 3000 });
+    }
+  }
+});
+
+// Receive the other player's public key and derive the shared secret
+socket.on('chatPublicKey', async (data) => {
+  if (!data) return;
+  if (data.lobbyCode && (!currentLobbyCode || data.lobbyCode !== currentLobbyCode)) return;
+  if (typeof data.publicKey !== 'string') return;
+
+  try {
+    await tryDeriveSharedKey(data.publicKey);
+  } catch (e) {
+    console.error('Failed to derive shared key from remote public key:', e);
   }
 });
 
@@ -1096,6 +1469,27 @@ function resetOnlineGameState() {
 
   // Clear lobby code last
   currentLobbyCode = null;
+
+  // Clear chat messages on leaving lobby
+  if (onlineChatMessagesEl) {
+    onlineChatMessagesEl.innerHTML = '';
+  }
+
+  // Hide chat modal when leaving lobby/session
+  if (chatModalEl) {
+    chatModalEl.style.display = 'none';
+  }
+
+  if (onlineChatInputEl) {
+    onlineChatInputEl.value = '';
+  }
+
+  // Reset E2EE chat state for this lobby session
+  chatEcdhKeyPair = null;
+  chatAesGcmKey = null;
+  chatSharedReady = false;
+  chatLastRemotePublicKey = null;
+  chatHandshakeStarted = false;
   
   // Reset game state
   if (typeof window.resetOnlineGameState === 'function') {

@@ -50,8 +50,23 @@ class ScoringService {
           session ? User.findById(loserId).session(session) : User.findById(loserId)
         ]);
         
+        // If either user record is missing (guest, or not yet persisted), skip DB scoring gracefully
         if (!winnerUser || !loserUser) {
-          throw new Error('One or both players not found in database');
+          console.log('ℹ️ One or both players not found in database. Skipping stats update for this game.', {
+            winnerId,
+            loserId,
+            winnerUserFound: !!winnerUser,
+            loserUserFound: !!loserUser
+          });
+          
+          resultData = {
+            success: true,
+            message: 'Game result processed without DB stats (guest or missing users)',
+            winner: winner,
+            loser: loser,
+            gameRecord: null
+          };
+          return;
         }
         
         // Store original points for change calculation
@@ -221,8 +236,28 @@ class ScoringService {
         losses: user.losses 
       } : 'No user data');
       
+      // If user does not exist (guest, or stats not created yet), return safe defaults
       if (!user) {
-        throw new Error('User not found');
+        console.log('ℹ️ No user record found for stats request, returning default zeroed stats.');
+        return {
+          success: true,
+          user: {
+            _id: userId,
+            username: 'Guest',
+            points: 0,
+            wins: 0,
+            losses: 0,
+            gamesPlayed: 0,
+            currentStreak: 0,
+            highestStreak: 0,
+            avatar: 'default-1',
+            winRate: 0,
+            lossRate: 0,
+            rank: 0
+          },
+          recentGames: [],
+          scoreHistory: []
+        };
       }
       
       // Calculate additional stats

@@ -122,9 +122,12 @@ export class GameLogic {
         }
       }
 
-      // Always decrement linesToDraw for a regular line
+      // Decrement remaining regular lines, or consume the special line if no regular lines left
       if (this.linesToDraw > 0) {
         this.linesToDraw--;
+      } else if (this.hasSpecialLine) {
+        // Consume the one-time special line
+        this.hasSpecialLine = false;
       }
       
       return {
@@ -146,11 +149,34 @@ export class GameLogic {
     this.diceValue = randomValue;
     this.linesToDraw = randomValue;
     this.hasRolledDice = true;
+
+    // Special line mechanic for dice roll of 1
+    let grantedSpecialLine = false;
+    if (randomValue === 1 && !this.hasSpecialLine) {
+      // Count how many squares are completed
+      let completedCount = 0;
+      for (let r = 0; r < GAME_CONFIG.GRID_SIZE; r++) {
+        for (let c = 0; c < GAME_CONFIG.GRID_SIZE; c++) {
+          if (this.completedSquares[r][c] !== 0) {
+            completedCount++;
+          }
+        }
+      }
+      const totalSquares = GAME_CONFIG.GRID_SIZE * GAME_CONFIG.GRID_SIZE;
+      const remainingSquares = totalSquares - completedCount;
+
+      // Only grant a special line while more than 5 boxes remain
+      if (remainingSquares > 5) {
+        this.hasSpecialLine = true;
+        grantedSpecialLine = true;
+      }
+    }
     
     return { 
       success: true, 
       value: randomValue,
-      shouldTriggerLuckyWheel: randomValue === 6
+      shouldTriggerLuckyWheel: randomValue === 6,
+      grantedSpecialLine
     };
   }
 

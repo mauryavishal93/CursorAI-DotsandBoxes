@@ -6,6 +6,9 @@ class SocketController {
   constructor(io) {
     this.io = io;
     this.socketUsers = new Map(); // Map socket.id to user info
+    // Cache chat public keys per lobby so late joiners can derive the shared secret.
+    // Structure: Map<lobbyCode, Map<socketId, publicKeyB64>>
+    this.chatPublicKeysByLobby = new Map();
     this.setupSocketHandlers();
   }
 
@@ -225,6 +228,99 @@ class SocketController {
         }
       });
 
+      // ---- Online chat (E2EE MVP) ----
+      // Public key exchange (ECDH public keys)
+      socket.on('sendChatPublicKey', ({ lobbyCode, publicKey }) => {
+        try {
+          if (!lobbyCode || typeof publicKey !== 'string') return;
+
+          const lobby = lobbyService.getLobby(lobbyCode);
+          if (!lobby || !lobby.players.includes(socket.id)) return;
+
+          // Cache this player's key
+          if (!this.chatPublicKeysByLobby.has(lobbyCode)) {
+            this.chatPublicKeysByLobby.set(lobbyCode, new Map());
+          }
+          const bySocketId = this.chatPublicKeysByLobby.get(lobbyCode);
+          bySocketId.set(socket.id, publicKey);
+
+          // Relay to everyone else in the lobby; server never sees message plaintext.
+          socket.to(lobbyCode).emit('chatPublicKey', {
+            lobbyCode,
+            publicKey,
+            fromSocketId: socket.id,
+            timestamp: Date.now()
+          });
+
+          // Ensure the sender also receives the other player's cached public key (important for late joiners).
+          const otherSocketIds = (Array.isArray(lobby.players) ? lobby.players : []).filter(id => id !== socket.id);
+          const otherSocketId = otherSocketIds[0];
+          if (otherSocketId && bySocketId.has(otherSocketId)) {
+            const otherPublicKey = bySocketId.get(otherSocketId);
+            socket.emit('chatPublicKey', {
+              lobbyCode,
+              publicKey: otherPublicKey,
+              fromSocketId: otherSocketId,
+              timestamp: Date.now(),
+              cached: true
+            });
+          }
+        } catch (error) {
+          console.error('Error handling sendChatPublicKey:', error);
+        }
+      });
+
+      // Encrypted message relay (ciphertext + iv, AES-GCM).
+      // Clients must have derived the shared key for this lobby before encrypting.
+      socket.on('sendChatMessage', ({ lobbyCode, encrypted, iv, ciphertext, message }) => {
+        try {
+          if (!lobbyCode) return;
+
+          const lobby = lobbyService.getLobby(lobbyCode);
+          if (!lobby || !lobby.players.includes(socket.id)) return;
+
+          const userInfo = this.socketUsers.get(socket.id);
+          const username =
+            (userInfo && userInfo.username) ||
+            (lobby.playerNames && (lobby.playerNames[socket.id] || lobby.playerNames[lobby.playerRoles?.[socket.id]])) ||
+            'Player';
+
+          // Legacy/compat: allow plaintext messages if provided
+          if (!encrypted && typeof message === 'string') {
+            const text = message.trim().slice(0, 200);
+            if (!text) return;
+
+            this.io.to(lobbyCode).emit('chatMessage', {
+              lobbyCode,
+              username,
+              message: text,
+              encrypted: false,
+              timestamp: Date.now(),
+              fromSocketId: socket.id
+            });
+            return;
+          }
+
+          // Encrypted path
+          if (encrypted !== true) return;
+          if (typeof iv !== 'string' || typeof ciphertext !== 'string') return;
+
+          socket.to(lobbyCode).emit('chatMessage', {
+            lobbyCode,
+            username,
+            encrypted: true,
+            iv,
+            ciphertext,
+            timestamp: Date.now(),
+            fromSocketId: socket.id
+          });
+        } catch (error) {
+          console.error('Error handling sendChatMessage:', error);
+        }
+      });
+
+      // Note: cached keys are cleaned up when lobbyService.destroyLobby(lobbyCode) is called.
+
       // Handle player leaving lobby (disconnect, back to home, restart)
       socket.on('leaveLobby', (lobbyCode) => {
         try {
@@ -443,12 +539,15 @@ class SocketController {
         // Cleanup lobby after short delay
         setTimeout(() => {
           lobbyService.destroyLobby(lobbyCode);
+          this.chatPublicKeysByLobby.delete(lobbyCode);
         }, 500);
       } else if (result.remainingPlayers > 0 && result.gameOver) {
         console.log(`Player left lobby ${lobbyCode} but game was already over, destroying lobby silently`);
         lobbyService.destroyLobby(lobbyCode);
+        this.chatPublicKeysByLobby.delete(lobbyCode);
       } else {
         lobbyService.destroyLobby(lobbyCode);
+        this.chatPublicKeysByLobby.delete(lobbyCode);
       }
     }
     console.log('A user left lobby:', socket.id, 'from lobby:', lobbyCode);
@@ -631,6 +730,7 @@ class SocketController {
           // Game was already over, just destroy the lobby without showing disconnect message
           console.log(`Player disconnected from lobby ${lobbyCode} but game was already over, destroying lobby silently`);
           lobbyService.destroyLobby(lobbyCode);
+          this.chatPublicKeysByLobby.delete(lobbyCode);
         } else {
           // Game is still active, handle as temporary disconnection
           console.log(`Player ${socket.id} disconnected from active lobby ${lobbyCode}, treating as temporary disconnection`);

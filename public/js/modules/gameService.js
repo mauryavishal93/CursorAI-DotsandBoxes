@@ -316,8 +316,12 @@ export class GameService {
   }
 
   showMessage(title, message) {
-    // Simple alert for now - could be replaced with a modal component
-    alert(`${title}: ${message}`);
+    if (typeof window.showToast === 'function') {
+      window.showToast(title || 'Message', message || '', { type: 'info' });
+    } else {
+      // Fallback for environments without toast helper
+      alert(`${title}: ${message}`);
+    }
   }
 }
 
