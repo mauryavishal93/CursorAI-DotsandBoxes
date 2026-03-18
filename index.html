@@ -1171,10 +1171,12 @@
       // - Online Game can stay locked behind auth.
       if (!isAuthenticated) {
         if (onlineGameBtn) {
-          onlineGameBtn.disabled = true;
-          onlineGameBtn.classList.add('auth-required');
+          // Keep Online clickable; otherwise it looks "not working".
+          // We'll trigger auth modal on click instead.
+          onlineGameBtn.disabled = false;
           onlineGameBtn.style.opacity = '0.5';
-          onlineGameBtn.style.cursor = 'not-allowed';
+          onlineGameBtn.style.cursor = 'pointer';
+          onlineGameBtn.style.pointerEvents = 'auto';
         }
         if (singlePlayerBtn) {
           singlePlayerBtn.disabled = false;
@@ -1574,10 +1576,12 @@
         // Only lock online mode behind auth.
         const onlineBtn = document.getElementById('online-game-btn');
         if (onlineBtn) {
-          onlineBtn.disabled = true;
+          // Do not disable; open auth modal on click.
+          onlineBtn.disabled = false;
           onlineBtn.style.opacity = '0.5';
-          onlineBtn.style.cursor = 'not-allowed';
-          onlineBtn.classList.add('auth-required');
+          onlineBtn.style.cursor = 'pointer';
+          onlineBtn.style.pointerEvents = 'auto';
+          onlineBtn.classList.remove('auth-required');
         }
       }
     });
@@ -1814,6 +1818,17 @@
       if (onlineGameBtn) {
         onlineGameBtn.addEventListener('click', () => {
             window.__userNavigatedFromHome = true;
+          // If user isn't authenticated, open auth modal (guest supported)
+          try {
+            const authed = window.authService && typeof window.authService.isUserAuthenticated === 'function'
+              ? window.authService.isUserAuthenticated()
+              : false;
+            if (!authed) {
+              showAuthModal('guest');
+              return;
+            }
+          } catch (e) {}
+
           const onlineLobbyUI = document.getElementById('online-lobby-ui');
           if (onlineLobbyUI) {
             // Use proper screen switching to ensure clean UI state
