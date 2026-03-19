@@ -55,6 +55,11 @@ A modern, feature-rich implementation of the classic Dots and Boxes game with AI
 - **Game Statistics**: Track games played, wins, and win rate
 - **Session Security**: Automatic logout and secure session handling
 
+### 🛠️ Admin panel
+- **URL:** `/admin` — dashboard, users, games, leaderboard, system health, settings
+- **Access:** registered users with `isAdmin: true` (JWT). See **[ADMIN.md](./ADMIN.md)** for `ADMIN_BOOTSTRAP_EMAIL` and MongoDB setup.
+- **Note:** Admin APIs require MongoDB (not available in in-memory fallback mode).
+
 ### 🎨 Enhanced Gameplay
 - **Smooth Line Drawing**: Click and drag to draw lines smoothly
 - **Visual Feedback**: See preview while drawing lines

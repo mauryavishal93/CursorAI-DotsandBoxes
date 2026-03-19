@@ -112,6 +112,7 @@ router.post('/register', registerValidation, async (req, res) => {
         username: user.username,
         email: user.email,
         isGuest: user.isGuest,
+        isAdmin: !!user.isAdmin,
         stats: user.getStats()
       }
     });
@@ -186,6 +187,7 @@ router.post('/login', loginValidation, async (req, res) => {
         username: user.username,
         email: user.email,
         isGuest: user.isGuest,
+        isAdmin: !!user.isAdmin,
         stats: user.getStats()
       }
     });
@@ -280,6 +282,7 @@ router.get('/me', authenticate, async (req, res) => {
         username: req.user.username,
         email: req.user.email,
         isGuest: req.user.isGuest,
+        isAdmin: !!req.user.isAdmin,
         stats: req.user.getStats()
       }
     });

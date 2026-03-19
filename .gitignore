@@ -106,3 +106,7 @@ src/shared/constants/
 # Playwright (generated)
 playwright-report/
 test-results/
+
+# Accidental empty artifacts at repo root (do not commit)
+/node
+/dots-and-boxes@*
