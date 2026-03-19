@@ -9,6 +9,7 @@ class InMemoryUser {
     this.email = data.email;
     this.password = data.password;
     this.isGuest = data.isGuest || false;
+    this.isAdmin = data.isAdmin === true;
     // Legacy fields for backward compatibility
     this.gamesPlayed = data.gamesPlayed || 0;
     this.gamesWon = data.gamesWon || 0;

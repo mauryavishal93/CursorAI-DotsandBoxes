@@ -17,6 +17,7 @@ const cors = require('cors');
 const config = require('./src/backend/config');
 const apiRoutes = require('./src/backend/routes/api');
 const authRoutes = require('./src/backend/routes/auth');
+const adminRoutes = require('./src/backend/routes/admin');
 const SocketController = require('./src/backend/controllers/socketController');
 
 class ProductionServer {
@@ -61,6 +62,8 @@ class ProductionServer {
       const collections = await db.listCollections().toArray();
       console.log(`📋 Available collections: ${collections.length > 0 ? collections.map(c => c.name).join(', ') : 'None (will be created as needed)'}`);
       
+      await this.bootstrapAdminUser();
+
       // Set up connection event handlers
       mongoose.connection.on('connected', () => {
         console.log('🔗 Mongoose connected to MongoDB Atlas');
@@ -186,12 +189,37 @@ class ProductionServer {
     });
   }
 
+  async bootstrapAdminUser() {
+    const raw = process.env.ADMIN_BOOTSTRAP_EMAIL;
+    if (!raw || global.useInMemoryStorage) return;
+    const email = String(raw).trim().toLowerCase();
+    try {
+      const User = require('./src/backend/models/User');
+      const result = await User.updateOne({ email }, { $set: { isAdmin: true } });
+      if (result.matchedCount === 0) {
+        console.log(`⚠️  ADMIN_BOOTSTRAP_EMAIL: no user found with email "${email}" (create account first)`);
+      } else {
+        console.log(`✅ ADMIN_BOOTSTRAP_EMAIL: isAdmin set for "${email}"`);
+      }
+    } catch (e) {
+      console.warn('⚠️  Admin bootstrap failed:', e.message);
+    }
+  }
+
   setupRoutes() {
     // API routes
     this.app.use('/api', apiRoutes);
     
     // Authentication routes
     this.app.use('/api/auth', authRoutes);
+
+    // Admin API (JWT + isAdmin)
+    this.app.use('/api/admin', adminRoutes);
+
+    // Admin panel (static HTML — API still requires admin token)
+    this.app.get('/admin', (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+    });
 
     // Health check endpoint
     this.app.get('/health', (req, res) => {

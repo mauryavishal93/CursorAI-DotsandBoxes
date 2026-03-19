@@ -149,6 +149,29 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// Admin-only (after authenticate). Requires Mongo user with isAdmin: true.
+const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required.'
+    });
+  }
+  if (req.user.isGuest) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access requires a registered account.'
+    });
+  }
+  if (!req.user.isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access denied.'
+    });
+  }
+  next();
+};
+
 // Check if user is guest
 const requireRegisteredUser = (req, res, next) => {
   if (!req.user) {
@@ -173,5 +196,6 @@ module.exports = {
   verifyToken,
   authenticate,
   optionalAuth,
-  requireRegisteredUser
+  requireRegisteredUser,
+  requireAdmin
 };
