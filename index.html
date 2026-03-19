@@ -1830,10 +1830,13 @@
           } catch (e) {}
 
           const onlineLobbyUI = document.getElementById('online-lobby-ui');
-          if (onlineLobbyUI) {
-            // Use proper screen switching to ensure clean UI state
-            showScreen(onlineLobbyUI);
-            
+          const homeScreenEl = document.getElementById('home-screen');
+          if (onlineLobbyUI && homeScreenEl) {
+            // CRITICAL: online-lobby-ui is nested INSIDE home-screen. Calling showScreen(onlineLobbyUI)
+            // hides home-screen (it matches [id$="-screen"]), which hides the whole lobby subtree → blank page.
+            showScreen(homeScreenEl);
+            onlineLobbyUI.style.display = 'flex';
+
             // Reset any previous error states or incorrect labels
             const lobbyStatus = document.getElementById('lobby-status');
             if (lobbyStatus) {
@@ -1850,6 +1853,16 @@
       
       if (!screenElement) {
         console.error('Screen element not found');
+        return;
+      }
+
+      // online-lobby-ui lives inside home-screen; never hide the parent when showing the lobby strip.
+      if (screenElement.id === 'online-lobby-ui') {
+        const homeScreenEl = document.getElementById('home-screen');
+        if (homeScreenEl) {
+          showScreen(homeScreenEl);
+          screenElement.style.display = 'flex';
+        }
         return;
       }
       

@@ -599,10 +599,19 @@ if (chatModalCloseBtn) {
 }
 
 function showLobbyUI() {
-  onlineLobbyUI.style.display = 'block';
+  if (!onlineLobbyUI) return;
+  // online-lobby-ui is nested inside #home-screen. Always show home first, then the lobby strip.
+  const homeEl = document.getElementById('home-screen');
+  if (typeof window.showScreen === 'function' && homeEl) {
+    window.showScreen(homeEl);
+  } else if (homeEl) {
+    homeEl.style.display = 'flex';
+  }
+  onlineLobbyUI.style.display = 'flex';
 }
 
 function hideLobbyUI() {
+  if (!onlineLobbyUI) return;
   onlineLobbyUI.style.display = 'none';
 }
 

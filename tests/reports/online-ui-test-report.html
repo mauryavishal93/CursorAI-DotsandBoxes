@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Online UI Test Report - Dots &amp; Boxes</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 24px; color: #111827; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    .meta { color: #374151; margin-bottom: 18px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 14px 0; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .pill.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .pill.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .small { font-size: 13px; color: #374151; margin-top: 6px; line-height: 1.35; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    a { color: #2563eb; }
+    ul { margin: 8px 0 0 18px; }
+  </style>
+</head>
+<body>
+  <h1>Online UI Test Report (Render Deployment)</h1>
+  <div class="meta">
+    <div><b>Target:</b> <a href="https://dotsandboxes-ey9u.onrender.com/" target="_blank" rel="noreferrer">https://dotsandboxes-ey9u.onrender.com/</a></div>
+    <div><b>Generated:</b> 2026-03-17 / 2026-03-18 (test runner timestamp)</div>
+    <div><b>Playwright HTML details:</b> <a href="../../playwright-report/index.html" target="_blank" rel="noreferrer">./playwright-report/index.html</a></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-weight:700;">Test 1: Online Random Match (2 guests)</div>
+        <div class="small">Flow: `Online Game` -> guest login -> `Random Match` (both tabs) -> expect `#online-game-screen` visible.</div>
+      </div>
+      <div class="pill fail">FAIL</div>
+    </div>
+    <div class="small">
+      Key failure: `#online-game-screen` remained <b>hidden</b> after clicking `Random Match` (timeout waiting for visibility).
+      <br />
+      Observed error (Playwright): <code>expect(locator('#online-game-screen')).toBeVisible({ timeout: 45000ms })</code> received <code>hidden</code>.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-weight:700;">Test 2: Online Random Match bot fallback (1 guest)</div>
+        <div class="small">Flow: `Online Game` -> guest login -> `Random Match` -> expect bot fallback starts game (`#online-game-screen`).</div>
+      </div>
+      <div class="pill fail">FAIL</div>
+    </div>
+    <div class="small">
+      Key failure: `#online-game-screen` did not become visible (bot fallback path did not start the online game screen within the timeout).
+      <br />
+      Observed error (Playwright): <code>expect(locator('#online-game-screen')).toBeVisible({ timeout: 45000ms })</code> received <code>hidden</code>.
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700;">Conclusion</div>
+    <div class="small">
+      Based on these automated UI runs, <b>Online Random Match did not start the game screen</b> on the deployed Render site
+      for both the human-vs-human path and the single-player bot fallback path.
+    </div>
+  </div>
+</body>
+</html>
+
