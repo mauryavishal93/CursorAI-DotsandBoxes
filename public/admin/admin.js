@@ -185,20 +185,30 @@
     const d = await api('/api/admin/games?' + q);
     const tbody = $('#games-tbody');
     tbody.innerHTML = (d.games || [])
-      .map(
-        (g) => `
+      .map((g) => {
+        const p1 = g.players && g.players[0] ? g.players[0].username : null;
+        const p2 = g.players && g.players[1] ? g.players[1].username : null;
+        const winner = g.winner && g.winner.username ? g.winner.username : null;
+
+        const w1 = winner && p1 && String(p1) === String(winner)
+          ? ' <span class="badge winner" title="Winner">W</span>'
+          : '';
+        const w2 = winner && p2 && String(p2) === String(winner)
+          ? ' <span class="badge winner" title="Winner">W</span>'
+          : '';
+
+        return `
       <tr>
         <td><code>${escapeHtml(g.gameId)}</code></td>
         <td>${g.gameMode}</td>
         <td>${g.endedAt ? new Date(g.endedAt).toLocaleString() : '—'}</td>
         <td>${g.lobbyCode || '—'}</td>
-        <td>${(g.players && g.players[0] && g.players[0].username) ? escapeHtml(g.players[0].username) : '—'}</td>
-        <td>${(g.players && g.players[1] && g.players[1].username) ? escapeHtml(g.players[1].username) : '—'}</td>
-        <td>${(g.winner && g.winner.username) ? escapeHtml(g.winner.username) : '—'}</td>
+        <td>${p1 ? escapeHtml(p1) + w1 : '—'}</td>
+        <td>${p2 ? escapeHtml(p2) + w2 : '—'}</td>
         <td>${g.plannedOpponentType || '—'}</td>
         <td><button type="button" class="toggle-admin game-detail-btn" data-id="${escapeHtml(g.gameId)}">JSON</button></td>
-      </tr>`
-      )
+      </tr>`;
+      })
       .join('');
     $('#games-pagination').textContent = `Page ${d.pagination.page} of ${d.pagination.pages} (${d.pagination.total} games)`;
     $('#games-prev').disabled = d.pagination.page <= 1;
@@ -244,8 +254,42 @@
   async function loadSystem() {
     const d = await api('/api/admin/system');
     const s = d.system;
+
+    function bytesToMB(n) {
+      const num = Number(n);
+      if (!Number.isFinite(num)) return '—';
+      return `${Math.round(num / 1024 / 1024)} MB`;
+    }
+
+    function formatSeconds(sec) {
+      const num = Number(sec);
+      if (!Number.isFinite(num)) return '—';
+      const total = Math.max(0, Math.floor(num));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s2 = total % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s2}s`;
+      return `${s2}s`;
+    }
+
+    $('#sys-env').textContent = s.env || '—';
+    $('#sys-db').textContent = s.database || '—';
+    $('#sys-uptime').textContent = formatSeconds(s.uptimeSeconds);
+    $('#sys-node').textContent = s.nodeVersion || '—';
+    $('#sys-platform').textContent = s.platform || '—';
+
+    $('#sys-rss').textContent = bytesToMB(s.memory && s.memory.rss);
+    $('#sys-heap-used').textContent = bytesToMB(s.memory && s.memory.heapUsed);
+    $('#sys-heap-total').textContent = bytesToMB(s.memory && s.memory.heapTotal);
+
     $('#system-pre').textContent = JSON.stringify(s, null, 2);
+
     const health = await fetch('/health').then((r) => r.json());
+    $('#health-status').textContent = health.status || '—';
+    $('#health-version').textContent = health.version || '—';
+    $('#health-uptime').textContent = formatSeconds(health.uptime);
+    $('#health-timestamp').textContent = health.timestamp ? new Date(health.timestamp).toLocaleString() : '—';
     $('#health-pre').textContent = JSON.stringify(health, null, 2);
   }
 

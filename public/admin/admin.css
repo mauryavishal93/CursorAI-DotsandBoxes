@@ -115,6 +115,58 @@ a { color: var(--accent); }
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
+
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.system-grid-4 {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+}
+
+.stat-card .label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-card .value {
+  font-size: 1.15rem;
+  font-weight: 750;
+  margin-top: 0.35rem;
+  line-height: 1.2;
+}
+
+.system-subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.raw-details {
+  margin: 0.75rem 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.raw-details summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -144,6 +196,7 @@ table.admin-table tr:hover td { background: rgba(255,255,255,0.02); }
 .badge.admin { background: rgba(56, 189, 248, 0.2); color: var(--accent); }
 .badge.guest { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
 .badge.user { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+.badge.winner { background: rgba(251, 191, 36, 0.18); color: var(--warn); }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
 .toolbar input {
