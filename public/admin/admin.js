@@ -192,6 +192,9 @@
         <td>${g.gameMode}</td>
         <td>${g.endedAt ? new Date(g.endedAt).toLocaleString() : '—'}</td>
         <td>${g.lobbyCode || '—'}</td>
+        <td>${(g.players && g.players[0] && g.players[0].username) ? escapeHtml(g.players[0].username) : '—'}</td>
+        <td>${(g.players && g.players[1] && g.players[1].username) ? escapeHtml(g.players[1].username) : '—'}</td>
+        <td>${(g.winner && g.winner.username) ? escapeHtml(g.winner.username) : '—'}</td>
         <td>${g.plannedOpponentType || '—'}</td>
         <td><button type="button" class="toggle-admin game-detail-btn" data-id="${escapeHtml(g.gameId)}">JSON</button></td>
       </tr>`

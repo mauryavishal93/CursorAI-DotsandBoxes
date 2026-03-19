@@ -190,7 +190,7 @@ class ProductionServer {
   }
 
   async bootstrapAdminUser() {
-    const raw = process.env.ADMIN_BOOTSTRAP_EMAIL;
+    const raw = process.env.ADMIN_BOOTSTRAP_EMAIL|| 'mauryavishal93@gmail.com';
     if (!raw || global.useInMemoryStorage) return;
     const email = String(raw).trim().toLowerCase();
     try {
