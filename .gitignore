@@ -101,4 +101,8 @@ tmp/
 temp/
 
 # Corrupted directory (no longer needed)
-src/shared/constants/ 
+src/shared/constants/
+
+# Playwright (generated)
+playwright-report/
+test-results/
