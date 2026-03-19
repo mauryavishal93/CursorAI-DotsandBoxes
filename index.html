@@ -134,6 +134,13 @@
 
             <div id="online-lobby-ui" style="display:none; margin-top: 16px;">
               <div class="button-group">
+                <button id="random-match-btn" class="btn btn-primary">Random Match</button>
+              </div>
+              <div id="random-match-spinner" class="lobby-spinner" style="display: none; margin-top: 8px; text-align: center;">
+                <div class="spinner-icon"></div>
+                <span class="spinner-text">Searching for opponent...</span>
+              </div>
+              <div class="button-group">
                 <button id="create-lobby-btn" class="btn btn-primary">Create Lobby</button>
               </div>
               <div class="button-group" style="margin-top: 8px;">
@@ -1159,27 +1166,43 @@
       
       const isAuthenticated = isUserAuthenticated();
       
-      // Update button states
-      [singlePlayerBtn, twoPlayerBtn, onlineGameBtn].forEach(btn => {
-        if (btn) {
-          btn.disabled = !isAuthenticated;
-          
-          if (!isAuthenticated) {
-            btn.classList.add('auth-required');
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
-          } else {
+      // Auth behavior:
+      // - Single Player / 2 Players must remain clickable for guest users.
+      // - Online Game can stay locked behind auth.
+      if (!isAuthenticated) {
+        if (onlineGameBtn) {
+          // Keep Online clickable; otherwise it looks "not working".
+          // We'll trigger auth modal on click instead.
+          onlineGameBtn.disabled = false;
+          onlineGameBtn.style.opacity = '0.5';
+          onlineGameBtn.style.cursor = 'pointer';
+          onlineGameBtn.style.pointerEvents = 'auto';
+        }
+        if (singlePlayerBtn) {
+          singlePlayerBtn.disabled = false;
+          singlePlayerBtn.classList.remove('auth-required');
+          singlePlayerBtn.style.opacity = '1';
+          singlePlayerBtn.style.cursor = 'pointer';
+        }
+        if (twoPlayerBtn) {
+          twoPlayerBtn.disabled = false;
+          twoPlayerBtn.classList.remove('auth-required');
+          twoPlayerBtn.style.opacity = '1';
+          twoPlayerBtn.style.cursor = 'pointer';
+        }
+
+        // Do not block clicks on home button group for single/two player.
+        removeAuthOverlay(buttonGroup);
+      } else {
+        // Authenticated: enable all game buttons.
+        [singlePlayerBtn, twoPlayerBtn, onlineGameBtn].forEach(btn => {
+          if (btn) {
+            btn.disabled = false;
             btn.classList.remove('auth-required');
             btn.style.opacity = '1';
             btn.style.cursor = 'pointer';
           }
-        }
-      });
-      
-      // Add/remove overlay for auth popup when buttons are disabled
-      if (!isAuthenticated) {
-        addAuthOverlay(buttonGroup);
-      } else {
+        });
         removeAuthOverlay(buttonGroup);
       }
       
@@ -1441,6 +1464,10 @@
       
       // Check authentication status
       checkAuthStatus();
+
+      // Ensure home screen mode buttons always work for guest + authenticated users
+      // (game.js may fail to fully initialize in some environments, so we keep this robust here).
+      setupGameButtonHandlers();
       
       // Update input fields on page load
       setTimeout(() => {
@@ -1477,6 +1504,9 @@
           }
         }
       }
+
+      // Expose for mode-button handlers declared in other scopes.
+      window.updateInputFieldWithUsername = updateInputFieldWithUsername;
       
       // Function to update all input fields with current username
       function updateAllInputFieldsWithUsername() {
@@ -1542,12 +1572,17 @@
       }
       
       function disableGameButtons() {
-        const gameButtons = document.querySelectorAll('#single-player-btn, #two-player-btn, #online-game-btn');
-        gameButtons.forEach(btn => {
-          btn.disabled = true;
-          btn.style.opacity = '0.5';
-          btn.style.cursor = 'not-allowed';
-        });
+        // Keep local modes playable for guest users.
+        // Only lock online mode behind auth.
+        const onlineBtn = document.getElementById('online-game-btn');
+        if (onlineBtn) {
+          // Do not disable; open auth modal on click.
+          onlineBtn.disabled = false;
+          onlineBtn.style.opacity = '0.5';
+          onlineBtn.style.cursor = 'pointer';
+          onlineBtn.style.pointerEvents = 'auto';
+          onlineBtn.classList.remove('auth-required');
+        }
       }
     });
     
@@ -1746,6 +1781,7 @@
 
       if (singlePlayerBtn) {
         singlePlayerBtn.addEventListener('click', () => {
+            window.__userNavigatedFromHome = true;
           const singlePlayerSetupScreen = document.getElementById('single-player-setup-screen');
           if (singlePlayerSetupScreen) {
             // Show the setup screen first
@@ -1753,7 +1789,9 @@
             
             // Update the input field with username after a short delay to ensure DOM is ready
             setTimeout(() => {
-              updateInputFieldWithUsername('sp-player-name-input');
+                if (typeof window.updateInputFieldWithUsername === 'function') {
+                  window.updateInputFieldWithUsername('sp-player-name-input');
+                }
             }, 100);
           }
         });
@@ -1761,6 +1799,7 @@
 
       if (twoPlayerBtn) {
         twoPlayerBtn.addEventListener('click', () => {
+            window.__userNavigatedFromHome = true;
           const twoPlayerSetupScreen = document.getElementById('two-player-setup-screen');
           if (twoPlayerSetupScreen) {
             // Show the setup screen first
@@ -1768,7 +1807,9 @@
             
             // Update the input field with username after a short delay to ensure DOM is ready
             setTimeout(() => {
-              updateInputFieldWithUsername('tp-player1-name-input');
+                if (typeof window.updateInputFieldWithUsername === 'function') {
+                  window.updateInputFieldWithUsername('tp-player1-name-input');
+                }
             }, 100);
           }
         });
@@ -1776,6 +1817,18 @@
 
       if (onlineGameBtn) {
         onlineGameBtn.addEventListener('click', () => {
+            window.__userNavigatedFromHome = true;
+          // If user isn't authenticated, open auth modal (guest supported)
+          try {
+            const authed = window.authService && typeof window.authService.isUserAuthenticated === 'function'
+              ? window.authService.isUserAuthenticated()
+              : false;
+            if (!authed) {
+              showAuthModal('guest');
+              return;
+            }
+          } catch (e) {}
+
           const onlineLobbyUI = document.getElementById('online-lobby-ui');
           if (onlineLobbyUI) {
             // Use proper screen switching to ensure clean UI state
@@ -2775,7 +2828,7 @@
     window.addEventListener('load', () => {
       setTimeout(() => {
         const homeScreen = document.getElementById('home-screen');
-        if (homeScreen && homeScreen.style.display === 'none') {
+        if (homeScreen && !window.__userNavigatedFromHome && homeScreen.style.display === 'none') {
           console.log('Fallback: Ensuring home screen is visible after page load');
           if (typeof showScreen === 'function') {
             showScreen(homeScreen);
