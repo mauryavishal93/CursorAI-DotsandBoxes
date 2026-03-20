@@ -102,6 +102,11 @@
   let gameMode; // 'singlePlayer' or 'twoPlayers'
   let playerNames = { 1: 'Player 1', 2: 'Player 2' }; // Stores names for display
   let hasRolledDice = false; // New flag to prevent multiple dice rolls per turn
+
+  /** Online PvP (human vs human): must roll dice within this time or turn passes */
+  const ONLINE_ROLL_TIMEOUT_MS = 30000;
+  let onlineRollHardTimeoutId = null;
+  let onlineRollCountdownIntervalId = null;
   
   /**
    * Truncates a username to 8 characters with ellipsis for better UI display
@@ -387,6 +392,79 @@
     }
   }
 
+  function clearOnlineRollTimer() {
+    if (onlineRollCountdownIntervalId !== null && onlineRollCountdownIntervalId !== undefined) {
+      clearInterval(onlineRollCountdownIntervalId);
+      onlineRollCountdownIntervalId = null;
+    }
+    if (onlineRollHardTimeoutId !== null && onlineRollHardTimeoutId !== undefined) {
+      clearTimeout(onlineRollHardTimeoutId);
+      onlineRollHardTimeoutId = null;
+    }
+    const el = document.getElementById('online-roll-timer-display');
+    if (el) {
+      el.style.display = 'none';
+      el.textContent = '';
+      el.classList.remove('online-roll-timer--waiting');
+    }
+  }
+
+  function maybeScheduleOnlineRollTimer() {
+    clearOnlineRollTimer();
+    if (gameMode !== 'onlineMultiplayer' || gameOver) return;
+
+    const el = document.getElementById('online-roll-timer-display');
+    if (!el) return;
+
+    if (playerTurn !== onlinePlayerRole) {
+      el.style.display = 'block';
+      el.classList.add('online-roll-timer--waiting');
+      el.textContent = 'Waiting for opponent to roll…';
+      return;
+    }
+
+    if (hasRolledDice || linesToDraw > 0 || hasSpecialLine) {
+      el.style.display = 'none';
+      return;
+    }
+
+    el.classList.remove('online-roll-timer--waiting');
+    el.style.display = 'block';
+
+    const deadline = Date.now() + ONLINE_ROLL_TIMEOUT_MS;
+
+    onlineRollCountdownIntervalId = setInterval(() => {
+      if (gameMode !== 'onlineMultiplayer' || gameOver) {
+        clearOnlineRollTimer();
+        return;
+      }
+      const secLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      el.textContent = `Roll now ${secLeft}s`;
+    }, 250);
+
+    onlineRollHardTimeoutId = setTimeout(() => {
+      onlineRollHardTimeoutId = null;
+      if (onlineRollCountdownIntervalId !== null) {
+        clearInterval(onlineRollCountdownIntervalId);
+        onlineRollCountdownIntervalId = null;
+      }
+
+      const wrap = document.getElementById('online-roll-timer-display');
+      if (wrap) {
+        wrap.style.display = 'none';
+        wrap.textContent = '';
+        wrap.classList.remove('online-roll-timer--waiting');
+      }
+
+      if (gameMode !== 'onlineMultiplayer' || gameOver) return;
+      if (playerTurn !== onlinePlayerRole) return;
+      if (hasRolledDice || linesToDraw > 0 || hasSpecialLine) return;
+
+      switchTurn();
+      showMessage('Time\'s up!', 'You didn\'t roll in time. Turn passed to your opponent.', null, true);
+    }, ONLINE_ROLL_TIMEOUT_MS);
+  }
+
   /**
    * Displays a custom message box.
    * @param {string} title - The title of the message box.
@@ -411,8 +489,8 @@
       }
       
       // Auto-close message box for AI players in single player mode after 2.4s
-      // OR when forceAutoClose is true (for AI-specific actions)
-      if (gameMode === 'singlePlayer' && (playerTurn === 2 || forceAutoClose)) {
+      // OR when forceAutoClose is true (e.g. online roll timeout)
+      if (forceAutoClose || (gameMode === 'singlePlayer' && playerTurn === 2)) {
           console.log('[MESSAGE BOX] Auto-closing message box after 2.4s for:', title, '(playerTurn:', playerTurn, ', forceAutoClose:', forceAutoClose, ')');
           setTimeout(() => {
               hideMessageBox();
@@ -705,6 +783,8 @@
       hasSubmittedBotGameResult = false;
       botMatchId = null;
       onlineGameStartedAt = null;
+
+      clearOnlineRollTimer();
   }
 
   /**
@@ -803,6 +883,8 @@
         console.log('[DEBUG] Dice already rolled this turn, returning');
         return;
       }
+
+      clearOnlineRollTimer();
       
       // Generate a random dice value 1-6 and emit to other player
       const randomValue = Math.floor(Math.random() * 6) + 1;
@@ -1053,6 +1135,8 @@
           setTimeout(aiMakeMove, 900);
         }
       }
+
+      maybeScheduleOnlineRollTimer();
   }
 
   /**
@@ -1112,7 +1196,21 @@
     if (totalScoreEl) totalScoreEl.textContent = stats.totalScore || 0;
   }
 
-  // Persist bot-match stats + Game record in backend.
+  function getAuthTokenForBotGameSubmit() {
+    try {
+      if (window.authService && typeof window.authService.getToken === 'function') {
+        const t = window.authService.getToken();
+        if (t) return t;
+      }
+    } catch (e) {}
+    try {
+      const t = localStorage.getItem('token');
+      if (t) return t;
+    } catch (e) {}
+    return null;
+  }
+
+  // Persist bot-match stats + Game record in backend (same scoring pipeline as human online games).
   function submitBotGameResultToServer() {
     try {
       if (hasSubmittedBotGameResult) return;
@@ -1128,15 +1226,20 @@
 
       const humanScore = playerScores[1];
       const botScore = playerScores[2];
-      const winnerRoleForScoring = humanScore > botScore ? 1 : 2; // tie -> bot win
+      const outcomeIsTie = humanScore === botScore;
+      const winnerRoleForScoring = outcomeIsTie ? 0 : humanScore > botScore ? 1 : 2; // tie → 0 (server treats as bot win for points)
 
       const gameDurationSeconds = onlineGameStartedAt
         ? Math.max(0, Math.round((Date.now() - onlineGameStartedAt) / 1000))
         : 0;
 
       const totalMoves = drawnLines ? drawnLines.length : 0;
+      const endedAtIso = new Date().toISOString();
+      const startedAtIso = onlineGameStartedAt
+        ? new Date(onlineGameStartedAt).toISOString()
+        : new Date(Date.now() - 300000).toISOString();
 
-      window.socket.emit('botGameOver', {
+      const payload = {
         botMatchId,
         player1Name: playerNames[1],
         player2Name: playerNames[2],
@@ -1146,13 +1249,26 @@
         matchIntent: 'randomOnlineBotFallback',
         plannedOpponentType: 'bot',
         plannedOpponentName: playerNames[2],
+        winnerRole: winnerRoleForScoring,
+        outcomeIsTie,
+        authToken: getAuthTokenForBotGameSubmit(),
         gameStats: {
           totalMoves,
           gameDuration: gameDurationSeconds,
           boardSize: `${GRID_SIZE}x${GRID_SIZE}`,
-          startedAt: onlineGameStartedAt ? new Date(onlineGameStartedAt).toISOString() : new Date(Date.now() - 300000).toISOString()
-        },
-        winnerRole: winnerRoleForScoring
+          startedAt: startedAtIso,
+          endedAt: endedAtIso
+        }
+      };
+
+      window.socket.emit('botGameOver', payload, (res) => {
+        if (res && res.success === false) {
+          console.warn('botGameOver not recorded:', res.error || res.message || res);
+        } else if (res && res.duplicate) {
+          console.log('botGameOver: duplicate submission ignored');
+        } else {
+          console.log('botGameOver recorded:', res && res.message ? res.message : 'ok');
+        }
       });
     } catch (e) {
       // Stats persistence should never block gameplay.
@@ -1178,6 +1294,7 @@
       // Check for majority win
       if (playerScores[1] > maxSquares / 2) {
           gameOver = true;
+          clearOnlineRollTimer();
           const marginP1 = Math.abs(playerScores[1] - playerScores[2]);
           showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[1])} wins by ${marginP1} squares!`);
 
@@ -1215,6 +1332,7 @@
       }
       if (playerScores[2] > maxSquares / 2) {
           gameOver = true;
+          clearOnlineRollTimer();
           const marginP2 = Math.abs(playerScores[2] - playerScores[1]);
           showMessage("Game Over!", `🎉 ${truncateUsername(playerNames[2])} wins by ${marginP2} squares!`);
 
@@ -1256,6 +1374,7 @@
       // For a 5x5 grid, it's 5 * 6 * 2 = 60 lines
       if (totalCompletedSquares === maxSquares || drawnLines.length === (GRID_SIZE * (GRID_SIZE + 1) * 2)) {
           gameOver = true;
+          clearOnlineRollTimer();
           let winnerMessage = '';
           let winner = null;
           if (playerScores[1] > playerScores[2]) {
@@ -2631,6 +2750,12 @@
       console.log('startGame called with:', { mode, onlineOptions });
       gameMode = mode;
       resetGameState();
+
+      if (mode !== 'onlineMultiplayer') {
+        try {
+          window.isOnlineOpponentBot = false;
+        } catch (e) {}
+      }
       
       // Ensure canvas contexts are initialized
       initializeCanvasContexts();
@@ -2782,6 +2907,12 @@
           }
           
           console.log('🎮 Online multiplayer game started successfully for player role:', onlinePlayerRole);
+
+          // Keep window in sync for stats/UI helpers that read global role
+          try {
+            window.onlinePlayerRole = onlinePlayerRole;
+            window.isOnlineOpponentBot = !!opponentIsBot;
+          } catch (e) {}
       }
 
       // Check if canvas and context are valid
@@ -3490,6 +3621,7 @@
       rollCount++;
       if (rollCount >= maxRolls) {
         clearInterval(diceAnimationIntervalId);
+        diceAnimationIntervalId = null;
         diceDisplayEl.classList.remove('disabled');
         if (typeof finalValue === 'number') {
           displayDiceValue(finalValue);
@@ -3564,6 +3696,9 @@
     originalStartGameForLabels(mode, onlineOptions);
     updateOnlinePlayerLabels();
     updateOnlineTurnInfo();
+    if (mode === 'onlineMultiplayer') {
+      maybeScheduleOnlineRollTimer();
+    }
   };
 
   // Patch updateScoreDisplay to update current turn label
@@ -3714,6 +3849,8 @@
         
         // Update dice interactivity for new turn
         updateDiceInteractivity();
+
+        maybeScheduleOnlineRollTimer();
       }
     } else if (action.type === 'gameOver') {
       // Handle game over event from remote player
@@ -3721,6 +3858,7 @@
       
       // Set game as over locally
       gameOver = true;
+      clearOnlineRollTimer();
       
       // Determine the correct winner name based on player roles
       let winnerName;
@@ -3784,6 +3922,7 @@
   window.disableGameInteractions = function() {
     console.log('Disabling game interactions due to opponent disconnect');
     gameOver = true;
+    clearOnlineRollTimer();
     
     // Disable canvas interactions
     if (currentCanvas) {
@@ -3849,6 +3988,9 @@
     onlineSocket = null;
     onlineLobbyCode = null;
     opponentIsBot = false;
+    try {
+      window.isOnlineOpponentBot = false;
+    } catch (e) {}
     botDifficulty = 'normal';
     botMatchId = null;
     onlineGameStartedAt = null;

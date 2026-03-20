@@ -2020,6 +2020,113 @@ canvas {
   100% { transform: rotate(360deg); }
 }
 
+/* Online PvP: roll-dice time limit */
+.online-roll-timer {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #b45309;
+  margin-bottom: 0.5rem;
+  min-height: 1.35em;
+}
+
+.online-roll-timer.online-roll-timer--waiting {
+  color: #475569;
+  font-weight: 500;
+}
+
+/* Random match: small searching popup (not inline in lobby) */
+.random-match-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.random-match-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.random-match-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 320px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  padding: 1.25rem 1.35rem;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.random-match-modal__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.random-match-modal__hint {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #4a5568;
+  line-height: 1.4;
+}
+
+.random-match-modal__spinner {
+  margin: 0 auto 1.15rem;
+}
+
+.random-match-modal__cancel {
+  width: 100%;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+/* Create lobby: code + share inside same popup pattern */
+.create-lobby-modal__code-wrap {
+  margin-bottom: 1rem;
+}
+
+.create-lobby-modal__code-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.create-lobby-modal__code {
+  margin: 0 0 0.75rem;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.create-lobby-modal__copy {
+  width: 100%;
+  min-height: 44px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.create-lobby-modal__share {
+  width: 100%;
+  min-height: 44px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
 /* Responsive spinner adjustments */
 @media (max-width: 480px) {
   .spinner-icon {

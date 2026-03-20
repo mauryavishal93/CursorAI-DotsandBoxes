@@ -85,6 +85,34 @@
 
   $('#logout-btn').addEventListener('click', () => showLogin());
 
+  const adminSidebar = $('#admin-sidebar');
+  const navToggle = $('#admin-nav-toggle');
+
+  function isCompactNav() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function setMobileNavOpen(open) {
+    if (!adminSidebar || !navToggle) return;
+    adminSidebar.classList.toggle('nav-open', !!open);
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    navToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+  }
+
+  function closeMobileNav() {
+    setMobileNavOpen(false);
+  }
+
+  if (navToggle && adminSidebar) {
+    navToggle.addEventListener('click', () => {
+      setMobileNavOpen(!adminSidebar.classList.contains('nav-open'));
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    if (!isCompactNav()) closeMobileNav();
+  });
+
   $$('.admin-sidebar nav button').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.section;
@@ -96,6 +124,7 @@
       if (id === 'system') loadSystem();
       if (id === 'settings') loadSettings();
       if (id === 'activity') loadActivity();
+      if (isCompactNav()) closeMobileNav();
     });
   });
 

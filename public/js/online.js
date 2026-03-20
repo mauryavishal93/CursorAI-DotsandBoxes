@@ -48,7 +48,18 @@ const joinLobbyBtn = document.getElementById('join-lobby-btn');
 const joinLobbyCodeInput = document.getElementById('join-lobby-code');
 const joinLobbySpinner = document.getElementById('join-lobby-spinner');
 const randomMatchBtn = document.getElementById('random-match-btn');
-const randomMatchSpinner = document.getElementById('random-match-spinner');
+const randomMatchModal = document.getElementById('random-match-modal');
+const randomMatchCancelBtn = document.getElementById('random-match-cancel-btn');
+const randomMatchModalBackdrop = document.getElementById('random-match-modal-backdrop');
+const createLobbyModal = document.getElementById('create-lobby-modal');
+const createLobbyModalTitle = document.getElementById('create-lobby-modal-title');
+const createLobbyModalHint = document.getElementById('create-lobby-modal-hint');
+const createLobbyModalSpinner = document.getElementById('create-lobby-modal-spinner');
+const createLobbyModalCodeWrap = document.getElementById('create-lobby-modal-code-wrap');
+const createLobbyModalCode = document.getElementById('create-lobby-modal-code');
+const createLobbyModalCancelBtn = document.getElementById('create-lobby-modal-cancel-btn');
+const createLobbyModalCopyBtn = document.getElementById('create-lobby-modal-copy-btn');
+const createLobbyModalShareBtn = document.getElementById('create-lobby-modal-share-btn');
 const lobbyStatus = document.getElementById('lobby-status');
 const shareIconContainer = document.getElementById('share-icon-container');
 
@@ -115,14 +126,198 @@ function hideJoinLobbySpinner() {
 }
 
 function showRandomMatchSpinner() {
-  if (randomMatchSpinner) {
-    randomMatchSpinner.style.display = 'flex';
+  if (randomMatchModal) {
+    randomMatchModal.style.display = 'flex';
+    randomMatchModal.setAttribute('aria-hidden', 'false');
+    try {
+      document.body.style.overflow = 'hidden';
+    } catch (e) {}
   }
 }
 
 function hideRandomMatchSpinner() {
-  if (randomMatchSpinner) {
-    randomMatchSpinner.style.display = 'none';
+  if (randomMatchModal) {
+    randomMatchModal.style.display = 'none';
+    randomMatchModal.setAttribute('aria-hidden', 'true');
+    try {
+      const createOpen = createLobbyModal && createLobbyModal.style.display === 'flex';
+      if (!createOpen) {
+        document.body.style.overflow = '';
+      }
+    } catch (e) {}
+  }
+}
+
+/** Create-lobby modal: waiting for server vs showing code */
+let createLobbyAwaitingServer = false;
+let createLobbyAbortBeforeAck = false;
+
+function isCreateLobbyModalOpen() {
+  return !!(createLobbyModal && createLobbyModal.style.display === 'flex');
+}
+
+function showCreateLobbyModalCreating() {
+  if (!createLobbyModal) return;
+  if (createLobbyModalTitle) createLobbyModalTitle.textContent = 'Creating lobby…';
+  if (createLobbyModalHint) createLobbyModalHint.textContent = 'Setting things up…';
+  if (createLobbyModalSpinner) createLobbyModalSpinner.style.display = '';
+  if (createLobbyModalCodeWrap) createLobbyModalCodeWrap.style.display = 'none';
+  if (createLobbyModalCopyBtn) createLobbyModalCopyBtn.style.display = 'none';
+  if (createLobbyModalShareBtn) createLobbyModalShareBtn.style.display = 'none';
+  createLobbyModal.style.display = 'flex';
+  createLobbyModal.setAttribute('aria-hidden', 'false');
+  try {
+    document.body.style.overflow = 'hidden';
+  } catch (e) {}
+}
+
+function showCreateLobbyModalWithCode(code) {
+  if (!createLobbyModal) return;
+  if (createLobbyModalTitle) createLobbyModalTitle.textContent = 'Lobby created';
+  if (createLobbyModalHint) {
+    createLobbyModalHint.textContent = 'Share this code with your opponent. Waiting for them to join…';
+  }
+  if (createLobbyModalSpinner) createLobbyModalSpinner.style.display = 'none';
+  if (createLobbyModalCodeWrap) createLobbyModalCodeWrap.style.display = 'block';
+  if (createLobbyModalCode) createLobbyModalCode.textContent = code || '';
+  if (createLobbyModalCopyBtn) createLobbyModalCopyBtn.style.display = '';
+  if (createLobbyModalShareBtn) createLobbyModalShareBtn.style.display = '';
+  createLobbyModal.style.display = 'flex';
+  createLobbyModal.setAttribute('aria-hidden', 'false');
+}
+
+function hideCreateLobbyModal() {
+  createLobbyAwaitingServer = false;
+  if (!createLobbyModal) return;
+  createLobbyModal.style.display = 'none';
+  createLobbyModal.setAttribute('aria-hidden', 'true');
+  try {
+    const randomOpen = randomMatchModal && randomMatchModal.style.display === 'flex';
+    if (!randomOpen) {
+      document.body.style.overflow = '';
+    }
+  } catch (e) {
+    try {
+      document.body.style.overflow = '';
+    } catch (e2) {}
+  }
+}
+
+function unlockLobbyControlsAfterCreateFlowEnd() {
+  if (isSearchingRandomMatch) return;
+  if (randomMatchBtn) randomMatchBtn.disabled = false;
+  if (createLobbyBtn) createLobbyBtn.disabled = false;
+  if (joinLobbyCodeInput) joinLobbyCodeInput.disabled = false;
+  if (joinLobbyBtn) joinLobbyBtn.disabled = !joinLobbyCodeInput?.value?.trim();
+  updateJoinButtonState();
+}
+
+function lockLobbyControlsForCreateLobby() {
+  if (randomMatchBtn) randomMatchBtn.disabled = true;
+  if (createLobbyBtn) createLobbyBtn.disabled = true;
+  if (joinLobbyCodeInput) joinLobbyCodeInput.disabled = true;
+  if (joinLobbyBtn) joinLobbyBtn.disabled = true;
+}
+
+function handleCreateLobbyServerResponse(response) {
+  if (createLobbyAbortBeforeAck) {
+    createLobbyAbortBeforeAck = false;
+    createLobbyAwaitingServer = false;
+    if (response && response.lobbyCode && socket) {
+      try {
+        socket.emit('leaveLobby', response.lobbyCode);
+      } catch (e) {}
+    }
+    hideCreateLobbyModal();
+    unlockLobbyControlsAfterCreateFlowEnd();
+    if (lobbyStatus) {
+      lobbyStatus.textContent = 'Lobby creation cancelled.';
+      lobbyStatus.style.color = '#64748b';
+    }
+    return;
+  }
+
+  createLobbyAwaitingServer = false;
+
+  if (!response || !response.lobbyCode) {
+    hideCreateLobbyModal();
+    unlockLobbyControlsAfterCreateFlowEnd();
+    if (lobbyStatus) {
+      lobbyStatus.textContent = 'Could not create lobby. Please try again.';
+      lobbyStatus.style.color = '#ef4444';
+    }
+    return;
+  }
+
+  currentLobbyCode = response.lobbyCode;
+  isInLobby = true;
+  initChatCrypto();
+  isCreator = response.isCreator !== false;
+  playerRole = response.playerRole != null ? response.playerRole : 1;
+
+  window.lobbyCode = currentLobbyCode;
+  window.onlineLobbyCode = currentLobbyCode;
+  window.onlinePlayerRole = playerRole;
+
+  if (playerRole === 1 && !isCreator) {
+    isCreator = true;
+  }
+
+  window.creatorLobbyCode = currentLobbyCode;
+  window.creatorSocketId = socket.id;
+
+  if (lobbyStatus) {
+    lobbyStatus.textContent = '';
+    lobbyStatus.style.color = '';
+  }
+
+  if (shareIconContainer) {
+    shareIconContainer.style.display = 'none';
+  }
+
+  showCreateLobbyModalWithCode(currentLobbyCode);
+  console.log('New lobby created successfully:', currentLobbyCode);
+}
+
+function beginCreateLobbyFlow() {
+  if (!socket) return;
+  if (isSearchingRandomMatch) return;
+
+  createLobbyAbortBeforeAck = false;
+  createLobbyAwaitingServer = true;
+  lockLobbyControlsForCreateLobby();
+  showCreateLobbyModalCreating();
+
+  if (lobbyStatus) {
+    lobbyStatus.textContent = '';
+    lobbyStatus.style.color = '';
+  }
+
+  const username = getCurrentUsername();
+  socket.emit('createLobby', { username }, (response) => {
+    handleCreateLobbyServerResponse(response);
+  });
+}
+
+function cancelCreateLobbyModal() {
+  if (!isCreateLobbyModalOpen()) return;
+
+  if (createLobbyAwaitingServer) {
+    createLobbyAbortBeforeAck = true;
+    hideCreateLobbyModal();
+    unlockLobbyControlsAfterCreateFlowEnd();
+    if (lobbyStatus) {
+      lobbyStatus.textContent = 'Lobby creation cancelled.';
+      lobbyStatus.style.color = '#64748b';
+    }
+    return;
+  }
+
+  hideCreateLobbyModal();
+  resetOnlineGameState();
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Lobby cancelled.';
+    lobbyStatus.style.color = '#64748b';
   }
 }
 
@@ -218,9 +413,10 @@ function startRandomMatch() {
 
   showRandomMatchSpinner();
   hideJoinLobbySpinner();
+  // Do not show inline "searching" text — modal handles UX
   if (lobbyStatus) {
-    lobbyStatus.textContent = 'Searching for opponent...';
-    lobbyStatus.style.color = '#3b82f6';
+    lobbyStatus.textContent = '';
+    lobbyStatus.style.color = '';
   }
 
   console.log('🔎 Quick Match: findRandomOpponent emitted', { username });
@@ -251,6 +447,11 @@ function startRandomMatch() {
 
 function stopRandomMatchSearching() {
   if (!isSearchingRandomMatch) return;
+  if (socket) {
+    try {
+      socket.emit('cancelRandomOpponent');
+    } catch (e) {}
+  }
   isSearchingRandomMatch = false;
   hideRandomMatchSpinner();
 
@@ -261,7 +462,39 @@ function stopRandomMatchSearching() {
     updateJoinButtonState();
   }
   if (joinLobbyBtn) joinLobbyBtn.disabled = joinLobbyBtn && !joinLobbyCodeInput?.value?.trim();
+
+  if (lobbyStatus) {
+    lobbyStatus.textContent = 'Random search cancelled.';
+    lobbyStatus.style.color = '#64748b';
+  }
 }
+
+if (randomMatchCancelBtn) {
+  randomMatchCancelBtn.addEventListener('click', () => {
+    stopRandomMatchSearching();
+  });
+}
+if (randomMatchModalBackdrop) {
+  randomMatchModalBackdrop.addEventListener('click', () => {
+    stopRandomMatchSearching();
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (isSearchingRandomMatch) {
+    stopRandomMatchSearching();
+    return;
+  }
+  // Create-lobby modal: only the "Cancel lobby" button ends the lobby (backdrop does not).
+});
+
+if (createLobbyModalCancelBtn) {
+  createLobbyModalCancelBtn.addEventListener('click', () => {
+    cancelCreateLobbyModal();
+  });
+}
+// Backdrop does not cancel — avoids accidental lobby teardown (use "Cancel lobby").
 
 // Auto-convert lobby code input to uppercase as user types and handle button state
 if (joinLobbyCodeInput) {
@@ -582,6 +815,12 @@ function hideChatModal() {
 // Open chat modal from icon button
 if (chatBtn) {
   chatBtn.addEventListener('click', () => {
+    if (window.isOnlineOpponentBot) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Lobby chat', 'Opponent not up for chat!', { type: 'info', duration: 3500 });
+      }
+      return;
+    }
     if (!currentLobbyCode) {
       if (typeof window.showToast === 'function') {
         window.showToast('Lobby chat', 'Join an online lobby first to chat.', { type: 'info', duration: 3000 });
@@ -836,167 +1075,27 @@ if (randomMatchBtn) {
 
 if (createLobbyBtn) {
   createLobbyBtn.addEventListener('click', () => {
-  console.log('Create lobby button clicked');
-  console.log('Current state - isInLobby:', isInLobby, 'currentLobbyCode:', currentLobbyCode);
-  
-  // Reset any leftover state before creating new lobby
-  if (isInLobby || currentLobbyCode) {
-    console.log('Resetting leftover lobby state before creating new lobby');
-    console.log('Previous state:', { isInLobby, currentLobbyCode, isCreator, playerRole });
-    
-    // Targeted reset instead of full reset
-    currentLobbyCode = null;
-    isInLobby = false;
-    isGameStarted = false;
-    isCreator = false;
-    playerRole = null;
-    
-    // Clear global variables
-    window.onlineLobbyCode = null;
-    window.onlinePlayerRole = null;
-    window.lobbyCode = null;
-    
-    console.log('State reset complete, proceeding with lobby creation...');
-    
-    setTimeout(() => {
-      showLobbyUI();
-      // Automatically proceed with lobby creation after reset
-      console.log('Auto-creating lobby after targeted reset...');
-      
-      // Get current username
-      let currentUser = null;
-      if (window.authService) {
-        currentUser = window.authService.getCurrentUser();
-      }
-      if (!currentUser) {
-        try {
-          const userData = localStorage.getItem('dotsAndBoxesUser');
-          if (userData) {
-            currentUser = JSON.parse(userData);
-          }
-        } catch (error) {
-          console.error('Error reading user from localStorage:', error);
-        }
-      }
-      const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
-      
-      socket.emit('createLobby', { username: currentUsername }, (response) => {
-        console.log('Create lobby response:', response);
-        currentLobbyCode = response.lobbyCode;
-        isInLobby = true;
-        initChatCrypto();
-        isCreator = response.isCreator || true;
-        playerRole = response.playerRole || 1;
-        
-        console.log('🎯 Creator state after reset and creation:', {
-          currentLobbyCode,
-          isInLobby,
-          isCreator,
-          playerRole,
-          socketId: socket.id
-        });
-        
-        // Set global variables immediately after creation
-        window.lobbyCode = currentLobbyCode;
-        window.onlineLobbyCode = currentLobbyCode;
-        window.onlinePlayerRole = playerRole;
-        
-        // Additional safety check - ensure creator state is maintained
-        if (playerRole === 1 && !isCreator) {
-          console.log('⚠️ Fixing creator state mismatch');
-          isCreator = true;
-        }
-        
-        // Store creator state for recovery if needed
-        window.creatorLobbyCode = currentLobbyCode;
-        window.creatorSocketId = socket.id;
-        
-        // Update lobby status with text
-        const statusText = `Lobby created! Code: ${currentLobbyCode}. Waiting for another player...`;
-        console.log('Setting lobby status:', statusText);
-        
-        // Set the lobby status text
-        lobbyStatus.textContent = statusText;
-        
-        // Show the share icon container
-        if (shareIconContainer) {
-                     shareIconContainer.style.display = 'block';
-          console.log('Share icon container shown');
-        } else {
-          console.error('Share icon container not found!');
-        }
-        
-        console.log('New lobby created successfully:', currentLobbyCode);
-      });
-    }, 200);
-    return; // Return early, action will be performed automatically
-  }
-  
-  // Get current username
-  let currentUser = null;
-  if (window.authService) {
-    currentUser = window.authService.getCurrentUser();
-  }
-  if (!currentUser) {
-    try {
-      const userData = localStorage.getItem('dotsAndBoxesUser');
-      if (userData) {
-        currentUser = JSON.parse(userData);
-      }
-    } catch (error) {
-      console.error('Error reading user from localStorage:', error);
+    console.log('Create lobby button clicked');
+    if (isSearchingRandomMatch) return;
+
+    if (isInLobby || currentLobbyCode) {
+      console.log('Resetting leftover lobby state before creating new lobby');
+      currentLobbyCode = null;
+      isInLobby = false;
+      isGameStarted = false;
+      isCreator = false;
+      playerRole = null;
+      window.onlineLobbyCode = null;
+      window.onlinePlayerRole = null;
+      window.lobbyCode = null;
+      setTimeout(() => {
+        showLobbyUI();
+        beginCreateLobbyFlow();
+      }, 200);
+      return;
     }
-  }
-  const currentUsername = currentUser && currentUser.username ? currentUser.username : 'Player';
-  
-  socket.emit('createLobby', { username: currentUsername }, (response) => {
-    console.log('Create lobby response:', response);
-    currentLobbyCode = response.lobbyCode;
-    isInLobby = true;
-    initChatCrypto();
-    isCreator = response.isCreator || true;
-    playerRole = response.playerRole || 1;
-    
-            console.log('🎯 Creator state (direct creation):', {
-          currentLobbyCode,
-          isInLobby,
-          isCreator,
-          playerRole,
-          socketId: socket.id
-        });
-        
-        // Set global variables immediately after creation
-        window.lobbyCode = currentLobbyCode;
-        window.onlineLobbyCode = currentLobbyCode;
-        window.onlinePlayerRole = playerRole;
-        
-        // Additional safety check - ensure creator state is maintained
-        if (playerRole === 1 && !isCreator) {
-          console.log('⚠️ Fixing creator state mismatch');
-          isCreator = true;
-        }
-        
-        // Store creator state for recovery if needed
-        window.creatorLobbyCode = currentLobbyCode;
-        window.creatorSocketId = socket.id;
-    
-    // Update lobby status with text
-    const statusText = `Lobby created! Code: ${currentLobbyCode}. Waiting for another player...`;
-    console.log('Setting lobby status:', statusText);
-    
-    // Set the lobby status text
-    lobbyStatus.textContent = statusText;
-    
-    // Show the share icon container
-    if (shareIconContainer) {
-                 shareIconContainer.style.display = 'block';
-      console.log('Share icon container shown');
-    } else {
-      console.error('Share icon container not found!');
-    }
-    
-    console.log('New lobby created successfully:', currentLobbyCode);
-  });
+
+    beginCreateLobbyFlow();
   });
 }
 
@@ -1267,7 +1366,17 @@ socket.on('quickMatchBot', (data) => {
       botMatchId
     };
 
-    const tryStart = () => {
+    const tryStart = async () => {
+      try {
+        const user = await getAuthenticatedUserForSocket();
+        if (user && (user._id || user.id) && user.username && socket) {
+          const userId = user._id || user.id;
+          socket.emit('associateUser', { userId, username: user.username });
+        }
+      } catch (e) {
+        console.log('quickMatchBot: associateUser skip', e?.message || e);
+      }
+
       if (typeof window.startGame !== 'function') {
         console.error('❌ quickMatchBot: window.startGame is not available yet');
         return false;
@@ -1279,13 +1388,13 @@ socket.on('quickMatchBot', (data) => {
 
     if (typeof window.startGame === 'function') {
       // Next tick helps when game.js is still attaching globals.
-      setTimeout(() => tryStart(), 0);
+      setTimeout(() => { tryStart(); }, 0);
     } else {
       // Fallback: game.js should already be present, but if not, load it.
       const gameScript = document.createElement('script');
       gameScript.src = '/js/game.js';
       gameScript.onload = () => {
-        setTimeout(() => tryStart(), 0);
+        setTimeout(() => { tryStart(); }, 0);
       };
       document.head.appendChild(gameScript);
     }
@@ -1299,6 +1408,9 @@ socket.on('quickMatchBot', (data) => {
 });
 
 socket.on('startGame', ({ lobbyCode, timestamp, crossPlatform, playerNames, playerRolesBySocketId }) => {
+  hideRandomMatchSpinner();
+  hideCreateLobbyModal();
+
   console.log('🎮 startGame event received:', { 
     lobbyCode, 
     currentLobbyCode, 
@@ -1757,6 +1869,7 @@ function resetOnlineGameState() {
   // Clear UI elements
   hideJoinLobbySpinner();
   hideRandomMatchSpinner();
+  hideCreateLobbyModal();
   if (lobbyStatus) {
     lobbyStatus.textContent = '';
   }
@@ -2066,6 +2179,20 @@ if (shareIconContainer) {
     });
     console.log('Share icon event listener attached');
   }
+}
+if (createLobbyModalCopyBtn) {
+  createLobbyModalCopyBtn.addEventListener('click', () => {
+    if (currentLobbyCode) {
+      copyToClipboard(String(currentLobbyCode).trim().toUpperCase());
+    }
+  });
+}
+if (createLobbyModalShareBtn) {
+  createLobbyModalShareBtn.addEventListener('click', () => {
+    if (currentLobbyCode) {
+      shareLobby(currentLobbyCode);
+    }
+  });
 }
 
 function shareLobby(lobbyCode) {

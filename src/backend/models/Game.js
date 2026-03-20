@@ -86,6 +86,24 @@ const gameSchema = new mongoose.Schema({
   botDifficulty: {
     type: String,
     default: null
+  },
+  // Random-search (or other) match vs local/AI opponent — full audit trail
+  versusBot: {
+    type: Boolean,
+    default: false
+  },
+  /** Client-reported outcome: 1 = human slot won, 2 = bot won, 0 = tie (if applicable) */
+  reportedWinnerRole: {
+    type: Number,
+    default: null
+  },
+  outcomeIsTie: {
+    type: Boolean,
+    default: false
+  },
+  matchSource: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

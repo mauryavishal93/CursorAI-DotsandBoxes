@@ -41,6 +41,10 @@ class ScoringService {
         const plannedOpponentType = gameResult.plannedOpponentType || null;
         const plannedOpponentName = gameResult.plannedOpponentName || null;
         const botDifficulty = gameResult.botDifficulty || null;
+        const versusBot = gameResult.versusBot === true;
+        const reportedWinnerRole = typeof gameResult.reportedWinnerRole === 'number' ? gameResult.reportedWinnerRole : null;
+        const outcomeIsTie = gameResult.outcomeIsTie === true;
+        const matchSource = gameResult.matchSource || null;
         
         console.log(`🎮 Processing game result for game ${gameId}:`, {
           winner: winner.username,
@@ -134,6 +138,10 @@ class ScoringService {
             plannedOpponentType: plannedOpponentType,
             plannedOpponentName: plannedOpponentName,
             botDifficulty: botDifficulty,
+            versusBot,
+            reportedWinnerRole,
+            outcomeIsTie,
+            matchSource,
             players: [
               {
                 username: winner.username,
@@ -160,7 +168,7 @@ class ScoringService {
               boardSize: gameStats.boardSize || '4x4'
             },
             startedAt: gameStats.startedAt || new Date(Date.now() - 300000), // Default to 5 minutes ago
-            endedAt: new Date(),
+            endedAt: gameStats.endedAt ? new Date(gameStats.endedAt) : new Date(),
             lobbyCode: lobbyCode
           });
           

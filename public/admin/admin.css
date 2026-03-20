@@ -13,6 +13,10 @@
   --radius: 10px;
 }
 
+html {
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -57,7 +61,7 @@ a { color: var(--accent); }
 .admin-login .error { color: var(--danger); font-size: 0.85rem; margin-top: 0.75rem; display: none; }
 .admin-login .error.visible { display: block; }
 
-.admin-layout { display: flex; min-height: 100vh; }
+.admin-layout { display: flex; min-height: 100vh; min-height: 100dvh; }
 .admin-sidebar {
   width: 240px;
   background: var(--surface);
@@ -65,13 +69,51 @@ a { color: var(--accent); }
   padding: 1.25rem 0;
   flex-shrink: 0;
 }
-.admin-sidebar .brand {
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   padding: 0 1.25rem 1rem;
-  font-weight: 800;
-  font-size: 1rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.75rem;
 }
+
+.admin-sidebar .brand {
+  padding: 0;
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.25;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-nav-toggle-icon {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  box-shadow: 0 6px 0 currentColor, 0 -6px 0 currentColor;
+}
+
 .admin-sidebar nav button {
   display: block;
   width: 100%;
@@ -82,12 +124,15 @@ a { color: var(--accent); }
   color: var(--muted);
   cursor: pointer;
   font-size: 0.9rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .admin-sidebar nav button:hover { color: var(--text); background: rgba(56, 189, 248, 0.08); }
 .admin-sidebar nav button.active { color: var(--accent); border-left: 3px solid var(--accent); padding-left: calc(1.25rem - 3px); }
 .admin-sidebar .logout {
   margin: 1rem 1.25rem 0;
-  padding: 0.5rem;
+  padding: 0.65rem 0.75rem;
   font-size: 0.8rem;
   color: var(--danger);
   background: transparent;
@@ -95,6 +140,9 @@ a { color: var(--accent); }
   border-radius: 8px;
   cursor: pointer;
   width: calc(100% - 2.5rem);
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .admin-main { flex: 1; padding: 1.5rem 2rem; overflow-x: auto; }
@@ -182,6 +230,7 @@ a { color: var(--accent); }
   border-radius: var(--radius);
   overflow: auto;
   max-height: 60vh;
+  -webkit-overflow-scrolling: touch;
 }
 table.admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 table.admin-table th, table.admin-table td {
@@ -255,4 +304,164 @@ pre.json {
 }
 .game-json-modal:not(.hidden) {
   display: flex !important;
+}
+
+/* ---------- Responsive / mobile ---------- */
+@media (max-width: 768px) {
+  .admin-login {
+    margin: 5vh 1rem;
+    max-width: none;
+    width: calc(100% - 2rem);
+    padding: 1.5rem;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-login button {
+    min-height: 48px;
+    touch-action: manipulation;
+  }
+
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+  }
+
+  .sidebar-top {
+    margin-bottom: 0;
+    padding: 0.75rem 1rem;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+  }
+
+  .admin-sidebar .brand {
+    font-size: 0.92rem;
+  }
+
+  .admin-nav-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .admin-sidebar:not(.nav-open) .sidebar-nav-wrap {
+    display: none;
+  }
+
+  .admin-sidebar.nav-open .sidebar-nav-wrap {
+    display: block;
+    padding: 0.25rem 0 0.75rem;
+  }
+
+  .admin-sidebar nav button.active {
+    border-left: none;
+    padding-left: 1.25rem;
+    background: rgba(56, 189, 248, 0.1);
+    border-bottom: 3px solid var(--accent);
+  }
+
+  .admin-main {
+    flex: 1;
+    min-height: 0;
+    padding: 1rem;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-main h2 {
+    font-size: 1.15rem;
+  }
+
+  .cards,
+  .system-grid,
+  .system-grid-4 {
+    grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .card .value {
+    font-size: 1.35rem;
+  }
+
+  .stat-card .value {
+    font-size: 1rem;
+    word-break: break-word;
+  }
+
+  .table-wrap {
+    max-height: min(52vh, 480px);
+  }
+
+  table.admin-table {
+    font-size: 0.78rem;
+    min-width: 620px;
+  }
+
+  table.admin-table th,
+  table.admin-table td {
+    padding: 0.5rem 0.55rem;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar button {
+    width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  .pagination button,
+  #users-prev,
+  #users-next,
+  #games-prev,
+  #games-next {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  .toggle-admin {
+    min-height: 40px;
+    padding: 0.35rem 0.65rem;
+    touch-action: manipulation;
+  }
+
+  .game-json-modal {
+    align-items: flex-end;
+    padding: max(0.75rem, env(safe-area-inset-bottom, 0px)) 0.75rem 0.75rem;
+  }
+
+  .game-json-modal > div {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    border-radius: 12px 12px 0 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-nav-wrap {
+    display: block !important;
+  }
+
+  .admin-nav-toggle {
+    display: none !important;
+  }
 }

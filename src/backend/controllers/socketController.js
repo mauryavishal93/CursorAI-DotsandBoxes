@@ -1,6 +1,7 @@
 const lobbyService = require('../services/lobbyService');
 const ScoringService = require('../services/scoringService');
 const User = require('../models/User');
+const { verifyToken } = require('../middleware/auth');
 
 class SocketController {
   constructor(io) {
@@ -38,11 +39,60 @@ class SocketController {
 
     this.quickMatchBotDifficulty = 'hard';
 
+    /** Prevent double-counting stats if client sends botGameOver twice */
+    this.botGameSubmittedIds = new Set();
+
     // Single DB user to represent the bot for scoring purposes.
     // We store the in-game (display) name separately in Game.matchIntent fields.
     this.quickBotUserCache = null;
 
     this.setupSocketHandlers();
+  }
+
+  /**
+   * Resolve the human user for random-search bot games: prefer socket association, else JWT from payload.
+   */
+  async resolveHumanUserForBotGame(socket, data) {
+    const fromMap = this.socketUsers.get(socket.id);
+    if (fromMap && fromMap.userId) {
+      return {
+        userId: fromMap.userId,
+        username: fromMap.username || data.player1Name || 'Player'
+      };
+    }
+
+    const rawToken = data && data.authToken;
+    if (!rawToken || typeof rawToken !== 'string') {
+      return null;
+    }
+
+    const token = rawToken.replace(/^Bearer\s+/i, '').trim();
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.userId) {
+      return null;
+    }
+
+    const UserModel = global.useInMemoryStorage
+      ? require('../models/InMemoryUser')
+      : require('../models/User');
+
+    let user;
+    try {
+      user = await UserModel.findById(decoded.userId);
+    } catch (e) {
+      console.error('resolveHumanUserForBotGame findById error:', e);
+      return null;
+    }
+
+    if (!user) {
+      return null;
+    }
+
+    const userId = user._id || user.id;
+    const username = user.username || data.player1Name || 'Player';
+
+    this.socketUsers.set(socket.id, { userId, username });
+    return { userId, username };
   }
 
   async getOrCreateQuickBotUser() {
@@ -485,53 +535,116 @@ class SocketController {
             return;
           }
 
-          // Human player comes from the socket->user association.
-          const socketUser = this.socketUsers.get(socket.id);
-          if (!socketUser || !socketUser.userId) {
-            if (typeof callback === 'function') callback({ success: false, error: 'User not associated with socket' });
+          const matchKey = String(botMatchId);
+          if (this.botGameSubmittedIds.has(matchKey)) {
+            if (typeof callback === 'function') {
+              callback({ success: true, duplicate: true, message: 'Bot match already recorded' });
+            }
             return;
           }
 
-          const humanUserId = socketUser.userId;
-          const humanUsername = player1Name || socketUser.username || 'Player';
+          const resolved = await this.resolveHumanUserForBotGame(socket, data);
+          if (!resolved || !resolved.userId) {
+            if (typeof callback === 'function') {
+              callback({
+                success: false,
+                error: 'Sign in required to record random-search bot matches, or refresh and try again.'
+              });
+            }
+            return;
+          }
+
+          const humanUserId = resolved.userId;
+          const humanUsername = resolved.username || player1Name || 'Player';
 
           const botUser = await this.getOrCreateQuickBotUser();
           const botUserId = botUser._id || botUser.id;
           const botDisplayName = player2Name || plannedOpponentName || botUser.username || 'Bot';
 
-          // Determine winner based on scores.
-          // Tie is treated as bot win to match the existing online tie behavior (winnerRole 0 -> else branch).
-          const humanWon = Number(player1Score) > Number(player2Score);
+          const p1 = Number(player1Score);
+          const p2 = Number(player2Score);
+          const outcomeIsTie = p1 === p2;
+          // Tie scores → treat as bot win for ranking (matches client checkGameOver semantics).
+          const humanWon = p1 > p2;
+          const reportedWinnerRole =
+            typeof data.winnerRole === 'number'
+              ? data.winnerRole
+              : outcomeIsTie
+                ? 0
+                : humanWon
+                  ? 1
+                  : 2;
 
           const winner = humanWon
-            ? { username: humanUsername, userId: humanUserId, score: Number(player1Score) }
-            : { username: botDisplayName, userId: botUserId, score: Number(player2Score) };
+            ? { username: humanUsername, userId: humanUserId, score: p1 }
+            : { username: botDisplayName, userId: botUserId, score: p2 };
 
           const loser = humanWon
-            ? { username: botDisplayName, userId: botUserId, score: Number(player2Score) }
-            : { username: humanUsername, userId: humanUserId, score: Number(player1Score) };
+            ? { username: botDisplayName, userId: botUserId, score: p2 }
+            : { username: humanUsername, userId: humanUserId, score: p1 };
 
-          const gameId = `bot_${botMatchId}_${Date.now()}`;
+          const gameId = `bot_${matchKey}_${Date.now()}`;
+          const startedAt = gameStats.startedAt ? new Date(gameStats.startedAt) : new Date(Date.now() - 300000);
+          const endedAt = gameStats.endedAt ? new Date(gameStats.endedAt) : new Date();
 
           const gameResult = {
             gameId,
-            lobbyCode: botMatchId,
+            lobbyCode: matchKey,
             winner,
             loser,
             gameStats: {
               totalMoves: gameStats.totalMoves || Number(gameStats.totalMoves) || 0,
               gameDuration: gameStats.gameDuration || Number(gameStats.gameDuration) || 0,
               boardSize: gameStats.boardSize || '5x5',
-              startedAt: gameStats.startedAt ? new Date(gameStats.startedAt) : new Date(Date.now() - 300000)
+              startedAt,
+              endedAt
             },
             matchIntent: matchIntent || 'randomOnlineBotFallback',
             plannedOpponentType: plannedOpponentType || 'bot',
             plannedOpponentName: plannedOpponentName || botDisplayName,
-            botDifficulty: botDifficulty || null
+            botDifficulty: botDifficulty || null,
+            versusBot: true,
+            reportedWinnerRole,
+            outcomeIsTie,
+            matchSource: matchIntent || 'randomOnlineBotFallback'
           };
 
           const result = await ScoringService.processGameResult(gameResult);
+
+          const statsPersisted =
+            result &&
+            result.success &&
+            result.winner &&
+            typeof result.winner.gamesPlayed === 'number';
+
+          if (statsPersisted) {
+            this.botGameSubmittedIds.add(matchKey);
+            if (this.botGameSubmittedIds.size > 50000) {
+              this.botGameSubmittedIds.clear();
+            }
+          }
+
           if (typeof callback === 'function') callback(result);
+
+          // Mirror human-vs-human flow: push updated stats to the client so profile UI refreshes.
+          if (statsPersisted) {
+            const humanStats = humanWon ? result.winner : result.loser;
+            const statsPayload = {
+              ...humanStats,
+              gamesWon: humanStats.gamesWon != null ? humanStats.gamesWon : humanStats.wins,
+              totalScore: humanStats.totalScore != null ? humanStats.totalScore : humanStats.points
+            };
+            const uid = humanUserId && humanUserId.toString ? humanUserId.toString() : String(humanUserId);
+            socket.emit('statsUpdated', {
+              userId: uid,
+              stats: statsPayload,
+              gameResult: {
+                won: humanWon,
+                pointsChange: humanWon ? 5 : -3,
+                opponentUsername: botDisplayName
+              }
+            });
+          }
         } catch (error) {
           console.error('❌ botGameOver error:', error);
           if (typeof callback === 'function') callback({ success: false, error: error.message });

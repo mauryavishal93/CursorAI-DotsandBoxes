@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Admin — Dots &amp; Boxes</title>
   <link rel="stylesheet" href="/admin/admin.css" />
 </head>
@@ -24,18 +24,25 @@
   </div>
 
   <div id="app-view" class="admin-layout hidden">
-    <aside class="admin-sidebar">
-      <div class="brand">Dots &amp; Boxes — Admin</div>
-      <nav>
-        <button type="button" data-section="dashboard" class="active">Dashboard</button>
-        <button type="button" data-section="users">Users</button>
-        <button type="button" data-section="games">Games &amp; matches</button>
-        <button type="button" data-section="leaderboard">Leaderboard</button>
-        <button type="button" data-section="activity">Activity</button>
-        <button type="button" data-section="system">System &amp; health</button>
-        <button type="button" data-section="settings">Settings</button>
-      </nav>
-      <button type="button" id="logout-btn" class="logout">Log out</button>
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-top">
+        <div class="brand">Dots &amp; Boxes — Admin</div>
+        <button type="button" id="admin-nav-toggle" class="admin-nav-toggle" aria-expanded="false" aria-controls="admin-sidebar-nav-wrap" aria-label="Open navigation menu">
+          <span class="admin-nav-toggle-icon" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="sidebar-nav-wrap" id="admin-sidebar-nav-wrap">
+        <nav>
+          <button type="button" data-section="dashboard" class="active">Dashboard</button>
+          <button type="button" data-section="users">Users</button>
+          <button type="button" data-section="games">Games &amp; matches</button>
+          <button type="button" data-section="leaderboard">Leaderboard</button>
+          <button type="button" data-section="activity">Activity</button>
+          <button type="button" data-section="system">System &amp; health</button>
+          <button type="button" data-section="settings">Settings</button>
+        </nav>
+        <button type="button" id="logout-btn" class="logout">Log out</button>
+      </div>
     </aside>
 
     <main class="admin-main">
