@@ -1,0 +1,13 @@
+{
+  "appId": "com.dotsandboxes.app",
+  "appName": "DotsAndBoxes",
+  "webDir": "www",
+  "server": {
+    "url": "https://dotsandboxes-ey9u.onrender.com/",
+    "cleartext": true,
+    "allowNavigation": [
+      "http://*/*",
+      "https://*/*"
+    ]
+  }
+}

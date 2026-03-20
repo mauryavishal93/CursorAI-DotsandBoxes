@@ -1,0 +1,26 @@
+{
+  "name": "Dots and Boxes Game",
+  "short_name": "DotsBoxes",
+  "description": "A fun and engaging Dots and Boxes game with single player, multiplayer, and online modes",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "theme_color": "#8B4513",
+  "background_color": "#E0C097",
+  "icons": [
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en-US"
+}
